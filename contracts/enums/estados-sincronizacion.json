@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/enums/estados-sincronizacion.json",
+  "title": "Estado local de sincronización",
+  "description": "Estado exclusivo del dispositivo; no modifica el estado central de la línea.",
+  "type": "string",
+  "enum": [
+    "PENDIENTE",
+    "SINCRONIZANDO",
+    "ENVIADA",
+    "ERROR"
+  ]
+}

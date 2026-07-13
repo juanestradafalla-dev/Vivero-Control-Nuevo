@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/jornada.schema.json",
+  "title": "Jornada",
+  "description": "Agrupa las líneas incluidas en una jornada sin anticipar estados administrativos pendientes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "creadaPorUsuarioId", "estadoAdministrativo", "creadaEn"],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "creadaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "estadoAdministrativo": {"type": "string", "minLength": 1, "maxLength": 80},
+    "creadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "cerradaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

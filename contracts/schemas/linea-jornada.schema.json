@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/linea-jornada.schema.json",
+  "title": "Línea de jornada",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "jornadaId", "lineaId", "estadoCentral", "version", "actualizadaEn"],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "lineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "estadoCentral": {"$ref": "../enums/estados-linea.json"},
+    "reservaActivaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "conteoVigenteId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "version": {"type": "integer", "minimum": 0},
+    "actualizadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

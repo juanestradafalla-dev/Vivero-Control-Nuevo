@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/evento-auditoria.schema.json",
+  "title": "Evento de auditoría",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "tipo", "actorUsuarioId", "recursoTipo", "recursoId", "claveIdempotencia", "ocurridoEn"],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "tipo": {"type": "string", "minLength": 1, "maxLength": 120},
+    "actorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "recursoTipo": {"type": "string", "minLength": 1, "maxLength": 120},
+    "recursoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "motivo": {"type": "string", "maxLength": 2000},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"},
+    "ocurridoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "metadatos": {"type": "object"}
+  }
+}

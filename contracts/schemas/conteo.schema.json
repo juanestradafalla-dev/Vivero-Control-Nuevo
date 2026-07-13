@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/conteo.schema.json",
+  "title": "Conteo",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "lineaJornadaId", "autorUsuarioId", "cantidadTotal", "claveIdempotencia", "creadoEn"],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "lineaJornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "autorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "cantidadTotal": {
+      "allOf": [{"$ref": "comun.schema.json#/$defs/enteroNoNegativo"}],
+      "description": "Total entero no negativo calculado a partir del detalle que se defina en una etapa posterior."
+    },
+    "observacion": {"type": "string", "maxLength": 2000},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"},
+    "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "corregidoDesdeConteoId": {"$ref": "comun.schema.json#/$defs/idGlobal"}
+  }
+}

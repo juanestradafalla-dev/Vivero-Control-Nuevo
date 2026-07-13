@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/comun.schema.json",
+  "title": "Definiciones comunes",
+  "$defs": {
+    "idGlobal": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Identificador global no derivado de una secuencia autoincremental local."
+    },
+    "timestampServidor": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Instante autoritativo asignado por el servidor."
+    },
+    "claveIdempotencia": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 160,
+      "description": "Clave global estable para repetir una solicitud sin duplicar efectos."
+    },
+    "enteroNoNegativo": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

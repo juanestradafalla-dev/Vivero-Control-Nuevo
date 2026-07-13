@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/movimiento-historico.schema.json",
+  "title": "Movimiento histórico",
+  "description": "Registro inmutable creado al reemplazar la fotografía oficial; diferencia = valorNuevo - valorAnterior.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "lineaId", "conteoAprobadoId", "valorAnterior", "valorNuevo", "diferencia", "claveIdempotencia", "creadoEn"],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "lineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "conteoAprobadoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "valorAnterior": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "valorNuevo": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "diferencia": {"type": "integer"},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"},
+    "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

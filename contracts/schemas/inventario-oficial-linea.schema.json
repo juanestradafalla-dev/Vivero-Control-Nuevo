@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/inventario-oficial-linea.schema.json",
+  "title": "Inventario oficial por línea",
+  "description": "Fotografía vigente de una línea. Una aprobación reemplaza cantidadTotal y aumenta la versión mediante transacción central.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "lineaId", "cantidadTotal", "conteoAprobadoId", "version", "actualizadoEn"],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "lineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "cantidadTotal": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "conteoAprobadoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "version": {"type": "integer", "minimum": 1},
+    "actualizadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

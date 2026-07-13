@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/ubicacion.schema.json",
+  "title": "Ubicación",
+  "description": "Nodo genérico; la jerarquía, nomenclatura y tipos reales siguen pendientes de levantamiento.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "codigo", "tipo", "creadaEn"],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "codigo": {"type": "string", "minLength": 1, "maxLength": 120},
+    "tipo": {"type": "string", "minLength": 1, "maxLength": 80},
+    "ubicacionPadreId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "creadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

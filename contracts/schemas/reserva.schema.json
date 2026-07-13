@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/reserva.schema.json",
+  "title": "Reserva",
+  "description": "La reserva del MVP no vence automáticamente; solo una operación central explícita puede liberarla.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "lineaJornadaId", "usuarioId", "claveIdempotencia", "politicaLiberacion", "reservadaEn"],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "lineaJornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "usuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"},
+    "politicaLiberacion": {"const": "MANUAL_SUPERVISOR_MVP"},
+    "reservadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "liberadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "liberadaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"}
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/enums/estados-linea.json",
+  "title": "Estado central de línea",
+  "description": "Estado autoritativo en el backend; ENVIADA no pertenece a este conjunto.",
+  "type": "string",
+  "enum": [
+    "DISPONIBLE",
+    "EN_CONTEO",
+    "PENDIENTE_REVISION",
+    "DEVUELTA",
+    "APROBADA"
+  ]
+}

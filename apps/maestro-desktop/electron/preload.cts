@@ -1,7 +1,7 @@
 import { contextBridge } from "electron";
 
 const foundationApi = Object.freeze({
-  getRuntimeStatus: (): string => "Sin Firebase configurado",
+  getRuntimeStatus: (): string => "Emuladores locales requeridos",
 });
 
 contextBridge.exposeInMainWorld("viveroFoundation", foundationApi);

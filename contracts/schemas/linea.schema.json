@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/linea.schema.json",
+  "title": "Línea",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "ubicacionId", "codigo", "activa", "creadaEn"],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "ubicacionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "codigo": {"type": "string", "minLength": 1, "maxLength": 120},
+    "activa": {"type": "boolean"},
+    "creadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "actualizadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

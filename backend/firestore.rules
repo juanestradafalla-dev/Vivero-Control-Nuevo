@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ETAPA 2: el acceso queda cerrado hasta definir autenticación,
+    // autorizaciones y operaciones críticas del dominio.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/inventario-oficial-linea.schema.json",
+  "title": "Inventario oficial por línea",
+  "description": "Única fotografía vigente de una línea. Una aprobación reemplaza todos sus valores; nunca suma el conteo al inventario anterior.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "lineaId",
+    "hembras",
+    "machos",
+    "patrones",
+    "total",
+    "conteoAprobadoId",
+    "version",
+    "actualizadoPorUsuarioId",
+    "actualizadoEn"
+  ],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "lineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "hembras": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "machos": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "patrones": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "total": {
+      "allOf": [{"$ref": "comun.schema.json#/$defs/enteroNoNegativo"}],
+      "readOnly": true,
+      "description": "Calculado centralmente: hembras + machos + patrones."
+    },
+    "conteoAprobadoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "version": {"type": "integer", "minimum": 1},
+    "actualizadoPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "actualizadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

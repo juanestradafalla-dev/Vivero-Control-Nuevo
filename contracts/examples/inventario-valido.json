@@ -1,0 +1,12 @@
+{
+  "id": "inventario-ejemplo-001",
+  "lineaId": "linea-ejemplo-001",
+  "hembras": 700,
+  "machos": 200,
+  "patrones": 100,
+  "total": 1000,
+  "conteoAprobadoId": "conteo-ejemplo-aprobado-001",
+  "version": 1,
+  "actualizadoPorUsuarioId": "usuario-supervisor-ejemplo-001",
+  "actualizadoEn": "2026-07-13T12:00:00.000Z"
+}

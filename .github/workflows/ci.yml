@@ -1,0 +1,94 @@
+name: Validación técnica
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    name: Contratos compartidos
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: contracts/package-lock.json
+      - run: npm ci
+      - run: npm run validate
+      - run: npm test
+
+  android:
+    name: Vivero Campo
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/campo-android
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/setup-java@v5.5.0
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v4.0.1
+      - name: Instalar SDK Android 36.1
+        run: sdkmanager "platforms;android-36.1" "build-tools;36.1.0"
+      - uses: gradle/actions/setup-gradle@v6.2.0
+      - run: chmod +x gradlew
+      - run: ./gradlew assembleDebug
+      - run: ./gradlew testDebugUnitTest
+      - run: ./gradlew lintDebug
+
+  maestro:
+    name: Vivero Maestro
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/maestro-desktop
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/maestro-desktop/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm audit --omit=dev --audit-level=high
+
+  backend:
+    name: Backend y reglas
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/functions
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - uses: actions/setup-java@v5.5.0
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/functions/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run test:rules:emulator
+      - run: npm audit --omit=dev --audit-level=high

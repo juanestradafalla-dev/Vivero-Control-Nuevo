@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/conteo.schema.json",
+  "title": "Conteo versionado",
+  "description": "Registro inmutable. El backend calcula total y crea una nueva versión para cada corrección; nunca sobrescribe la versión anterior.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "jornadaLineaId",
+    "reservaId",
+    "autorUsuarioId",
+    "rolEfectivo",
+    "dispositivoId",
+    "hembras",
+    "machos",
+    "patrones",
+    "total",
+    "versionNumero",
+    "claveIdempotencia",
+    "creadoEn"
+  ],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaLineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "reservaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "autorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "rolEfectivo": {"$ref": "../enums/roles.json"},
+    "dispositivoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "hembras": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "machos": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "patrones": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "total": {
+      "allOf": [{"$ref": "comun.schema.json#/$defs/enteroNoNegativo"}],
+      "readOnly": true,
+      "description": "Calculado centralmente: hembras + machos + patrones. La validación de invariantes rechaza cualquier valor distinto."
+    },
+    "versionNumero": {"type": "integer", "minimum": 1},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"},
+    "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "observaciones": {"type": "string", "maxLength": 2000},
+    "corregidoDesdeConteoId": {"$ref": "comun.schema.json#/$defs/idGlobal"}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"corregidoDesdeConteoId": {}},
+        "required": ["corregidoDesdeConteoId"]
+      },
+      "then": {"properties": {"versionNumero": {"type": "integer", "minimum": 2}}}
+    }
+  ]
+}

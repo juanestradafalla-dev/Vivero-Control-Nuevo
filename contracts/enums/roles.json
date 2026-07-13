@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/enums/roles.json",
+  "title": "Rol de usuario",
+  "type": "string",
+  "enum": [
+    "AUXILIAR",
+    "SUPERVISOR",
+    "ADMINISTRADOR"
+  ]
+}

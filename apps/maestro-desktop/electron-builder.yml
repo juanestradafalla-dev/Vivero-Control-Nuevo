@@ -1,0 +1,7 @@
+appId: com.arles.viveromaestro
+productName: Vivero Maestro
+directories:
+  output: release
+files:
+  - dist/**
+  - dist-electron/**

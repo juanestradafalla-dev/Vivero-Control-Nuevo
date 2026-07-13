@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/enums/estados-reserva.json",
+  "title": "Estado central de reserva",
+  "type": "string",
+  "enum": [
+    "ACTIVA",
+    "CONSUMIDA",
+    "LIBERADA"
+  ]
+}

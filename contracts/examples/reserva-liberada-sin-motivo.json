@@ -1,0 +1,14 @@
+{
+  "id": "reserva-ejemplo-002",
+  "jornadaLineaId": "jornada-linea-ejemplo-001",
+  "usuarioId": "usuario-ejemplo-001",
+  "rolEfectivo": "AUXILIAR",
+  "dispositivoId": "dispositivo-ejemplo-001",
+  "claveIdempotencia": "reserva-ejemplo-clave-002",
+  "tokenReserva": "token-ficticio-reserva-002",
+  "reservadaEn": "2026-07-13T12:00:00.000Z",
+  "estadoReserva": "LIBERADA",
+  "liberadaEn": "2026-07-13T13:00:00.000Z",
+  "liberadaPorUsuarioId": "usuario-supervisor-ejemplo-001",
+  "politicaLiberacion": "MANUAL_SUPERVISOR_MVP"
+}

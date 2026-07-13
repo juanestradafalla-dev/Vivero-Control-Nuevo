@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/usuario.schema.json",
+  "title": "Usuario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "roles", "activo", "creadoEn"],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "roles": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "../enums/roles.json"}
+    },
+    "activo": {"type": "boolean"},
+    "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "actualizadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

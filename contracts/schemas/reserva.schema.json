@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/reserva.schema.json",
+  "title": "Reserva",
+  "description": "Reserva central sin expiración automática durante el MVP. Solo una operación explícita puede consumirla o liberarla.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "jornadaLineaId",
+    "usuarioId",
+    "rolEfectivo",
+    "dispositivoId",
+    "claveIdempotencia",
+    "tokenReserva",
+    "reservadaEn",
+    "estadoReserva",
+    "politicaLiberacion"
+  ],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaLineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "usuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "rolEfectivo": {"$ref": "../enums/roles.json"},
+    "dispositivoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"},
+    "tokenReserva": {"type": "string", "minLength": 16, "maxLength": 512},
+    "reservadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "ultimoContactoServidor": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "estadoReserva": {"$ref": "../enums/estados-reserva.json"},
+    "liberadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "liberadaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "motivoLiberacion": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "politicaLiberacion": {"const": "MANUAL_SUPERVISOR_MVP"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"estadoReserva": {"const": "LIBERADA"}}},
+      "then": {
+        "properties": {"motivoLiberacion": {}},
+        "required": ["motivoLiberacion"]
+      }
+    }
+  ]
+}

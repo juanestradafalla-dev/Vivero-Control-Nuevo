@@ -1,16 +1,15 @@
 # Dependencias y riesgos
 
-## Alcance de la revisión
+## Revisión
 
-Registro obtenido el 13 de julio de 2026 con:
+Registro actualizado el 13 de julio de 2026 con:
 
 ```powershell
 npm audit --omit=dev
+npm audit fix --dry-run --omit=dev
 ```
 
-No se ejecutó `npm audit fix --force`. La comprobación
-`npm audit fix --dry-run --omit=dev` no encontró una actualización compatible
-del árbol productivo del backend (`changed: 0`).
+No se ejecutó `npm audit fix` ni `npm audit fix --force`.
 
 ## Vivero Maestro
 
@@ -19,38 +18,43 @@ altas y 0 críticas.
 
 ## Backend Functions
 
-`npm audit --omit=dev` informó 8 vulnerabilidades moderadas, 0 altas y 0
-críticas. Todas derivan del aviso de `uuid` sobre falta de comprobación de
-límites al usar un búfer en UUID v3, v5 o v6.
+`npm audit --omit=dev` informó 9 vulnerabilidades moderadas, 0 altas y 0
+críticas. El aviso raíz es `GHSA-w5hq-g745-h8pq`, una falta de comprobación de
+límites en `uuid` menor que 11.1.1 al usar un búfer con UUID v3, v5 o v6.
 
-| Paquete informado | Relación | Severidad | Componente | Corrección compatible actual |
-|---|---|---|---|---|
-| `firebase-admin` 13.10.0 | Directa | Moderada, por Firestore y Storage | Backend | No; Functions 7.2.5 declara compatibilidad con Admin 11, 12 o 13, no con 14. |
-| `@google-cloud/firestore` | Transitiva | Moderada | Backend | No desde las dependencias directas actuales. |
-| `@google-cloud/storage` | Transitiva | Moderada | Backend | No desde las dependencias directas actuales. |
-| `google-gax` | Transitiva | Moderada | Backend | No desde las dependencias directas actuales. |
-| `gaxios` | Transitiva | Moderada | Backend | El registro indica una versión corregida, pero el dry-run no pudo adoptarla sin alterar el árbol soportado. |
-| `retry-request` | Transitiva | Moderada | Backend | No desde las dependencias directas actuales. |
-| `teeny-request` | Transitiva | Moderada | Backend | No desde las dependencias directas actuales. |
-| `uuid` menor que 11.1.1 | Transitiva | Moderada | Backend | No sin cambiar dependencias superiores; no se fuerza un override incompatible. |
+| Paquete informado | Relación | Severidad |
+|---|---|---|
+| `firebase-functions` 7.2.5 | Directa, afectada por Admin | Moderada |
+| `firebase-admin` 13.10.0 | Directa | Moderada |
+| `@google-cloud/firestore` | Transitiva | Moderada |
+| `@google-cloud/storage` | Transitiva | Moderada |
+| `google-gax` | Transitiva | Moderada |
+| `gaxios` | Transitiva | Moderada |
+| `retry-request` | Transitiva | Moderada |
+| `teeny-request` | Transitiva | Moderada |
+| `uuid` | Transitiva, aviso raíz | Moderada |
 
-Aviso raíz: `GHSA-w5hq-g745-h8pq`, “Missing buffer bounds check in v3/v5/v6
-when buf is provided”.
+El dry-run solo ofrece resolver todo mediante `--force`, instalando versiones
+anteriores y con cambios mayores de las dependencias directas. Ese cambio no se
+aplica porque podría romper compatibilidad y no constituye una actualización
+segura del árbol aprobado.
 
-## Exposición en la ETAPA 2
+## Exposición en la ETAPA 3
 
-No existe exposición remota de estas dependencias en esta etapa porque:
+La Function `reservarLinea` ya existe, pero el riesgo permanece contenido en el
+entorno local porque:
 
-- `backend/functions/src/index.ts` no exporta ninguna Function;
-- ningún servicio Firebase real está configurado ni desplegado;
-- las operaciones críticas devuelven explícitamente “no disponible”;
-- Firestore mantiene denegación total para clientes;
-- las pruebas usan exclusivamente el emulador y proyectos `demo-*`.
+- la Function exige `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`;
+- no existe proyecto Firebase real, credencial ni despliegue;
+- CI solo ejecuta Emulator Suite y no contiene pasos de despliegue;
+- el código de negocio genera UUID con `node:crypto.randomUUID`, no invoca las
+  variantes v3, v5 o v6 afectadas de la dependencia transitiva;
+- la operación persiste únicamente el hash del token opaco.
 
-Esta ausencia de exposición no convierte el aviso en aceptado para producción.
-Antes de desplegar cualquier Function es obligatorio actualizar a una cadena
-compatible que elimine el aviso o registrar una aceptación formal del riesgo,
-con responsable, alcance, controles compensatorios y fecha de revisión.
+Estos controles no aceptan el riesgo para producción. Antes de desplegar
+cualquier Function se debe actualizar a una cadena compatible sin el aviso o
+registrar una aceptación formal con responsable, alcance, controles y fecha de
+revisión.
 
 ## Política de CI
 
@@ -60,5 +64,6 @@ Maestro y backend ejecutan:
 npm audit --omit=dev --audit-level=high
 ```
 
-Las alertas moderadas siguen visibles y documentadas. Cualquier alerta alta o
-crítica hace fallar CI. El umbral no autoriza a desplegar con alertas moderadas.
+Las alertas moderadas permanecen visibles y documentadas. Cualquier alerta alta
+o crítica hace fallar CI. El umbral no autoriza despliegues y el workflow no
+contiene ninguno.

@@ -1,21 +1,18 @@
 # Contratos compartidos
 
-Los archivos JSON de esta carpeta describen el lenguaje común entre Vivero
-Campo, Vivero Maestro y el backend. Son independientes de las interfaces de
-usuario y todavía no representan una API desplegada.
+JSON Schema Draft 2020-12 define el lenguaje común de Campo, Maestro y backend.
+La ETAPA 3 agrega:
 
-- `enums/` contiene los valores cerrados aprobados.
-- `schemas/` contiene JSON Schema Draft 2020-12 para las entidades base.
-- `validate.mjs` compila todos los esquemas Draft 2020-12 con Ajv 2020 y
-  resuelve referencias entre archivos.
-- `examples/` contiene casos ficticios válidos e inválidos.
-- `tests/` comprueba JSON Schema e invariantes aritméticas que el estándar no
-  puede expresar por sí solo.
+- `ReserveLineRequest` con solo línea de jornada, dispositivo y clave;
+- `ReserveLineResult` con reserva, estado, token opaco, hora, versión y ubicación;
+- error controlado;
+- estado administrativo de jornada;
+- autorización de jornada;
+- resultado idempotente.
 
-Los identificadores son cadenas globales generadas fuera de secuencias locales.
-Los campos temporales marcados como timestamps del servidor solo podrán ser
-asignados por el backend. Las relaciones y límites operativos pendientes no se
-inventan en estos contratos.
+Los ejemplos de `examples/etapa-03/` son ficticios. Las pruebas comprueban que
+los payload usados por Campo y backend cumplen los mismos esquemas y que una
+solicitud que intenta enviar un actor es inválida.
 
 ```powershell
 Set-Location contracts
@@ -24,5 +21,7 @@ npm run validate
 npm test
 ```
 
-Una validación exitosa requiere tanto la compilación de esquemas como las
-pruebas de `total = hembras + machos + patrones` y de diferencias históricas.
+`validate` compila todos los esquemas con Ajv 2020. Las pruebas mantienen además
+las invariantes aritméticas de contratos anteriores. Todavía no hay generación
+automática de Kotlin/TypeScript; cualquier cambio de DTO debe actualizar el
+esquema, sus ejemplos y las pruebas en el mismo commit.

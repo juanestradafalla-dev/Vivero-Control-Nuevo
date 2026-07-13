@@ -1,64 +1,116 @@
 # Vivero Control
 
-Vivero Control es un sistema nuevo para administrar el inventario del vivero
-mediante dos aplicaciones conectadas a una única fuente central. Este repositorio
-no es una modificación ni una copia del proyecto anterior `Vivero-Control`.
+Vivero Control es el proyecto nuevo para operar inventario por línea mediante
+Vivero Campo (Android), Vivero Maestro (Windows) y un backend transaccional. No
+es una modificación ni una copia del repositorio anterior `Vivero-Control`.
 
-## Estado del proyecto
+## Estado: ETAPA 3
 
-La ETAPA 1 definió el MVP y sus reglas funcionales. La ETAPA 2 instala una
-fundación técnica compilable para:
+La primera operación vertical funciona exclusivamente en Firebase Emulator
+Suite:
 
-- **Vivero Campo:** aplicación Android nativa con Kotlin, Jetpack Compose y MVVM.
-- **Vivero Maestro:** aplicación Windows con Electron, React, TypeScript y Vite.
-- **Backend central:** base TypeScript para Firebase Functions, reglas cerradas
-  de Firestore y Emulator Suite local.
-- **Contratos compartidos:** estados, roles y entidades en JSON Schema.
+1. un usuario ficticio inicia sesión en Campo;
+2. consulta la jornada ficticia activa y sus líneas;
+3. `reservarLinea` valida identidad, rol y autorización centrales;
+4. una transacción crea reserva, cambia `DISPONIBLE` a `EN_CONTEO`, incrementa
+   versión y registra auditoría e idempotencia;
+5. solo un usuario gana si dos intentan la misma línea;
+6. Maestro refleja el estado mediante un monitor de solo lectura.
 
-Todavía no existe un flujo funcional de inventario. No están implementadas las
-jornadas, reservas, conteos, correcciones, aprobaciones, descartes, despachos,
-autenticación ni administración. Firebase real **no está configurado** y ningún
-recurso se despliega desde este repositorio.
+> **MODO DE PRUEBA — EMULADOR.** No existe Firebase real configurado, no hay
+> credenciales de producción y ningún comando del repositorio despliega recursos.
+
+No están implementados el formulario de conteo, aprobación, devolución,
+liberación, inventario oficial, descartes, despachos, aplicaciones, químicos,
+reingreso, administración completa ni migración de datos reales.
 
 ## Estructura
 
 ```text
 Vivero-Control-Nuevo/
-|-- .github/workflows/       # validación continua sin despliegue
+|-- .github/workflows/       # CI de validación, sin despliegue
 |-- apps/
-|   |-- campo-android/       # esqueleto Android
-|   `-- maestro-desktop/     # esqueleto Electron/React
-|-- backend/                 # Functions, reglas y emuladores locales
-|-- contracts/               # enums y JSON Schema compartidos
-|-- docs/
-|   |-- adr/                 # decisiones técnicas
-|   `-- arquitectura/        # arquitectura transversal
-`-- tests/                   # futuros escenarios integrales
+|   |-- campo-android/       # Android Kotlin, Compose, MVVM y Room
+|   `-- maestro-desktop/     # Electron, React y TypeScript; solo lectura
+|-- backend/                 # Functions, reglas, emuladores y seed ficticio
+|-- contracts/               # JSON Schema y ejemplos compartidos
+|-- data/templates/          # CSV vacíos para levantamiento futuro
+|-- docs/                    # definición, arquitectura, datos y pruebas
+`-- tests/                   # espacio para escenarios integrales futuros
 ```
 
-La finalidad y los comandos completos están en
-[Estructura del repositorio](docs/arquitectura/ESTRUCTURA_REPOSITORIO.md).
-
-## Requisitos de desarrollo
+## Requisitos
 
 - JDK 21.
-- Android SDK 36.1. La compatibilidad mínima está fijada provisionalmente en
-  Android 6.0 (API 23) y debe confirmarse con los celulares reales.
+- Android SDK 36.1; `minSdk` provisional 23.
 - Node.js 22 o posterior y npm.
-- PowerShell en Windows para los ejemplos; las tareas también funcionan en CI.
+- Java disponible para Firestore Emulator.
 
-No es necesario instalar ni actualizar herramientas globales: cada aplicación
-bloquea sus dependencias mediante Gradle Wrapper o `package-lock.json`.
+Las dependencias quedan bloqueadas mediante Gradle Wrapper, Gradle dependency
+locking y `package-lock.json`.
 
-## Identificadores provisionales
+## Emuladores y datos ficticios
 
-- Android `applicationId`: `com.arles.viverocampo`.
-- Electron `appId`: `com.arles.viveromaestro`.
+Instale, compile e inicie los servicios desde `backend/functions`:
 
-Deben confirmarse antes de registrar aplicaciones en Firebase o publicar
-instaladores.
+```powershell
+npm ci
+npm run build
+npm run emulators:start
+```
 
-## Instalación y verificación
+En otra terminal cargue el escenario reproducible:
+
+```powershell
+Set-Location backend/functions
+npm run emulator:seed
+```
+
+Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`.
+El seed se niega a trabajar si el proyecto no comienza por `demo-`.
+
+### Cuentas operativas ficticias
+
+| Correo | Rol |
+|---|---|
+| `auxiliar1@prueba.local` | Auxiliar |
+| `auxiliar2@prueba.local` | Auxiliar |
+| `supervisor@prueba.local` | Supervisor |
+| `administrador@prueba.local` | Administrador |
+
+Contraseña exclusiva del emulador: `SoloEmulador-Etapa3!`. Es pública y no debe
+reutilizarse. El seed agrega otras cuentas técnicas para casos negativos.
+
+## Ejecutar Vivero Campo
+
+Con Emulator Suite y el seed activos:
+
+```powershell
+Set-Location apps/campo-android
+./gradlew.bat installDebug
+```
+
+Android Emulator usa `10.0.2.2`. Para un celular físico de desarrollo se puede
+pasar `-PemulatorHost=<IP_PRIVADA_DEL_PC>` y habilitar los emuladores únicamente
+en la red privada controlada. Consulte
+[Configuración de clientes](docs/arquitectura/CONFIGURACION_EMULADORES_CLIENTES.md).
+
+La variante `release` no contiene configuración Firebase y falla de forma
+segura. No se incluye `google-services.json`.
+
+## Ejecutar Vivero Maestro
+
+```powershell
+Set-Location apps/maestro-desktop
+npm ci
+npm run dev
+```
+
+Maestro usa valores demo de `.env.example`, permite iniciar sesión y observa la
+jornada. Solo supervisor o administrador ven el titular y la hora de una
+reserva. No existen botones de escritura.
+
+## Verificación
 
 ### Contratos
 
@@ -69,7 +121,7 @@ npm run validate
 npm test
 ```
 
-### Vivero Campo
+### Android
 
 ```powershell
 Set-Location apps/campo-android
@@ -78,7 +130,7 @@ Set-Location apps/campo-android
 ./gradlew.bat lintDebug
 ```
 
-### Vivero Maestro
+### Maestro
 
 ```powershell
 Set-Location apps/maestro-desktop
@@ -87,9 +139,10 @@ npm run lint
 npm run typecheck
 npm test
 npm run build
+npm audit --omit=dev
 ```
 
-### Backend y emuladores
+### Backend y prueba integrada
 
 ```powershell
 Set-Location backend/functions
@@ -98,54 +151,40 @@ npm run lint
 npm run typecheck
 npm test
 npm run build
-npm run test:rules:emulator
+npm run test:emulators
+npm audit --omit=dev
 ```
 
-El emulador usa el proyecto ficticio `demo-vivero-control-tests`. Las reglas
-actuales deniegan toda lectura y escritura, y el punto de entrada de Functions
-no exporta operaciones de negocio. No use un ID real ni ejecute `firebase deploy`.
+`test:emulators` inicia Auth, Firestore y Functions, carga el seed, prueba dos
+reservas concurrentes y valida reglas. CI ejecuta las mismas áreas y falla ante
+alertas npm altas o críticas; nunca despliega.
 
-## Alcance exacto de la ETAPA 2
+## Documentación de la ETAPA 3
 
-- Capas base y marcadores técnicos de Campo y Maestro.
-- Estados locales de sincronización separados de estados centrales.
-- Puertos para Room y WorkManager, sin incorporar todavía sus implementaciones.
-- Preload mínimo y configuración defensiva de Electron.
-- Interfaces no disponibles para las cinco operaciones centrales futuras.
-- Contratos de entidades, idempotencia, timestamps y auditoría.
-- Arquitectura, seguridad, estrategia offline y siete ADR.
-- Pruebas unitarias, pruebas negativas de reglas, lint y CI sin secretos.
+- [Modelo Firestore](docs/arquitectura/MODELO_FIRESTORE_ETAPA_03.md)
+- [Autenticación y autorización](docs/arquitectura/AUTENTICACION_Y_AUTORIZACION.md)
+- [Operación reservarLinea](docs/arquitectura/OPERACION_RESERVAR_LINEA.md)
+- [Datos ficticios](docs/arquitectura/DATOS_FICTICIOS_EMULADOR.md)
+- [Configuración de emuladores](docs/arquitectura/CONFIGURACION_EMULADORES_CLIENTES.md)
+- [Pruebas de concurrencia](docs/pruebas/PRUEBAS_CONCURRENCIA_RESERVA.md)
+- [Plantillas futuras](docs/datos/COMPLETAR_PLANTILLAS_REALES.md)
+- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
 
-## Documentación de la ETAPA 1
+## Documentación previa
 
 - [Definición funcional](docs/ETAPA_01_DEFINICION_FUNCIONAL.md)
 - [Roles y permisos](docs/ROLES_Y_PERMISOS.md)
-- [Flujo de jornada de inventario](docs/FLUJO_JORNADA_INVENTARIO.md)
-- [Diccionario de datos](docs/DICCIONARIO_DE_DATOS.md)
-- [Validaciones y casos límite](docs/VALIDACIONES_Y_CASOS_LIMITE.md)
+- [Flujo de jornada](docs/FLUJO_JORNADA_INVENTARIO.md)
 - [Decisiones pendientes](docs/DECISIONES_PENDIENTES.md)
-- [Criterios de aceptación del MVP](docs/CRITERIOS_DE_ACEPTACION_MVP.md)
-
-## Arquitectura y decisiones
-
 - [Arquitectura general](docs/arquitectura/ARQUITECTURA_GENERAL.md)
-- [Estrategia offline](docs/arquitectura/ESTRATEGIA_OFFLINE.md)
 - [Seguridad](docs/arquitectura/SEGURIDAD.md)
-- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
-- [ADR-001: Android con Kotlin y Compose](docs/adr/ADR-001-ANDROID-KOTLIN-COMPOSE.md)
-- [ADR-002: Electron, React y TypeScript](docs/adr/ADR-002-ELECTRON-REACT-TYPESCRIPT.md)
-- [ADR-003: Firebase y emuladores](docs/adr/ADR-003-FIREBASE-Y-EMULADORES.md)
-- [ADR-004: backend transaccional](docs/adr/ADR-004-BACKEND-TRANSACCIONAL.md)
-- [ADR-005: inventario por línea](docs/adr/ADR-005-INVENTARIO-FOTOGRAFIA-POR-LINEA.md)
-- [ADR-006: estados centrales y locales](docs/adr/ADR-006-ESTADOS-CENTRALES-Y-LOCALES.md)
-- [ADR-007: estrategia offline](docs/adr/ADR-007-ESTRATEGIA-OFFLINE.md)
+- [Estrategia offline](docs/arquitectura/ESTRATEGIA_OFFLINE.md)
 
-## Principios obligatorios
+## Principios vigentes
 
-- Una sola fuente central para el inventario oficial.
-- Identificadores globales y catálogos controlados para ubicaciones.
-- Operaciones críticas atómicas, autorizadas e idempotentes.
-- Inventario oficial por línea, reemplazado solo por un conteo aprobado.
-- Movimiento histórico y auditoría sin eliminaciones silenciosas.
-- Trabajo temporal sin conexión después de confirmar una reserva.
-- Separación estricta de desarrollo y producción.
+- Identidad, roles, permisos y hora nunca se confían al cliente.
+- Operaciones críticas atómicas, autorizadas, auditadas e idempotentes.
+- Una sola fuente central y una versión por línea de jornada.
+- Escrituras directas críticas cerradas por reglas.
+- Separación estricta entre datos ficticios, desarrollo y futura producción.
+- Inventario oficial por línea, actualizado solo por un conteo aprobado futuro.

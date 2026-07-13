@@ -41,7 +41,7 @@ La primera versión no estará lista para piloto hasta demostrar todos los crite
 - [ ] Se muestra un resumen y se solicita confirmación antes de enviar.
 - [ ] Después de una reserva válida, el usuario puede contar sin señal y el borrador sobrevive al cierre de la aplicación.
 - [ ] Los borradores de usuarios distintos quedan aislados en un dispositivo compartido.
-- [ ] La interfaz distingue claramente `PENDIENTE`, `SINCRONIZANDO`, `ENVIADO` y `ERROR`.
+- [ ] La interfaz distingue claramente `PENDIENTE`, `SINCRONIZANDO`, `ENVIADA` y `ERROR`.
 - [ ] Ningún fallo de red muestra «enviado» antes de la confirmación central.
 - [ ] Un borrador cuya reserva fue liberada se conserva, pero no se aplica automáticamente.
 
@@ -52,47 +52,55 @@ La primera versión no estará lista para piloto hasta demostrar todos los crite
 - [ ] Reutilizar la misma clave con contenido diferente se rechaza.
 - [ ] Un envío aceptado registra usuario, rol efectivo, dispositivo, hora del dispositivo y hora del servidor.
 - [ ] El conteo aceptado queda inmutable.
-- [ ] La transición recorre `ENVIADA` y `PENDIENTE_REVISION` según la definición aprobada.
-- [ ] Existe una recuperación idempotente para envíos persistidos que no entren inicialmente a revisión.
+- [ ] El conteo, el consumo de la reserva y la transición central de `EN_CONTEO` a `PENDIENTE_REVISION` se confirman en una sola transacción.
+- [ ] `ENVIADA` solo se usa localmente después de la confirmación; no existe como estado central de la línea.
+- [ ] Una respuesta perdida se recupera idempotentemente sin estado central intermedio ni otra versión.
 - [ ] Los errores muestran una causa útil y no eliminan el borrador.
 
-## 7. Revisión, devolución y verificación
+## 7. Revisión y devolución
 
 - [ ] Un conteo enviado no modifica el inventario oficial antes de aprobarse.
 - [ ] Supervisor y administrador pueden revisar el contenido y su trazabilidad completa.
 - [ ] Devolver exige un motivo y cambia la línea a `DEVUELTA`.
 - [ ] El autor ve el motivo y puede generar una nueva versión sin alterar la anterior.
+- [ ] Si el autor está ausente, supervisor o administrador puede reasignar la corrección conservando el original y registrando auditoría.
 - [ ] El historial permite comparar todas las versiones y decisiones.
 - [ ] El sistema nunca promedia automáticamente conteos diferentes.
-- [ ] Solicitar verificación deja evidencia y no cambia el inventario.
-- [ ] Antes del piloto está definido y probado quién ejecuta la verificación y cuál es su resultado.
+- [ ] El primer MVP no ofrece acciones ni estados de verificación adicional; el revisor solo puede aprobar o devolver.
 
 ## 8. Aprobación e inventario oficial
 
 - [ ] Solo supervisor o administrador autorizado puede aprobar.
+- [ ] Un supervisor no puede aprobar su propio conteo.
+- [ ] Un administrador que aprueba excepcionalmente su propio conteo recibe una advertencia, debe escribir un motivo y deja auditoría explícita.
 - [ ] La aprobación verifica que la versión siga pendiente y no aplicada.
-- [ ] La actualización del inventario, el registro de aplicación, la auditoría y `APROBADA` se confirman de forma atómica.
+- [ ] La unidad del inventario oficial es cada línea y existe una sola fotografía vigente por línea.
+- [ ] La aprobación reemplaza esa fotografía con el conteo aprobado; no suma el conteo al valor anterior.
+- [ ] La actualización del inventario, el movimiento histórico, la auditoría y `APROBADA` se confirman de forma atómica.
 - [ ] Una aprobación repetida o simultánea afecta el inventario exactamente una vez.
 - [ ] Cada inventario oficial referencia el conteo aprobado que lo originó.
-- [ ] Se conserva el valor anterior y el resultante para auditoría.
+- [ ] El movimiento conserva valores anteriores, nuevos y diferencias por categoría y total.
+- [ ] Una prueba con inventario anterior `1000` y conteo `980` produce inventario `980` y diferencia histórica `-20`.
 - [ ] Ninguna aprobación, descarte o despacho puede producir inventario negativo.
 - [ ] La política de consolidación del conteo al inventario está formalmente aprobada y cubierta por pruebas.
 
 ## 9. Liberación y recuperación
 
 - [ ] Solo supervisor o administrador puede liberar una línea abandonada.
+- [ ] Durante el MVP ninguna reserva vence o se libera automáticamente.
 - [ ] La liberación exige motivo, confirmación y auditoría.
 - [ ] La transacción impide liberar una reserva que cambió desde que se mostró.
 - [ ] La línea vuelve a `DISPONIBLE` sin perder borradores ni conteos existentes.
 - [ ] Un token liberado no permite enviar como si la reserva siguiera activa.
 - [ ] Existe un procedimiento operativo aprobado para recuperar o descartar justificadamente un borrador tardío.
-- [ ] La política de abandono y sus avisos está definida antes del piloto.
+- [ ] La liberación manual funciona aun cuando no exista un umbral automático de abandono.
+- [ ] El MVP no permite reservar bloques anticipados; esa función queda aplazada hasta medir la señal real.
 
 ## 10. Tiempo, auditoría y seguridad
 
-- [ ] La hora del servidor gobierna secuencia, vencimientos y decisiones.
+- [ ] La hora del servidor gobierna secuencia y decisiones.
 - [ ] Una fecha incorrecta del dispositivo se registra y no permite alterar orden o vigencia.
-- [ ] Reservas, liberaciones, envíos, devoluciones, verificaciones, aprobaciones, cambios de rol y cierres generan auditoría.
+- [ ] Reservas, liberaciones, envíos, devoluciones, reasignaciones, aprobaciones, cambios de rol y cierres generan auditoría.
 - [ ] La auditoría es inmutable para los clientes y registra actor, rol, entidad, operación y hora del servidor.
 - [ ] No se guardan secretos en Git, registros visibles ni aplicaciones cliente.
 - [ ] Las reglas impiden acceso cruzado entre ambientes.
@@ -102,6 +110,7 @@ La primera versión no estará lista para piloto hasta demostrar todos los crite
 ## 11. Experiencia de uso
 
 - [ ] Campo permite completar la tarea sin navegar por módulos administrativos.
+- [ ] Vivero Maestro se entrega como aplicación para Windows.
 - [ ] Los errores explican qué ocurrió y qué puede hacer el usuario.
 - [ ] El estado de conexión y sincronización permanece visible durante el flujo.
 - [ ] Maestro usa selecciones controladas, validaciones y resumen antes de acciones críticas.
@@ -129,6 +138,8 @@ El MVP no se acepta si puede ocurrir cualquiera de estas situaciones:
 - inventario oficial modificado sin aprobación;
 - aprobación aplicada más de una vez;
 - pérdida silenciosa de un original o una corrección;
+- reemplazo de inventario sin el movimiento histórico correspondiente;
+- autorrevisión administrativa sin advertencia, motivo y auditoría;
 - inventario negativo;
 - acceso autorizado solo por controles de interfaz;
 - borrador marcado como enviado sin confirmación central;

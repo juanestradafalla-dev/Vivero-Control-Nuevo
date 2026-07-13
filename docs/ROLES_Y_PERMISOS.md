@@ -4,6 +4,7 @@
 
 - El permiso se valida en el servidor y en las reglas de acceso, no solamente en la interfaz.
 - Los roles forman una jerarquía: administrador incluye supervisor; supervisor incluye auxiliar.
+- La cuenta maestra tendrá rol de administrador y usará Vivero Campo cuando colabore en un conteo.
 - Tener un rol no sustituye la autorización para una jornada concreta.
 - Cuando un supervisor o administrador cuenta desde Vivero Campo, usa el mismo flujo de reserva y envío que un auxiliar.
 - Ningún rol puede editar o eliminar silenciosamente un conteo enviado, su historial o la auditoría.
@@ -25,18 +26,19 @@ Leyenda: **Sí** = permitido; **No** = prohibido; **Condicionado** = permitido �
 | Enviar un conteo | Condicionado | Condicionado | Condicionado | Reserva válida, datos válidos y operación idempotente. |
 | Ver sus propios conteos | Sí | Sí | Sí | Incluye estado e historial que corresponda mostrar al autor. |
 | Ver conteos de otros usuarios | No | Sí | Sí | Dentro de jornadas administrables. |
-| Corregir un conteo propio devuelto | Condicionado | Condicionado | Condicionado | Solo el autor, solo si está `DEVUELTA` y sin alterar versiones anteriores. |
-| Corregir el conteo de otro usuario | No | No | No | La eventual reasignación es una decisión pendiente; nunca modifica el original. |
+| Crear la corrección de un conteo devuelto | Condicionado | Condicionado | Condicionado | Solo el autor o el usuario formalmente reasignado, si está `DEVUELTA` y sin alterar versiones anteriores. |
+| Corregir directamente el conteo de otro usuario | No | No | No | Nunca se modifica el original ni se suplanta su autoría. |
+| Reasignar una corrección por ausencia del autor | No | Sí | Sí | Solo sobre un conteo `DEVUELTA`, a un usuario autorizado y con auditoría. |
 | Crear una jornada | No | Sí | Sí | Con líneas tomadas del catálogo central. |
 | Editar una jornada antes de activarla | No | Sí | Sí | Reglas detalladas del estado de jornada pendientes. |
 | Gestionar una jornada activa | No | Sí | Sí | Sin invalidar conteos o reservas silenciosamente. |
 | Ver el avance completo | No | Sí | Sí | Incluye estados, reservas y conteos. |
 | Liberar una línea abandonada | No | Sí | Sí | Motivo obligatorio y evento de auditoría. |
 | Revisar un conteo | No | Sí | Sí | Conteo pendiente y jornada administrable. |
-| Solicitar verificación | No | Sí | Sí | No afecta inventario; flujo operativo pendiente. |
+| Solicitar verificación adicional en el MVP | No | No | No | Función expresamente fuera del primer MVP. |
 | Devolver un conteo | No | Sí | Sí | Motivo obligatorio; conserva el original. |
 | Aprobar un conteo | No | Sí | Sí | Transacción autorizada e idempotente. |
-| Aprobar su propio conteo | No | Pendiente | Pendiente | Debe definirse si habrá separación entre autor y aprobador. |
+| Aprobar su propio conteo | No | No | Condicionado | Excepción administrativa: advertencia visible, motivo obligatorio y auditoría. |
 | Cerrar una jornada | No | Sí | Sí | Solo cuando cumpla la política de cierre todavía por confirmar. |
 | Consultar inventario oficial | No | Sí | Sí | Lectura según alcance autorizado. |
 | Modificar directamente el inventario oficial | No | No | No | Solo cambia por operaciones de negocio transaccionales y auditadas. |
@@ -66,8 +68,6 @@ Posee las capacidades del supervisor y administra identidades, permisos, ubicaci
 ## 4. Permisos todavía por decidir
 
 - quién autoriza a un usuario para una jornada y si esa autorización puede delegarse al supervisor;
-- si un supervisor o administrador puede aprobar un conteo que él mismo realizó;
-- cómo se reasigna una corrección cuando el autor original no está disponible;
 - qué parte de la auditoría operativa puede consultar un supervisor;
 - si existen restricciones adicionales por ubicación además de la jornada;
 - método de autenticación y proceso de recuperación de cuenta.

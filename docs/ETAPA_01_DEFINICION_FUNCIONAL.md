@@ -50,11 +50,11 @@ Vivero Campo tendrá solamente funciones ligadas al trabajo de inventario:
 7. Calcular el total automáticamente sin permitir su edición manual.
 8. Guardar borradores locales durante una pérdida temporal de señal.
 9. Confirmar el resumen antes del envío.
-10. Sincronizar con una clave idempotente y mostrar `pendiente`, `sincronizando`, `enviado` o `error`.
+10. Sincronizar con una clave idempotente y mostrar `PENDIENTE`, `SINCRONIZANDO`, `ENVIADA` o `ERROR` como estados locales.
 11. Mostrar al usuario el estado de sus propios conteos.
-12. Permitir correcciones únicamente cuando el conteo del mismo usuario haya sido devuelto.
+12. Permitir correcciones únicamente sobre conteos devueltos, al autor original o al usuario que un supervisor haya reasignado formalmente.
 
-La cuenta maestra no tendrá un atajo especial: si cuenta desde Vivero Campo deberá reservar, capturar y enviar igual que cualquier auxiliar.
+La cuenta maestra tendrá rol de administrador y contará desde Vivero Campo. No tendrá un atajo especial: deberá reservar, capturar y enviar igual que cualquier auxiliar.
 
 ### Pautas de interfaz de Campo
 
@@ -69,7 +69,7 @@ La cuenta maestra no tendrá un atajo especial: si cuenta desde Vivero Campo deb
 
 ## 5. Vivero Maestro
 
-En el primer MVP, Vivero Maestro deberá:
+Vivero Maestro será una aplicación para Windows. En el primer MVP deberá:
 
 1. Autenticar y autorizar según el rol.
 2. Crear y gestionar jornadas de inventario.
@@ -79,12 +79,14 @@ En el primer MVP, Vivero Maestro deberá:
 6. Identificar reservas vigentes y líneas posiblemente abandonadas.
 7. Liberar una reserva mediante una acción explícita, justificada y auditada.
 8. Revisar el conteo enviado y su historial.
-9. Aprobar, devolver o solicitar verificación sin eliminar el original.
+9. Aprobar o devolver conteos sin eliminar el original.
 10. Aplicar una aprobación al inventario oficial mediante una transacción idempotente.
 11. Consultar el inventario oficial y su procedencia.
 12. Ofrecer búsqueda, filtros, ordenamiento, selecciones controladas y resúmenes antes de acciones críticas.
 
 La administración de usuarios, permisos, ubicaciones, configuración, auditoría, copias de seguridad y mantenimiento será exclusiva del administrador. El alcance operativo exacto de algunas de estas pantallas para el primer piloto debe decidirse antes de implementar.
+
+La verificación adicional queda fuera del primer MVP. Inicialmente, el supervisor o administrador solo podrá aprobar o devolver para corrección.
 
 ## 6. Reglas operativas obligatorias
 
@@ -105,6 +107,8 @@ La administración de usuarios, permisos, ubicaciones, configuración, auditorí
 - El total es la suma calculada; no es una entrada independiente.
 - Cada intento lógico de envío conserva la misma clave idempotente durante reintentos.
 - Recibir nuevamente la misma clave devuelve el resultado previo y no crea otra versión ni otro efecto.
+- El registro del conteo y el cambio central de `EN_CONTEO` a `PENDIENTE_REVISION` ocurren en una sola transacción.
+- `ENVIADA` es exclusivamente un estado local de sincronización; no es un estado central de la línea en Firestore.
 - Un conteo aceptado nunca actualiza por sí solo el inventario oficial.
 
 ### Revisión, corrección y aprobación
@@ -112,9 +116,11 @@ La administración de usuarios, permisos, ubicaciones, configuración, auditorí
 - El original enviado permanece inmutable.
 - Una devolución exige motivo y habilita una nueva versión vinculada a la anterior.
 - No se promedian automáticamente dos conteos ni se reemplaza silenciosamente uno con otro.
-- Solicitar verificación no cambia el inventario oficial. Su operación detallada está pendiente porque los estados suministrados no incluyen uno específico de verificación.
 - Aprobar exige autorización, estado vigente y transacción central.
 - Repetir la aprobación de la misma versión no debe aplicar el inventario dos veces.
+- El inventario oficial tiene una fotografía vigente por línea.
+- Aprobar reemplaza esa fotografía con el conteo aprobado y registra un movimiento histórico con la diferencia entre el valor anterior y el nuevo.
+- Si el administrador aprueba excepcionalmente un conteo propio, la interfaz debe advertirlo y exigir motivo; la excepción queda auditada.
 - Cada cambio de estado, liberación, revisión y aprobación genera auditoría.
 
 ### Seguridad, identidad y tiempo
@@ -125,15 +131,17 @@ La administración de usuarios, permisos, ubicaciones, configuración, auditorí
 - Los IDs globales serán opacos y no dependerán de contadores locales.
 - Módulo, cama y línea se seleccionarán desde catálogos centrales mediante IDs; no se identificarán con texto libre.
 - Se registrarán usuario, rol efectivo, dispositivo, hora declarada por el dispositivo y hora asignada por el servidor.
-- La hora del servidor gobernará reservas, orden, vencimientos, revisiones y aprobaciones.
+- La hora del servidor gobernará reservas, orden, revisiones y aprobaciones.
 - Desarrollo y producción usarán proyectos y credenciales separados.
 
 ### Consistencia del inventario
 
 - El inventario oficial tendrá una única fuente central.
+- La unidad del inventario oficial será cada línea.
 - La aprobación verificará en una transacción que la versión siga pendiente, que no haya sido aplicada y que el resultado no sea negativo.
+- Esa transacción reemplazará la fotografía oficial de la línea y registrará un ajuste histórico por categoría y total.
+- Por ejemplo, si el total anterior era `1000` y el conteo aprobado es `980`, el nuevo inventario será `980` y el movimiento histórico será `-20`.
 - Las futuras operaciones de descartes y despachos también deberán ser transaccionales e impedir inventarios negativos.
-- La política exacta para convertir un conteo aprobado en inventario oficial debe definirse antes de implementar.
 
 ## 7. Casos normales
 
@@ -143,7 +151,7 @@ La administración de usuarios, permisos, ubicaciones, configuración, auditorí
 2. Un usuario autorizado abre Vivero Campo y reserva una línea disponible.
 3. El servidor confirma que la línea quedó `EN_CONTEO` para ese usuario y dispositivo.
 4. El usuario registra las cantidades, revisa el total y confirma el envío.
-5. El servidor guarda el original, deduplica por clave idempotente y lo deja pendiente de revisión.
+5. El servidor guarda el original, deduplica por clave idempotente y cambia la línea directamente de `EN_CONTEO` a `PENDIENTE_REVISION` en la misma transacción.
 6. Un supervisor revisa y aprueba.
 7. Una transacción actualiza el inventario oficial una sola vez, marca la línea `APROBADA` y registra auditoría.
 
@@ -151,7 +159,7 @@ La administración de usuarios, permisos, ubicaciones, configuración, auditorí
 
 1. Un supervisor devuelve un conteo pendiente indicando el motivo.
 2. El original permanece inmutable y visible en el historial.
-3. El autor abre el conteo devuelto, genera una nueva versión y corrige únicamente esa versión.
+3. El autor abre el conteo devuelto y genera una nueva versión. Si está ausente, el supervisor puede reasignar la corrección a otro usuario autorizado sin cambiar la autoría del original.
 4. El nuevo envío vuelve a revisión con otra clave idempotente.
 5. La revisión compara el historial y decide sin promedios automáticos.
 
@@ -172,7 +180,7 @@ La administración de usuarios, permisos, ubicaciones, configuración, auditorí
 - **Fecha incorrecta del dispositivo:** se conserva como evidencia, pero la hora del servidor determina la secuencia.
 - **Aprobación simultánea o repetida:** una sola transacción puede aplicar la versión; los demás intentos reciben el resultado ya consolidado.
 - **Usuario desactivado o sin autorización:** no puede reservar, enviar, revisar ni aprobar, incluso si la interfaz conserva datos antiguos.
-- **Línea abandonada:** solo supervisor o administrador puede liberarla, con motivo y auditoría; el plazo y protocolo exactos están pendientes.
+- **Línea abandonada:** durante el MVP no vence automáticamente; solo supervisor o administrador puede liberarla manualmente, con motivo y auditoría.
 
 ## 9. Funciones fuera del primer MVP
 
@@ -183,8 +191,9 @@ La administración de usuarios, permisos, ubicaciones, configuración, auditorí
 - reingreso;
 - reportes avanzados;
 - explotación completa de auditoría y mantenimiento;
+- verificación adicional de conteos;
 - automatización de copias de seguridad más allá de la política mínima que se defina;
-- reserva anticipada de pequeños bloques de líneas para zonas con mala señal;
+- reserva anticipada de bloques de líneas, que no se reconsiderará hasta medir la calidad real de la señal;
 - migración de datos históricos;
 - cualquier integración no descrita expresamente.
 

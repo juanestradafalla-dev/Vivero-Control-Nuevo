@@ -9,6 +9,8 @@
 - **Versión:** nueva corrección vinculada a un conteo anterior; nunca lo sobrescribe.
 - **Inventario oficial:** única representación central vigente, modificable solo al aprobar mediante una transacción.
 
+Los estados centrales de una línea de jornada son `DISPONIBLE`, `EN_CONTEO`, `PENDIENTE_REVISION`, `DEVUELTA` y `APROBADA`. `ENVIADA` pertenece al estado local de sincronización de Vivero Campo y nunca se almacena como estado central de la línea.
+
 ## 2. Creación y activación de una jornada
 
 1. Un supervisor o administrador crea la jornada en Vivero Maestro.
@@ -63,7 +65,7 @@ Estos estados pertenecen al dispositivo y no sustituyen los estados centrales de
 
 - **PENDIENTE:** borrador confirmado localmente, esperando envío o conexión.
 - **SINCRONIZANDO:** solicitud en curso.
-- **ENVIADO:** servidor confirmó el mismo conteo y devolvió su ID y estado.
+- **ENVIADA:** servidor confirmó el mismo conteo y devolvió su ID y estado central.
 - **ERROR:** el servidor rechazó la solicitud o no fue posible completarla; se conserva el borrador y se muestra una causa accionable.
 
 ### Envío idempotente
@@ -73,10 +75,10 @@ Estos estados pertenecen al dispositivo y no sustituyen los estados centrales de
 3. El servidor valida reserva, identidad, campos, versión y permisos.
 4. Si la clave ya fue procesada, devuelve el resultado almacenado sin crear otro conteo ni otra actualización.
 5. Si el contenido cambia después de un error corregible, se crea un nuevo intento lógico con una nueva clave; no se reutiliza una clave con contenido distinto.
-6. Al aceptar el original, el servidor registra horas de dispositivo y servidor, deja la versión inmutable y cambia la línea a `ENVIADA`.
-7. El sistema incorpora el envío a la cola de revisión y cambia la línea a `PENDIENTE_REVISION`.
+6. En una sola transacción, el servidor registra las horas de dispositivo y servidor, deja la versión inmutable, marca la reserva como consumida y cambia la línea central de `EN_CONTEO` a `PENDIENTE_REVISION`.
+7. Después de confirmar esa transacción, Vivero Campo cambia el estado local a `ENVIADA`.
 
-`ENVIADA` significa que el payload fue recibido y persistido. `PENDIENTE_REVISION` significa que ya está disponible para una decisión humana. Esta separación permite detectar y reconciliar un envío persistido que, por una falla interna, aún no haya entrado a la cola de revisión.
+`ENVIADA` significa únicamente que el dispositivo recibió la confirmación del servidor. Si la respuesta se pierde, el dispositivo conserva la misma clave idempotente y consulta o reintenta; la transacción central nunca deja una línea en un estado intermedio `ENVIADA`.
 
 ## 6. Revisión
 
@@ -91,23 +93,20 @@ Un supervisor o administrador abre una línea `PENDIENTE_REVISION` y ve:
 - versiones anteriores y eventos de revisión;
 - advertencias de validación o de diferencia de reloj.
 
-Puede aprobar, devolver o solicitar verificación. Toda decisión exige confirmación y queda auditada.
-
-### Solicitud de verificación
-
-Los estados suministrados no incluyen `EN_VERIFICACION`. Para no inventar una transición, la solicitud se registra como un evento de revisión y la línea permanece `PENDIENTE_REVISION`, sin afectar el inventario. Debe definirse quién verifica, cómo se le asigna la tarea y qué resultado devuelve antes de implementar este flujo.
+En el primer MVP puede aprobar o devolver. Toda decisión exige confirmación y queda auditada. La verificación adicional queda fuera del MVP y no se implementará como acción ni como estado central.
 
 ## 7. Devolución y corrección
 
 1. El revisor indica un motivo obligatorio y devuelve la versión.
 2. La línea pasa de `PENDIENTE_REVISION` a `DEVUELTA`.
 3. El conteo original queda inmutable.
-4. Solo el autor puede iniciar la corrección prevista actualmente.
-5. Al abrirla, la línea pasa de `DEVUELTA` a `EN_CONTEO` y se crea un borrador basado en la versión previa, sin editarla.
-6. El nuevo envío crea otra versión, enlaza la anterior y recorre `ENVIADA` y `PENDIENTE_REVISION`.
-7. El revisor compara versiones; el sistema no promedia ni decide automáticamente.
+4. El autor puede iniciar la corrección. Si está ausente, un supervisor o administrador puede reasignarla mediante una acción auditada a otro usuario activo y autorizado.
+5. La reasignación conserva autor, dispositivo, contenido y revisión del conteo original; solo establece quién realizará la nueva versión.
+6. Cuando el usuario responsable abre la corrección, una transacción crea una nueva reserva exclusiva de corrección, cambia la línea de `DEVUELTA` a `EN_CONTEO` y crea un borrador basado en la versión previa, sin editarla.
+7. El nuevo envío crea otra versión, enlaza la anterior y cambia centralmente de `EN_CONTEO` a `PENDIENTE_REVISION`.
+8. El revisor compara versiones; el sistema no promedia ni decide automáticamente.
 
-Si el autor no puede corregir, el tratamiento o reasignación queda pendiente de política. Nunca se transferirá la autoría del original.
+La reasignación nunca transfiere la autoría del original ni permite editarlo.
 
 ## 8. Aprobación e inventario oficial
 
@@ -116,29 +115,33 @@ La aprobación se ejecuta en una transacción central:
 1. Valida sesión, rol y alcance del revisor.
 2. Comprueba que la línea y la versión siguen `PENDIENTE_REVISION`.
 3. Comprueba que esa versión no fue aplicada antes.
-4. Verifica que los valores sean válidos y que la operación no produzca inventario negativo.
-5. Aplica la política aprobada de consolidación al único inventario oficial.
-6. Registra la versión fuente, inventario anterior, resultado, revisor y hora del servidor.
-7. Cambia la línea a `APROBADA` y escribe el evento de auditoría.
+4. Lee la fotografía oficial vigente de esa línea y verifica que los valores sean válidos y no negativos.
+5. Calcula por categoría y total la diferencia `conteo aprobado - inventario anterior`.
+6. Reemplaza la fotografía oficial de la línea con el conteo aprobado.
+7. Registra un movimiento histórico con los valores anteriores, los nuevos y sus diferencias.
+8. Registra la versión fuente, revisor y hora del servidor.
+9. Cambia la línea a `APROBADA` y escribe el evento de auditoría.
 
 Si la misma aprobación se repite, la clave idempotente y el marcador de versión aplicada hacen que el servidor devuelva el resultado previo sin aplicar un segundo cambio.
 
-No se define aún si aprobar reemplaza la fotografía oficial de la línea o genera otro tipo de movimiento; esa política debe decidirse con los datos reales del vivero.
+Ejemplo: si la fotografía anterior tiene un total de `1000` y el conteo aprobado tiene `980`, el inventario oficial queda en `980` y el movimiento histórico registra un ajuste total de `-20`.
+
+Como excepción, un administrador puede aprobar su propio conteo. Vivero Maestro debe mostrar una advertencia explícita, exigir un motivo no vacío y registrar en auditoría que autor y aprobador son la misma cuenta. Un supervisor no puede aprobar su propio conteo.
 
 ## 9. Línea abandonada y liberación supervisada
 
-Una línea puede considerarse posiblemente abandonada si permanece `EN_CONTEO` sin actividad central conforme a una política todavía no definida. No debe liberarse automáticamente usando solo la hora del celular.
+Durante el MVP las reservas no vencen automáticamente. Una línea puede señalarse como posiblemente abandonada si permanece `EN_CONTEO`, pero solo una decisión humana puede liberarla.
 
 Procedimiento mínimo:
 
 1. Vivero Maestro muestra reserva, último contacto central, usuario y dispositivo.
-2. Un supervisor o administrador verifica la situación por el procedimiento operativo acordado.
+2. Un supervisor o administrador verifica la situación.
 3. Indica un motivo y confirma la liberación.
 4. Una transacción valida que la reserva no cambió, la marca liberada y devuelve la línea a `DISPONIBLE`.
 5. La liberación queda auditada.
 6. Un borrador tardío asociado al token anterior es rechazado como envío normal, se conserva y se presenta para recuperación supervisada; nunca sobrescribe un conteo posterior.
 
-El tiempo de abandono, avisos, contactos y posibilidad de recuperar el borrador son decisiones pendientes.
+No habrá temporizador ni liberación automática en el MVP. Los avisos y el procedimiento operativo detallado podrán definirse después de observar el piloto.
 
 ## 10. Pérdida de conexión
 
@@ -150,11 +153,11 @@ El tiempo de abandono, avisos, contactos y posibilidad de recuperar el borrador 
 
 ### Reserva anticipada de bloques
 
-Se estudiará reservar anticipadamente un bloque pequeño de líneas en zonas con mala señal. No se implementará en el primer MVP hasta definir tamaño máximo, duración, devolución de líneas no usadas, equidad entre usuarios, visibilidad y riesgo de bloqueo. Aunque fuera un bloque, cada línea necesitaría una reserva central exclusiva antes de quedar sin conexión.
+No se implementará reserva anticipada de bloques en el primer MVP. La opción solo se reconsiderará después de medir la calidad real de la señal. Si posteriormente se adopta, deberán definirse tamaño máximo, duración, devolución de líneas no usadas, equidad, visibilidad y riesgo de bloqueo; cada línea seguirá necesitando una reserva central exclusiva.
 
 ## 11. Cierre de jornada
 
-Vivero Maestro debe mostrar un resumen por estado antes de cerrar. Por defecto, no debería permitir el cierre ordinario mientras existan líneas `DISPONIBLE`, `EN_CONTEO`, `ENVIADA`, `PENDIENTE_REVISION` o `DEVUELTA`. El cierre no elimina reservas, conteos ni auditoría.
+Vivero Maestro debe mostrar un resumen por estado antes de cerrar. Por defecto, no debería permitir el cierre ordinario mientras existan líneas `DISPONIBLE`, `EN_CONTEO`, `PENDIENTE_REVISION` o `DEVUELTA`. El cierre no elimina reservas, conteos ni auditoría.
 
 La posibilidad de cierre excepcional, cancelación de líneas y reapertura requiere una política explícita antes de implementar.
 
@@ -165,15 +168,14 @@ stateDiagram-v2
     [*] --> DISPONIBLE: jornada activada
     DISPONIBLE --> EN_CONTEO: reserva transaccional confirmada
     EN_CONTEO --> DISPONIBLE: liberación supervisada y auditada
-    EN_CONTEO --> ENVIADA: payload validado y persistido
-    ENVIADA --> PENDIENTE_REVISION: ingreso a cola de revisión
+    EN_CONTEO --> PENDIENTE_REVISION: envío persistido en transacción
     PENDIENTE_REVISION --> DEVUELTA: devolución con motivo
-    DEVUELTA --> EN_CONTEO: autor inicia nueva versión
+    DEVUELTA --> EN_CONTEO: responsable inicia nueva versión
     PENDIENTE_REVISION --> APROBADA: aprobación transaccional
     APROBADA --> [*]
 ```
 
-Solicitar verificación genera un evento sin salir de `PENDIENTE_REVISION` hasta que se apruebe una política específica.
+`ENVIADA` no aparece en el diagrama porque es un estado local del dispositivo posterior a la confirmación de la transición central.
 
 ## 13. Tabla formal de transiciones
 
@@ -182,10 +184,9 @@ Solicitar verificación genera un evento sin salir de `PENDIENTE_REVISION` hasta
 | Inicio | `DISPONIBLE` | Sistema por orden de supervisor/administrador | Jornada activada y línea válida del catálogo. |
 | `DISPONIBLE` | `EN_CONTEO` | Auxiliar, supervisor o administrador desde Campo | Autorización, conexión y reserva transaccional ganada. |
 | `EN_CONTEO` | `DISPONIBLE` | Supervisor o administrador | Liberación explícita, motivo, token vigente y auditoría. |
-| `EN_CONTEO` | `ENVIADA` | Titular de la reserva | Conteo válido, token vigente, confirmación e idempotencia. |
-| `ENVIADA` | `PENDIENTE_REVISION` | Sistema | Payload persistido y cola de revisión creada. |
+| `EN_CONTEO` | `PENDIENTE_REVISION` | Titular de la reserva | Conteo válido, token vigente, persistencia y transición en una sola transacción idempotente. |
 | `PENDIENTE_REVISION` | `DEVUELTA` | Supervisor o administrador | Motivo obligatorio y versión aún pendiente. |
-| `DEVUELTA` | `EN_CONTEO` | Autor de la versión devuelta | Inicio de una nueva versión; política de reasignación pendiente. |
+| `DEVUELTA` | `EN_CONTEO` | Autor o usuario reasignado | Nueva reserva exclusiva de corrección; una reasignación previa requiere supervisor o administrador y auditoría. |
 | `PENDIENTE_REVISION` | `APROBADA` | Supervisor o administrador | Aprobación transaccional, autorizada e idempotente. |
 
-No se permiten saltos directos de `DISPONIBLE` a `ENVIADA`, de `ENVIADA` a `APROBADA`, de `DEVUELTA` a `APROBADA`, ni de `APROBADA` a otro estado sin una futura política formal de reapertura.
+No se permiten saltos directos de `DISPONIBLE` a `PENDIENTE_REVISION`, de `DEVUELTA` a `APROBADA`, ni de `APROBADA` a otro estado sin una futura política formal de reapertura.

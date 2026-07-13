@@ -4,8 +4,8 @@ Vivero Control será un sistema nuevo para administrar el inventario del vivero 
 
 ## Aplicaciones previstas
 
-- **Vivero Campo:** aplicación Android minimalista para reservar líneas, contar plantas y sincronizar conteos. Podrán usarla auxiliares y cuentas con rol de supervisor o administrador.
-- **Vivero Maestro:** aplicación administrativa orientada inicialmente a Windows para crear jornadas, supervisar el avance, revisar conteos y mantener el inventario oficial. Su plataforma y tecnología definitivas siguen pendientes de decisión.
+- **Vivero Campo:** aplicación Android minimalista para reservar líneas, contar plantas y sincronizar conteos. Podrán usarla auxiliares y la cuenta maestra con rol de administrador; todos seguirán el mismo procedimiento de reserva y conteo.
+- **Vivero Maestro:** aplicación administrativa para Windows destinada a crear jornadas, supervisar el avance, revisar conteos y mantener el inventario oficial. La tecnología de implementación sigue pendiente de decisión.
 
 Ambas aplicaciones compartirán una sola fuente central del inventario oficial y deberán usar Firebase Authentication. La arquitectura, los modelos y las reglas de acceso se diseñarán antes de implementar o configurar Firebase.
 
@@ -56,7 +56,8 @@ Las carpetas de aplicaciones, backend y pruebas permanecen deliberadamente vací
 - Una sola fuente central para el inventario oficial.
 - Identificadores globales y catálogos controlados para ubicaciones.
 - Reserva y aprobación mediante operaciones atómicas.
-- Conteos revisados antes de afectar el inventario oficial.
+- Inventario oficial por línea, actualizado únicamente mediante conteos aprobados.
+- Cada aprobación reemplaza la fotografía actual de la línea y registra la diferencia como movimiento histórico.
 - Historial de versiones y auditoría sin eliminaciones silenciosas.
 - Idempotencia para impedir efectos duplicados.
 - Trabajo temporal sin conexión después de obtener una reserva válida.

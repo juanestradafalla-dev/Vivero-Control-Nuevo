@@ -6,7 +6,7 @@ Este documento describe un modelo lógico, no colecciones de Firestore ya config
 
 - Todos los IDs globales son cadenas opacas generadas por un mecanismo global; no son autoincrementos locales.
 - `timestamp_servidor` representa una hora asignada por la fuente central.
-- `timestamp_dispositivo` se conserva como evidencia, pero no decide orden, vencimiento ni autorización.
+- `timestamp_dispositivo` se conserva como evidencia, pero no decide orden, liberación ni autorización.
 - Los campos terminados en `_id` referencian entidades canónicas; la interfaz no los reemplaza por texto manual.
 - Los catálogos y enumeraciones deberán validarse tanto en el cliente como centralmente.
 - Los campos de auditoría son inmutables una vez creados.
@@ -111,9 +111,10 @@ Debe existir como máximo una autorización activa por pareja jornada/usuario.
 | `jornada_linea_id` | string | Sí | Servidor | ID global. |
 | `jornada_id` | string | Sí | Maestro | Jornada existente. |
 | `linea_id` | string | Sí | Catálogo | Línea activa al incorporarla. |
-| `estado` | enum | Sí | Flujo central | `DISPONIBLE`, `EN_CONTEO`, `ENVIADA`, `PENDIENTE_REVISION`, `DEVUELTA` o `APROBADA`. |
+| `estado` | enum | Sí | Flujo central | `DISPONIBLE`, `EN_CONTEO`, `PENDIENTE_REVISION`, `DEVUELTA` o `APROBADA`. |
 | `reserva_activa_id` | string | No | Transacción de reserva | Nulo salvo durante una reserva vigente. |
 | `conteo_vigente_id` | string | No | Sincronización | Referencia a la versión más reciente aceptada. |
+| `responsable_correccion_usuario_id` | string | No | Devolución/reasignación | Autor original o usuario autorizado al que un supervisor reasignó la corrección. |
 | `version` | number | Sí | Servidor | Control de concurrencia; aumenta en transiciones. |
 | `actualizada_en_servidor` | timestamp | Sí | Servidor | Hora de la última transición. |
 
@@ -124,7 +125,7 @@ Debe existir una sola relación por jornada/línea.
 | Campo | Tipo | Req. | Origen | Validación |
 |---|---|:---:|---|---|
 | `reserva_id` | string | Sí | Servidor | ID global. |
-| `jornada_linea_id` | string | Sí | Solicitud | Línea de jornada existente y disponible. |
+| `jornada_linea_id` | string | Sí | Solicitud | Línea `DISPONIBLE` para conteo normal o `DEVUELTA` para una corrección autorizada. |
 | `usuario_id` | string | Sí | Sesión | Autenticado, activo y autorizado. |
 | `rol_efectivo` | enum | Sí | Autorización central | Rol válido en el momento de reservar. |
 | `dispositivo_id` | string | Sí | Aplicación | Dispositivo válido según política pendiente. |
@@ -137,7 +138,7 @@ Debe existir una sola relación por jornada/línea.
 | `liberada_por_usuario_id` | string | No | Sesión | Supervisor/administrador que liberó. |
 | `motivo_liberacion` | string | No | Supervisor/administrador | Obligatorio si se libera manualmente. |
 
-La duración o expiración automática no se define todavía.
+En el primer MVP una reserva no vence automáticamente. Solo supervisor o administrador puede liberarla manualmente con motivo y auditoría.
 
 ## 10. Conteo y versiones
 
@@ -147,8 +148,8 @@ Cada corrección crea otro registro. No se sobrescribe una versión existente.
 |---|---|:---:|---|---|
 | `conteo_id` | string | Sí | Servidor | ID global. |
 | `jornada_linea_id` | string | Sí | Reserva/formulario | Relación existente. |
-| `reserva_id` | string | Sí | Formulario | Debe pertenecer al autor y línea. |
-| `usuario_id` | string | Sí | Sesión | Titular de la reserva o autor habilitado para corregir. |
+| `reserva_id` | string | Sí | Formulario | Debe pertenecer al usuario responsable y a la línea; las correcciones crean una nueva reserva exclusiva. |
+| `usuario_id` | string | Sí | Sesión | Titular de la reserva, autor habilitado para corregir o usuario al que se reasignó la corrección. |
 | `rol_efectivo` | enum | Sí | Servidor | Rol central al enviar. |
 | `dispositivo_id` | string | Sí | Aplicación | Coincide con la trazabilidad del borrador. |
 | `hembras` | integer | Sí | Usuario | Mayor o igual a cero. |
@@ -165,28 +166,31 @@ Cada corrección crea otro registro. No se sobrescribe una versión existente.
 
 Una clave de envío no puede asociarse a dos payloads diferentes.
 
+La creación del conteo, el consumo de la reserva y el cambio central de la línea desde `EN_CONTEO` hasta `PENDIENTE_REVISION` se realizan en una sola transacción. `ENVIADA` no es un valor de esta entidad; pertenece únicamente al borrador local.
+
 ## 11. Decisión de revisión
 
 | Campo | Tipo | Req. | Origen | Validación |
 |---|---|:---:|---|---|
 | `revision_id` | string | Sí | Servidor | ID global. |
 | `conteo_id` | string | Sí | Maestro | Versión existente. |
-| `decision` | enum | Sí | Revisor | `APROBAR`, `DEVOLVER` o `SOLICITAR_VERIFICACION`. |
-| `motivo` | string | Cond. | Revisor | Obligatorio al devolver o pedir verificación. |
+| `decision` | enum | Sí | Revisor | `APROBAR` o `DEVOLVER` en el primer MVP. |
+| `motivo` | string | Cond. | Revisor | Obligatorio al devolver y al aprobar un conteo propio como administrador. |
 | `revisor_usuario_id` | string | Sí | Sesión | Supervisor o administrador autorizado. |
 | `rol_efectivo` | enum | Sí | Servidor | Rol central al decidir. |
+| `autorrevision_excepcional` | boolean | Sí | Servidor | Verdadero solo si un administrador aprueba su propio conteo. |
 | `idempotencia_revision` | string | Sí | Maestro | Única por acción lógica. |
 | `timestamp_dispositivo` | timestamp | Sí | Dispositivo | Evidencia. |
 | `timestamp_servidor` | timestamp | Sí | Servidor | Autoritativa. |
 
-La separación entre autor y aprobador está pendiente.
+Un supervisor no puede aprobar su propio conteo. Un administrador sí puede hacerlo excepcionalmente con advertencia, motivo obligatorio y auditoría.
 
 ## 12. Inventario oficial
 
 | Campo | Tipo | Req. | Origen | Validación |
 |---|---|:---:|---|---|
-| `inventario_id` | string | Sí | Servidor | ID global; granularidad pendiente. |
-| `linea_id` | string | Sí* | Catálogo | Requerido si la unidad oficial se confirma por línea. |
+| `inventario_id` | string | Sí | Servidor | ID global de la fotografía oficial. |
+| `linea_id` | string | Sí | Catálogo | Unidad oficial; debe ser único entre fotografías vigentes. |
 | `hembras` | integer | Sí | Transacción | Mayor o igual a cero. |
 | `machos` | integer | Sí | Transacción | Mayor o igual a cero. |
 | `patrones` | integer | Sí | Transacción | Mayor o igual a cero. |
@@ -196,23 +200,29 @@ La separación entre autor y aprobador está pendiente.
 | `actualizado_por_usuario_id` | string | Sí | Aprobación | Revisor que aprobó. |
 | `actualizado_en_servidor` | timestamp | Sí | Servidor | Autoritativa. |
 
-`Sí*` depende de confirmar la granularidad del inventario oficial. La política de reemplazo o movimiento debe definirse antes de implementar.
+Existe una sola fotografía oficial vigente por línea. Una aprobación reemplaza sus cantidades con el conteo aprobado; nunca suma el conteo al inventario anterior.
 
-## 13. Aplicación de inventario
+## 13. Movimiento histórico de ajuste por conteo
 
-Registro inmutable que vuelve auditable e idempotente la aprobación.
+Registro inmutable que conserva la diferencia aplicada al reemplazar la fotografía oficial y vuelve auditable e idempotente la aprobación.
 
 | Campo | Tipo | Req. | Origen | Validación |
 |---|---|:---:|---|---|
-| `aplicacion_id` | string | Sí | Servidor | ID global. |
+| `movimiento_id` | string | Sí | Servidor | ID global. |
 | `conteo_id` | string | Sí | Aprobación | Único: un conteo se aplica como máximo una vez. |
-| `inventario_id` | string | Sí | Transacción | Unidad oficial afectada. |
+| `inventario_id` | string | Sí | Transacción | Fotografía oficial afectada. |
+| `linea_id` | string | Sí | Transacción | Misma línea del conteo y del inventario. |
+| `tipo_movimiento` | enum | Sí | Servidor | `AJUSTE_POR_CONTEO_APROBADO`. |
 | `inventario_version_anterior` | number | Sí | Transacción | Debe coincidir al escribir. |
 | `valores_anteriores` | map | Sí | Servidor | Fotografía inmutable. |
-| `valores_resultantes` | map | Sí | Servidor | Sin negativos y coherente con el conteo. |
+| `valores_nuevos` | map | Sí | Servidor | Coinciden exactamente con el conteo aprobado y no contienen negativos. |
+| `diferencias` | map | Sí | Servidor | Para cada categoría: valor nuevo menos valor anterior. |
+| `diferencia_total` | integer | Sí | Servidor | Total nuevo menos total anterior; puede ser negativo, cero o positivo. |
 | `aprobada_por_usuario_id` | string | Sí | Sesión | Actor autorizado. |
 | `idempotencia_aprobacion` | string | Sí | Maestro | Única para la acción lógica. |
 | `timestamp_servidor` | timestamp | Sí | Servidor | Autoritativa. |
+
+Ejemplo: total anterior `1000`, total nuevo `980`, `diferencia_total = -20`.
 
 ## 14. Evento de auditoría
 
@@ -227,7 +237,7 @@ Registro inmutable que vuelve auditable e idempotente la aprobación.
 | `dispositivo_id` | string | No | Aplicación | Se registra cuando exista. |
 | `antes` | map | No | Servidor | Datos mínimos necesarios, sin secretos. |
 | `despues` | map | No | Servidor | Datos mínimos necesarios, sin secretos. |
-| `motivo` | string | No | Actor | Obligatorio según acción. |
+| `motivo` | string | No | Actor | Obligatorio según acción, incluida la autorrevisión administrativa excepcional. |
 | `timestamp_dispositivo` | timestamp | No | Dispositivo | Evidencia. |
 | `timestamp_servidor` | timestamp | Sí | Servidor | Inmutable y autoritativa. |
 | `correlacion_id` | string | Sí | Flujo central | Agrupa eventos de una operación. |
@@ -250,7 +260,7 @@ Entidad exclusiva del dispositivo hasta sincronizar; no es inventario oficial.
 | `machos` | integer | Sí | Usuario | Mayor o igual a cero. |
 | `patrones` | integer | Sí | Usuario | Mayor o igual a cero. |
 | `observaciones` | string | No | Usuario | Reglas pendientes. |
-| `estado_sincronizacion` | enum | Sí | Aplicación | `PENDIENTE`, `SINCRONIZANDO`, `ENVIADO` o `ERROR`. |
+| `estado_sincronizacion` | enum | Sí | Aplicación | `PENDIENTE`, `SINCRONIZANDO`, `ENVIADA` o `ERROR`. |
 | `idempotencia_envio` | string | No | Aplicación | Se fija al confirmar el envío lógico. |
 | `actualizado_en_dispositivo` | timestamp | Sí | Dispositivo | No es autoritativo centralmente. |
 | `ultimo_error_codigo` | string | No | Aplicación/servidor | Código controlado, sin secretos. |
@@ -266,6 +276,6 @@ No se han definido ni inferido:
 - valores iniciales del inventario;
 - identificadores de proyectos Firebase;
 - nombres físicos de colecciones o rutas;
-- umbrales de abandono, diferencia de reloj o longitud de textos;
+- umbrales informativos de inactividad, diferencia de reloj o longitud de textos;
 - cantidad de líneas para una futura reserva anticipada;
 - política de migración ni correspondencias con datos antiguos.

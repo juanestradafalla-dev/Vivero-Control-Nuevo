@@ -66,7 +66,7 @@ Debe probarse también un cierre abrupto durante una escritura local para asegur
 ## 6. Línea abandonada
 
 - La aplicación Maestro la señala usando el último contacto del servidor, no la hora local.
-- No se libera automáticamente hasta aprobar una política de tiempo y avisos.
+- Durante el MVP no existe vencimiento ni liberación automática.
 - Solo supervisor o administrador puede liberarla.
 - Se exige motivo, confirmación y auditoría.
 - La transacción comprueba que la reserva observada aún sea la activa.
@@ -78,17 +78,19 @@ Debe probarse también un cierre abrupto durante una escritura local para asegur
 - La devolución solo opera sobre la versión todavía `PENDIENTE_REVISION`.
 - Exige un motivo visible al autor.
 - La versión original queda inmutable.
-- Solo el autor puede iniciar la corrección prevista.
+- El autor puede iniciar la corrección prevista.
+- Si el autor está ausente, un supervisor o administrador puede reasignarla a otro usuario activo y autorizado.
+- La reasignación conserva la autoría y el contenido del original y queda auditada.
 - La corrección genera nueva versión y nueva clave idempotente.
 - La nueva versión referencia la anterior.
 - El inventario oficial no cambia durante la devolución ni durante la corrección.
-- Si el autor no está disponible, se bloquea la reasignación hasta que exista una política autorizada.
 
 ## 8. Aprobación repetida o simultánea
 
 - La aprobación comprueba estado, versión de línea, versión de inventario y marcador de aplicación.
 - Una sola transacción aplica el conteo y marca `APROBADA`.
-- Un reintento con la misma clave devuelve la aplicación previa.
+- Esa transacción reemplaza la fotografía oficial de la línea y registra un movimiento con valores anteriores, nuevos y diferencias.
+- Un reintento con la misma clave devuelve el resultado de aprobación y el movimiento histórico previos.
 - Otra clave para la misma versión detecta que ya fue aplicada y no suma, resta ni reemplaza de nuevo.
 - Un intento de aprobar una versión devuelta, obsoleta o de otra jornada se rechaza.
 - Un fallo no puede dejar el inventario actualizado y la línea sin aprobar, ni al contrario.
@@ -98,7 +100,7 @@ Debe probarse también un cierre abrupto durante una escritura local para asegur
 - Se registran la hora del dispositivo y la del servidor.
 - La hora del servidor gobierna orden, reservas, abandono, revisión y aprobación.
 - La interfaz advierte una diferencia relevante cuando se defina el umbral.
-- Una fecha local futura o pasada no permite extender una reserva, adelantarse en la cola ni alterar auditoría.
+- Una fecha local futura o pasada no permite alterar una reserva, adelantarse en la cola ni modificar auditoría.
 - La diferencia no destruye el conteo; queda como señal para revisión y soporte.
 
 El umbral de advertencia y si bloquea alguna acción siguen pendientes.
@@ -128,7 +130,7 @@ La denegación ocurre centralmente, no filtra datos ajenos y queda auditada cuan
 - La aprobación rechaza cualquier resultado oficial negativo.
 - Los límites numéricos máximos se fijarán con datos reales, no se inventan en esta etapa.
 
-Un total cero es técnicamente no negativo, pero debe decidirse si exige observación o verificación.
+Un total cero es técnicamente no negativo, pero debe decidirse si exige observación u otro control.
 
 ## 12. Otros casos que debe cubrir el MVP
 
@@ -140,9 +142,9 @@ La transacción que valide primero define el resultado. Nunca pueden quedar a la
 
 Toda operación vuelve a leer el estado central. Una pantalla desactualizada no puede reservar ni enviar contra una jornada cerrada.
 
-### Conteo recibido pero no colocado en revisión
+### Respuesta de envío perdida
 
-Una línea que quede `ENVIADA` debe ser detectable y reconciliable por un proceso seguro e idempotente hacia `PENDIENTE_REVISION`. No se pide al usuario reenviar con otra clave.
+`ENVIADA` solo existe localmente. El servidor registra el conteo y cambia la línea de `EN_CONTEO` a `PENDIENTE_REVISION` en una sola transacción. Si el dispositivo no recibe la respuesta, consulta o reintenta con la misma clave idempotente y recupera el resultado sin crear otra versión.
 
 ### Cambio de usuario en el mismo dispositivo
 
@@ -160,9 +162,13 @@ No entra en jornadas nuevas. Si ya tiene historia o una jornada activa, el siste
 
 Campo refresca el catálogo antes de reservar. Un borrador existente conserva los IDs originales y no los sustituye automáticamente por textos o nuevas ubicaciones.
 
-### Solicitud de verificación repetida
+### Autorrevisión administrativa excepcional
 
-Debe deduplicarse mediante idempotencia, conservar motivos y dejar la línea pendiente. El actor responsable y el resultado de la verificación están pendientes.
+Un supervisor no puede aprobar su propio conteo. Si un administrador intenta hacerlo, Maestro muestra una advertencia, exige un motivo y registra explícitamente la coincidencia entre autor y aprobador. Sin cualquiera de esas condiciones, la aprobación se rechaza.
+
+### Reserva anticipada de bloques
+
+No forma parte del MVP. Las pruebas deben confirmar que ningún cliente puede reservar un bloque mediante rutas alternativas. La opción solo se reconsidera después de medir la calidad real de la señal.
 
 ## 13. Evidencia mínima de prueba
 
@@ -172,6 +178,6 @@ Cada caso debe producir:
 - acciones y actores identificados;
 - resultado visible esperado;
 - estado central final;
-- número esperado de conteos, versiones y aplicaciones;
+- número esperado de conteos, versiones y movimientos históricos;
 - evento de auditoría correspondiente;
 - comprobación de que el inventario oficial no cambió cuando no debía.

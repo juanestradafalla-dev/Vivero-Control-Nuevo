@@ -1,16 +1,34 @@
 import type {
-  CountOperationRequest,
-  LineOperationRequest,
+  ApproveCountRequest,
   OperationResult,
-  ReviewOperationRequest
+  ReleaseLineRequest,
+  ReserveLineRequest,
+  ReturnCountRequest,
+  SubmitCountRequest,
+  TrustedOperationContext
 } from "./contracts.js";
 
 export interface CriticalOperations {
-  reservarLinea(request: LineOperationRequest): Promise<OperationResult>;
-  enviarConteo(request: CountOperationRequest): Promise<OperationResult>;
-  liberarLinea(request: LineOperationRequest): Promise<OperationResult>;
-  devolverConteo(request: ReviewOperationRequest): Promise<OperationResult>;
-  aprobarConteo(request: ReviewOperationRequest): Promise<OperationResult>;
+  reservarLinea(
+    request: ReserveLineRequest,
+    context: TrustedOperationContext
+  ): Promise<OperationResult>;
+  enviarConteo(
+    request: SubmitCountRequest,
+    context: TrustedOperationContext
+  ): Promise<OperationResult>;
+  liberarLinea(
+    request: ReleaseLineRequest,
+    context: TrustedOperationContext
+  ): Promise<OperationResult>;
+  devolverConteo(
+    request: ReturnCountRequest,
+    context: TrustedOperationContext
+  ): Promise<OperationResult>;
+  aprobarConteo(
+    request: ApproveCountRequest,
+    context: TrustedOperationContext
+  ): Promise<OperationResult>;
 }
 
 export class OperationUnavailableError extends Error {
@@ -23,23 +41,38 @@ export class OperationUnavailableError extends Error {
 }
 
 export class UnavailableCriticalOperations implements CriticalOperations {
-  reservarLinea(_request: LineOperationRequest): Promise<OperationResult> {
+  reservarLinea(
+    _request: ReserveLineRequest,
+    _context: TrustedOperationContext
+  ): Promise<OperationResult> {
     return this.unavailable("reservarLinea");
   }
 
-  enviarConteo(_request: CountOperationRequest): Promise<OperationResult> {
+  enviarConteo(
+    _request: SubmitCountRequest,
+    _context: TrustedOperationContext
+  ): Promise<OperationResult> {
     return this.unavailable("enviarConteo");
   }
 
-  liberarLinea(_request: LineOperationRequest): Promise<OperationResult> {
+  liberarLinea(
+    _request: ReleaseLineRequest,
+    _context: TrustedOperationContext
+  ): Promise<OperationResult> {
     return this.unavailable("liberarLinea");
   }
 
-  devolverConteo(_request: ReviewOperationRequest): Promise<OperationResult> {
+  devolverConteo(
+    _request: ReturnCountRequest,
+    _context: TrustedOperationContext
+  ): Promise<OperationResult> {
     return this.unavailable("devolverConteo");
   }
 
-  aprobarConteo(_request: ReviewOperationRequest): Promise<OperationResult> {
+  aprobarConteo(
+    _request: ApproveCountRequest,
+    _context: TrustedOperationContext
+  ): Promise<OperationResult> {
     return this.unavailable("aprobarConteo");
   }
 

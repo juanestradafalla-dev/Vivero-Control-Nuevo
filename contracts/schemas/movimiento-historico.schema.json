@@ -2,18 +2,51 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vivero-control.local/contracts/schemas/movimiento-historico.schema.json",
   "title": "Movimiento histórico",
-  "description": "Registro inmutable creado al reemplazar la fotografía oficial; diferencia = valorNuevo - valorAnterior.",
+  "description": "Registro inmutable creado al reemplazar la fotografía oficial. Cada diferencia equivale al valor nuevo menos el anterior.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "lineaId", "conteoAprobadoId", "valorAnterior", "valorNuevo", "diferencia", "claveIdempotencia", "creadoEn"],
+  "required": [
+    "id",
+    "lineaId",
+    "conteoAprobadoId",
+    "valoresAnteriores",
+    "valoresNuevos",
+    "diferencias",
+    "claveIdempotencia",
+    "creadoEn"
+  ],
   "properties": {
     "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "lineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "conteoAprobadoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
-    "valorAnterior": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
-    "valorNuevo": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
-    "diferencia": {"type": "integer"},
+    "valoresAnteriores": {"$ref": "#/$defs/valoresNoNegativos"},
+    "valoresNuevos": {"$ref": "#/$defs/valoresNoNegativos"},
+    "diferencias": {"$ref": "#/$defs/diferencias"},
     "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"},
     "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  },
+  "$defs": {
+    "valoresNoNegativos": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hembras", "machos", "patrones", "total"],
+      "properties": {
+        "hembras": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+        "machos": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+        "patrones": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+        "total": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"}
+      }
+    },
+    "diferencias": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hembras", "machos", "patrones", "total"],
+      "properties": {
+        "hembras": {"type": "integer"},
+        "machos": {"type": "integer"},
+        "patrones": {"type": "integer"},
+        "total": {"type": "integer"}
+      }
+    }
   }
 }

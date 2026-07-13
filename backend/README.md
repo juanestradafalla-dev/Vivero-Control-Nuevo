@@ -21,11 +21,15 @@ npm run typecheck
 npm test
 npm run build
 npm run test:rules:emulator
+npm audit --omit=dev
 ```
 
 El último comando utiliza exclusivamente el proyecto ficticio
 `demo-vivero-control-tests` y arranca el emulador local de Firestore. Las reglas
 de la ETAPA 2 rechazan toda lectura y escritura, incluso sin autenticación.
+
+Las alertas conocidas de dependencias se mantienen en
+[`docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md`](../docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md).
 
 ## Configuración futura
 

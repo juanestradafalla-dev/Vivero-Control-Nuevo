@@ -1,0 +1,15 @@
+{
+  "id": "conteo-ejemplo-003",
+  "jornadaLineaId": "jornada-linea-ejemplo-001",
+  "reservaId": "reserva-ejemplo-001",
+  "autorUsuarioId": "usuario-ejemplo-001",
+  "rolEfectivo": "AUXILIAR",
+  "dispositivoId": "dispositivo-ejemplo-001",
+  "hembras": -1,
+  "machos": 2,
+  "patrones": 1,
+  "total": 2,
+  "versionNumero": 1,
+  "claveIdempotencia": "conteo-ejemplo-clave-003",
+  "creadoEn": "2026-07-13T12:00:00.000Z"
+}

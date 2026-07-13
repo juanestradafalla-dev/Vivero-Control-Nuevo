@@ -63,7 +63,10 @@ instaladores.
 ### Contratos
 
 ```powershell
-node contracts/validate.mjs
+Set-Location contracts
+npm ci
+npm run validate
+npm test
 ```
 
 ### Vivero Campo
@@ -128,6 +131,7 @@ no exporta operaciones de negocio. No use un ID real ni ejecute `firebase deploy
 - [Arquitectura general](docs/arquitectura/ARQUITECTURA_GENERAL.md)
 - [Estrategia offline](docs/arquitectura/ESTRATEGIA_OFFLINE.md)
 - [Seguridad](docs/arquitectura/SEGURIDAD.md)
+- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
 - [ADR-001: Android con Kotlin y Compose](docs/adr/ADR-001-ANDROID-KOTLIN-COMPOSE.md)
 - [ADR-002: Electron, React y TypeScript](docs/adr/ADR-002-ELECTRON-REACT-TYPESCRIPT.md)
 - [ADR-003: Firebase y emuladores](docs/adr/ADR-003-FIREBASE-Y-EMULADORES.md)

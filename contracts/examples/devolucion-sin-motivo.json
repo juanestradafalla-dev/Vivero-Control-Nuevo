@@ -1,0 +1,10 @@
+{
+  "id": "decision-ejemplo-001",
+  "conteoId": "conteo-ejemplo-001",
+  "revisorUsuarioId": "usuario-supervisor-ejemplo-001",
+  "decision": "DEVOLVER",
+  "autorrevisionAdministrativa": false,
+  "claveIdempotencia": "decision-ejemplo-clave-001",
+  "decididaEn": "2026-07-13T12:00:00.000Z",
+  "eventoAuditoriaId": "auditoria-ejemplo-001"
+}

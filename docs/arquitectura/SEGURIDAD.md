@@ -23,6 +23,12 @@ oficial ni sus movimientos históricos.
   limita el preload a una operación de solo lectura y rechaza navegación,
   ventanas nuevas y permisos.
 - Datos, parámetros y timestamps enviados por los clientes son no confiables.
+- Los DTO del cliente no incluyen actor, rol efectivo, permisos ni timestamp
+  del servidor. Authentication y las fuentes centrales construyen un contexto
+  interno separado antes de invocar una operación crítica.
+- La CSP de Maestro bloquea `object-src`, `base-uri` y `form-action`. Las
+  conexiones locales de Vite son exclusivas de desarrollo y deben eliminarse
+  de la política final de producción cuando no sean necesarias.
 
 ## Secretos y ambientes
 
@@ -43,3 +49,6 @@ eventos siguen pendientes de política.
 No hay seguridad de producción implícita: no existe un backend funcional ni un
 proyecto real. La denegación total evita que el esqueleto accidentalmente deje
 datos abiertos mientras se implementan autenticación y permisos.
+
+Las alertas conocidas y su condición previa al despliegue están registradas en
+[Dependencias y riesgos](DEPENDENCIAS_Y_RIESGOS.md).

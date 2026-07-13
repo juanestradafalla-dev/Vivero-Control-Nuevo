@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vivero-control.local/contracts/schemas/decision-revision.schema.json",
   "title": "Decisión de revisión",
+  "description": "Las condiciones estructurales del motivo se validan aquí; la autorización administrativa real siempre se comprueba en el backend.",
   "type": "object",
   "additionalProperties": false,
   "required": ["id", "conteoId", "revisorUsuarioId", "decision", "autorrevisionAdministrativa", "claveIdempotencia", "decididaEn", "eventoAuditoriaId"],
@@ -18,8 +19,12 @@
   },
   "allOf": [
     {
+      "if": {"properties": {"decision": {"const": "DEVOLVER"}}},
+      "then": {"properties": {"motivo": {}}, "required": ["motivo"]}
+    },
+    {
       "if": {"properties": {"autorrevisionAdministrativa": {"const": true}}},
-      "then": {"required": ["motivo"]}
+      "then": {"properties": {"motivo": {}}, "required": ["motivo"]}
     }
   ]
 }

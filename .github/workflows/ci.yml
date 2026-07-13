@@ -13,12 +13,19 @@ jobs:
   contracts:
     name: Contratos compartidos
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts
     steps:
       - uses: actions/checkout@v7.0.0
       - uses: actions/setup-node@v6.4.0
         with:
           node-version: 22
-      - run: node contracts/validate.mjs
+          cache: npm
+          cache-dependency-path: contracts/package-lock.json
+      - run: npm ci
+      - run: npm run validate
+      - run: npm test
 
   android:
     name: Vivero Campo
@@ -59,6 +66,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - run: npm audit --omit=dev --audit-level=high
 
   backend:
     name: Backend y reglas
@@ -83,3 +91,4 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run test:rules:emulator
+      - run: npm audit --omit=dev --audit-level=high

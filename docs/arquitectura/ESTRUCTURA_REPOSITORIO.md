@@ -23,7 +23,10 @@ Los comandos se ejecutan desde la raíz, salvo indicación contraria.
 ### Contratos
 
 ```powershell
-node contracts/validate.mjs
+Set-Location contracts
+npm ci
+npm run validate
+npm test
 ```
 
 ### Vivero Campo

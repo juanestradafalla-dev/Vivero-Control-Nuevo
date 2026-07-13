@@ -16,10 +16,16 @@ export const expectedSchemas = [
   "decision-revision.schema.json",
   "inventario-oficial-linea.schema.json",
   "movimiento-historico.schema.json",
-  "evento-auditoria.schema.json"
+  "evento-auditoria.schema.json",
+  "reserve-line-request.schema.json",
+  "reserve-line-result.schema.json",
+  "error-controlado.schema.json",
+  "jornada-autorizacion.schema.json",
+  "resultado-idempotente.schema.json"
 ];
 
 export const expectedEnums = new Map([
+  ["estados-jornada.json", ["ACTIVA", "INACTIVA"]],
   ["estados-linea.json", ["DISPONIBLE", "EN_CONTEO", "PENDIENTE_REVISION", "DEVUELTA", "APROBADA"]],
   ["estados-sincronizacion.json", ["PENDIENTE", "SINCRONIZANDO", "ENVIADA", "ERROR"]],
   ["estados-reserva.json", ["ACTIVA", "CONSUMIDA", "LIBERADA"]],
@@ -65,7 +71,7 @@ export async function createSchemaRegistry() {
   for (const [filename, values] of expectedEnums) {
     const document = documents.find((candidate) => candidate.key === `enums/${filename}`);
     if (JSON.stringify(document?.schema.enum) !== JSON.stringify(values)) {
-      throw new Error(`Los valores de enums/${filename} no coinciden con la ETAPA 2`);
+      throw new Error(`Los valores de enums/${filename} no coinciden con los contratos aprobados`);
     }
   }
 

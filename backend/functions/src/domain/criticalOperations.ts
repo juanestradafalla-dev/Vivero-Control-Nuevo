@@ -3,6 +3,7 @@ import type {
   OperationResult,
   ReleaseLineRequest,
   ReserveLineRequest,
+  ReserveLineResult,
   ReturnCountRequest,
   SubmitCountRequest,
   TrustedOperationContext
@@ -12,7 +13,7 @@ export interface CriticalOperations {
   reservarLinea(
     request: ReserveLineRequest,
     context: TrustedOperationContext
-  ): Promise<OperationResult>;
+  ): Promise<ReserveLineResult>;
   enviarConteo(
     request: SubmitCountRequest,
     context: TrustedOperationContext
@@ -35,7 +36,7 @@ export class OperationUnavailableError extends Error {
   readonly code = "ETAPA_2_NOT_AVAILABLE";
 
   constructor(operation: string) {
-    super(`La operación ${operation} no está disponible en la ETAPA 2.`);
+    super(`La operación ${operation} no está disponible en la etapa actual.`);
     this.name = "OperationUnavailableError";
   }
 }
@@ -44,7 +45,7 @@ export class UnavailableCriticalOperations implements CriticalOperations {
   reservarLinea(
     _request: ReserveLineRequest,
     _context: TrustedOperationContext
-  ): Promise<OperationResult> {
+  ): Promise<ReserveLineResult> {
     return this.unavailable("reservarLinea");
   }
 

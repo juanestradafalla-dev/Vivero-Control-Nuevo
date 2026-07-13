@@ -11,7 +11,10 @@
 | `backend/` | Reglas, índices y configuración de emuladores. |
 | `contracts/enums/` | Estados y roles aprobados. |
 | `contracts/schemas/` | Entidades compartidas en JSON Schema. |
+| `data/templates/` | Plantillas vacías para el levantamiento futuro de datos reales. |
 | `docs/arquitectura/` | Vista técnica transversal. |
+| `docs/datos/` | Instrucciones para preparar datos sin incorporarlos todavía. |
+| `docs/pruebas/` | Evidencia y diseño de pruebas integradas. |
 | `docs/adr/` | Decisiones de arquitectura y sus consecuencias. |
 | `docs/` | Definición funcional conservada de la ETAPA 1. |
 | `tests/` | Punto de entrada para pruebas integrales futuras. |
@@ -58,8 +61,9 @@ npm run lint
 npm run typecheck
 npm test
 npm run build
-npm run test:rules:emulator
+npm run test:emulators
 ```
 
-La última orden usa Java y el emulador local con un identificador de proyecto
-ficticio. Ninguna orden configura o despliega Firebase real.
+La última orden inicia Auth, Firestore y Functions Emulator con un identificador
+de proyecto ficticio, carga el seed y ejecuta integración y reglas. Ninguna
+orden configura o despliega Firebase real.

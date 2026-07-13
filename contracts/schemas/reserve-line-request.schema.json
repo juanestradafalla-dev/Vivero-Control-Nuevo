@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/reserve-line-request.schema.json",
+  "title": "ReserveLineRequest",
+  "description": "Único payload admitido desde un cliente para reservarLinea. La identidad, el rol, los permisos y el tiempo se obtienen centralmente.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["jornadaLineaId", "dispositivoId", "claveIdempotencia"],
+  "properties": {
+    "jornadaLineaId": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+    "dispositivoId": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}
+  }
+}

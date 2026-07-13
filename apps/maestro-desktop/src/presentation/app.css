@@ -6,9 +6,7 @@
   text-rendering: optimizeLegibility;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
@@ -16,134 +14,161 @@ body {
   min-height: 100vh;
 }
 
-button,
-input {
-  font: inherit;
+button, input { font: inherit; }
+
+.app-shell { min-height: 100vh; }
+
+.topbar {
+  display: flex;
+  min-height: 80px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px clamp(20px, 5vw, 72px);
+  color: #f5fff7;
+  background: #0b3d2e;
 }
 
-.app-shell {
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  min-height: 100vh;
+.topbar > div, .session {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
-.sidebar {
-  padding: 36px 24px;
-  color: #f4fbf5;
-  background: linear-gradient(160deg, #0b3d2e 0%, #17613d 100%);
-}
+.topbar strong, .topbar small { display: block; }
+.topbar small { margin-top: 3px; color: #bcd6c4; }
 
 .brand-mark {
   display: grid;
-  width: 48px;
-  height: 48px;
+  width: 46px;
+  height: 46px;
   place-items: center;
   border: 1px solid rgb(255 255 255 / 32%);
-  border-radius: 16px;
-  background: rgb(255 255 255 / 12%);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 10%);
   font-weight: 800;
 }
 
-.brand-name {
-  margin: 16px 0 44px;
-  font-size: 1.05rem;
-  font-weight: 700;
+.environment-banner {
+  padding: 8px 20px;
+  color: #443505;
+  background: #f7cf4a;
+  text-align: center;
+  font-size: .78rem;
+  font-weight: 900;
+  letter-spacing: .12em;
 }
 
-.sidebar nav {
-  display: grid;
-  gap: 10px;
-}
+.environment-banner--danger { color: #fff; background: #9e1d1d; }
 
-.nav-placeholder {
-  padding: 11px 12px;
-  border-radius: 10px;
-  color: rgb(255 255 255 / 72%);
-  background: rgb(255 255 255 / 5%);
-}
-
-.content {
-  align-self: center;
-  width: min(900px, calc(100% - 64px));
+.login-panel, .monitor {
+  width: min(1120px, calc(100% - 40px));
   margin: 0 auto;
+  padding: 56px 0 72px;
 }
+
+.login-panel { max-width: 480px; }
 
 .eyebrow {
   margin: 0 0 8px;
   color: #2e7d32;
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.13em;
+  font-size: .76rem;
+  font-weight: 900;
+  letter-spacing: .14em;
 }
 
-h1 {
-  margin: 0 0 32px;
-  color: #0b3d2e;
-  font-size: clamp(2.25rem, 5vw, 4.4rem);
-  line-height: 1;
-}
+h1 { margin: 0; color: #0b3d2e; font-size: clamp(2rem, 4vw, 3.7rem); line-height: 1.05; }
 
-.status-grid {
+.login-panel > p:not(.eyebrow) { color: #617269; line-height: 1.6; }
+
+form {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
-}
-
-.status-card {
-  display: grid;
-  min-height: 170px;
-  align-content: space-between;
-  padding: 26px;
+  margin-top: 30px;
+  padding: 28px;
   border: 1px solid #d6e5d8;
-  border-radius: 22px;
+  border-radius: 20px;
   background: #fff;
-  box-shadow: 0 16px 45px rgb(29 74 48 / 8%);
+  box-shadow: 0 18px 48px rgb(29 74 48 / 9%);
 }
 
-.status-card span {
-  color: #617269;
-  font-size: 0.9rem;
+label { display: grid; gap: 7px; color: #334e41; font-size: .9rem; font-weight: 700; }
+
+input {
+  width: 100%;
+  padding: 12px 13px;
+  border: 1px solid #b8ccbd;
+  border-radius: 9px;
+  color: #17352a;
+  background: #fff;
 }
 
-.status-card strong {
-  max-width: 18ch;
-  color: #164c32;
-  font-size: 1.35rem;
-}
+input:focus { outline: 3px solid #9ccca8; border-color: #1b6f3b; }
 
-.status-card--primary {
+.button {
+  padding: 11px 17px;
+  border: 0;
+  border-radius: 9px;
   color: #fff;
-  border-color: #1b5e20;
-  background: #1b5e20;
+  background: #1b6f3b;
+  font-weight: 800;
+  cursor: pointer;
 }
 
-.status-card--primary span,
-.status-card--primary strong {
-  color: inherit;
+.button:disabled { opacity: .55; cursor: not-allowed; }
+.button--secondary { border: 1px solid #8db09b; background: transparent; }
+
+.alert {
+  margin: 0;
+  padding: 12px 14px;
+  border-left: 4px solid #b22b2b;
+  border-radius: 5px;
+  color: #741717;
+  background: #fdecec;
 }
 
-.scope-note {
-  max-width: 66ch;
-  margin-top: 28px;
-  color: #607168;
-  line-height: 1.6;
+.monitor-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 32px;
 }
 
-@media (max-width: 760px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
+.live-indicator { color: #41604f; font-size: .86rem; font-weight: 700; }
+.live-indicator i { display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; background: #28a745; }
 
-  .sidebar {
-    display: none;
-  }
+.line-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(275px, 1fr)); gap: 18px; }
 
-  .content {
-    width: min(100% - 32px, 620px);
-    padding: 48px 0;
-  }
+.line-card {
+  display: grid;
+  min-height: 235px;
+  align-content: space-between;
+  gap: 28px;
+  padding: 24px;
+  border: 1px solid #d6e5d8;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 12px 35px rgb(29 74 48 / 7%);
+}
 
-  .status-grid {
-    grid-template-columns: 1fr;
-  }
+.line-card h2 { margin: 14px 0 6px; color: #164c32; font-size: 1.3rem; }
+.line-card p { margin: 0; color: #66766d; line-height: 1.5; }
+
+.state { display: inline-block; padding: 5px 9px; border-radius: 999px; font-size: .72rem; font-weight: 900; letter-spacing: .04em; }
+.state--disponible { color: #17612f; background: #dff3e5; }
+.state--en_conteo { color: #725514; background: #fff0b8; }
+
+.reservation-detail { display: grid; gap: 10px; margin: 0; padding-top: 17px; border-top: 1px solid #e2ebe3; }
+.reservation-detail div { display: flex; justify-content: space-between; gap: 12px; }
+.reservation-detail dt { color: #66766d; }
+.reservation-detail dd { margin: 0; color: #17352a; font-weight: 750; text-align: right; }
+.reservation-private { padding-top: 17px; border-top: 1px solid #e2ebe3; font-weight: 750; }
+
+.empty-state { padding: 60px; border: 1px dashed #adc7b3; border-radius: 18px; color: #617269; text-align: center; }
+.read-only-note { margin-top: 28px; color: #607168; font-size: .9rem; text-align: center; }
+
+@media (max-width: 720px) {
+  .topbar, .monitor-heading { align-items: flex-start; flex-direction: column; }
+  .session { width: 100%; justify-content: space-between; }
+  .login-panel, .monitor { width: min(100% - 28px, 1120px); padding-top: 38px; }
 }

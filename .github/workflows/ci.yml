@@ -90,5 +90,6 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-      - run: npm run test:rules:emulator
+      - name: Probar Auth, Firestore, Functions, reglas y concurrencia
+        run: npm run test:emulators
       - run: npm audit --omit=dev --audit-level=high

@@ -4,15 +4,17 @@
   "title": "Línea de jornada",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "jornadaId", "lineaId", "estadoCentral", "version", "actualizadaEn"],
+  "required": ["id", "jornadaId", "lineaId", "activa", "estadoCentral", "version", "ubicacion", "actualizadaEn"],
   "properties": {
     "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "lineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "activa": {"type": "boolean"},
     "estadoCentral": {"$ref": "../enums/estados-linea.json"},
     "reservaActivaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "conteoVigenteId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "version": {"type": "integer", "minimum": 0},
+    "ubicacion": {"$ref": "comun.schema.json#/$defs/ubicacionVisible"},
     "actualizadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
   }
 }

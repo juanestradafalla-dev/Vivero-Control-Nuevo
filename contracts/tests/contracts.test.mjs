@@ -24,9 +24,9 @@ async function assertInvalid(schemaFilename, exampleFilename) {
 }
 
 test("compila todos los esquemas Draft 2020-12 y resuelve sus referencias", () => {
-  assert.equal(registry.entityCount, 11);
-  assert.equal(registry.schemaCount, 12);
-  assert.equal(registry.enumCount, 4);
+  assert.equal(registry.entityCount, 16);
+  assert.equal(registry.schemaCount, 17);
+  assert.equal(registry.enumCount, 5);
 });
 
 test("acepta un conteo válido con total calculado", async () => {
@@ -75,4 +75,32 @@ test("rechaza una autorrevisión administrativa sin motivo", async () => {
 test("rechaza una reserva liberada sin motivo", async () => {
   const result = await assertInvalid("reserva.schema.json", "reserva-liberada-sin-motivo.json");
   assert.ok(result.schemaErrors.length > 0);
+});
+
+test("acepta el payload de reservarLinea utilizado por Vivero Campo", async () => {
+  await assertValid("reserve-line-request.schema.json", "etapa-03/campo-reserve-line-request.json");
+});
+
+test("rechaza identidad agregada por el cliente a reservarLinea", async () => {
+  const result = await assertInvalid(
+    "reserve-line-request.schema.json",
+    "etapa-03/reserve-line-request-con-actor.json"
+  );
+  assert.ok(result.schemaErrors.length > 0);
+});
+
+test("acepta el resultado compartido por backend, Campo y Maestro", async () => {
+  await assertValid("reserve-line-result.schema.json", "etapa-03/reserve-line-result.json");
+});
+
+test("acepta errores controlados sin detalles internos", async () => {
+  await assertValid("error-controlado.schema.json", "etapa-03/error-linea-no-disponible.json");
+});
+
+test("acepta una autorización central de jornada", async () => {
+  await assertValid("jornada-autorizacion.schema.json", "etapa-03/autorizacion-jornada.json");
+});
+
+test("acepta el resultado idempotente persistido", async () => {
+  await assertValid("resultado-idempotente.schema.json", "etapa-03/resultado-idempotente.json");
 });

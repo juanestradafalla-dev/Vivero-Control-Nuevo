@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/enums/estados-jornada.json",
+  "title": "Estado administrativo de jornada usado en la ETAPA 3",
+  "type": "string",
+  "enum": ["ACTIVA", "INACTIVA"]
+}

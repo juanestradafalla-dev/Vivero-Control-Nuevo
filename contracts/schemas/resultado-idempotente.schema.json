@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/resultado-idempotente.schema.json",
+  "title": "Resultado idempotente de reservarLinea",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "actorUsuarioId", "operacion", "claveHash", "payloadHash", "resultado", "creadoEn"],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "actorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "operacion": {"const": "RESERVAR_LINEA"},
+    "claveHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "payloadHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "resultado": {"$ref": "reserve-line-result.schema.json"},
+    "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/error-controlado.schema.json",
+  "title": "Error controlado de operación",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["code", "message"],
+  "properties": {
+    "code": {
+      "type": "string",
+      "enum": [
+        "UNAUTHENTICATED",
+        "INVALID_ARGUMENT",
+        "USER_NOT_FOUND",
+        "USER_INACTIVE",
+        "PERMISSION_DENIED",
+        "JOURNEY_NOT_FOUND",
+        "JOURNEY_NOT_ACTIVE",
+        "JOURNEY_ACCESS_DENIED",
+        "JOURNEY_LINE_NOT_FOUND",
+        "LINE_NOT_AVAILABLE",
+        "IDEMPOTENCY_CONFLICT",
+        "EMULATOR_ONLY",
+        "INTERNAL_ERROR"
+      ]
+    },
+    "message": {"type": "string", "minLength": 1, "maxLength": 240}
+  }
+}

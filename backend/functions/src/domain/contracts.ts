@@ -1,28 +1,55 @@
 export type UserRole = "AUXILIAR" | "SUPERVISOR" | "ADMINISTRADOR";
 
-export type CriticalPermission =
-  | "RESERVAR_LINEA"
-  | "ENVIAR_CONTEO"
-  | "LIBERAR_LINEA"
-  | "DEVOLVER_CONTEO"
-  | "APROBAR_CONTEO";
+export type CentralLineState =
+  | "DISPONIBLE"
+  | "EN_CONTEO"
+  | "PENDIENTE_REVISION"
+  | "DEVUELTA"
+  | "APROBADA";
 
-/**
- * Contexto interno construido después de autenticar y autorizar centralmente.
- * Ninguno de estos valores se acepta desde el cuerpo de una solicitud cliente.
- */
-export interface TrustedOperationContext {
-  readonly actorId: string;
-  readonly roles: readonly UserRole[];
-  readonly serverTimestamp: Date;
-  readonly permissions: readonly CriticalPermission[];
-  readonly verifiedScopeIds: readonly string[];
-}
+export type ControlledErrorCode =
+  | "UNAUTHENTICATED"
+  | "INVALID_ARGUMENT"
+  | "USER_NOT_FOUND"
+  | "USER_INACTIVE"
+  | "PERMISSION_DENIED"
+  | "JOURNEY_NOT_FOUND"
+  | "JOURNEY_NOT_ACTIVE"
+  | "JOURNEY_ACCESS_DENIED"
+  | "JOURNEY_LINE_NOT_FOUND"
+  | "LINE_NOT_AVAILABLE"
+  | "IDEMPOTENCY_CONFLICT"
+  | "EMULATOR_ONLY"
+  | "INTERNAL_ERROR";
 
 export interface ReserveLineRequest {
   readonly jornadaLineaId: string;
   readonly dispositivoId: string;
   readonly claveIdempotencia: string;
+}
+
+export interface VisibleLocation {
+  readonly vivero: string;
+  readonly modulo: string;
+  readonly cama: string;
+  readonly linea: string;
+  readonly nombreVisible: string;
+  readonly orden: number;
+}
+
+export interface ReserveLineResult {
+  readonly reservaId: string;
+  readonly jornadaLineaId: string;
+  readonly estadoCentral: "EN_CONTEO";
+  readonly tokenReserva: string;
+  readonly reservadaEn: string;
+  readonly version: number;
+  readonly ubicacion: VisibleLocation;
+}
+
+/** Contexto construido exclusivamente desde Authentication y fuentes centrales. */
+export interface TrustedOperationContext {
+  readonly actorId: string;
 }
 
 export interface SubmitCountRequest {

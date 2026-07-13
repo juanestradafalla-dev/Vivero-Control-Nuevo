@@ -1,0 +1,16 @@
+{
+  "reservaId": "reserva-prueba-0001",
+  "jornadaLineaId": "JORNADA-PRUEBA-ETAPA-3__LINEA-PRUEBA-1",
+  "estadoCentral": "EN_CONTEO",
+  "tokenReserva": "token-opaco-ficticio-de-al-menos-32-caracteres",
+  "reservadaEn": "2026-07-13T12:00:00.000Z",
+  "version": 1,
+  "ubicacion": {
+    "vivero": "VIVERO-PRUEBA",
+    "modulo": "MODULO-PRUEBA-1",
+    "cama": "CAMA-PRUEBA-1",
+    "linea": "LINEA-PRUEBA-1",
+    "nombreVisible": "Línea ficticia 1",
+    "orden": 1
+  }
+}

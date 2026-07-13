@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/jornada-autorizacion.schema.json",
+  "title": "Autorización central de jornada",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "jornadaId", "usuarioId", "rolEfectivo", "activa", "puedeContar", "creadaEn"],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "usuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "rolEfectivo": {"$ref": "../enums/roles.json"},
+    "activa": {"type": "boolean"},
+    "puedeContar": {"type": "boolean"},
+    "creadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

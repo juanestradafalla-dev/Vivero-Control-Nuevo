@@ -12,17 +12,7 @@ import type {
 } from "../src/domain/contracts.js";
 
 const trustedContext: TrustedOperationContext = {
-  actorId: "usuario-autenticado-prueba",
-  roles: ["SUPERVISOR"],
-  serverTimestamp: new Date("2026-07-13T12:00:00.000Z"),
-  permissions: [
-    "RESERVAR_LINEA",
-    "ENVIAR_CONTEO",
-    "LIBERAR_LINEA",
-    "DEVOLVER_CONTEO",
-    "APROBAR_CONTEO"
-  ],
-  verifiedScopeIds: ["alcance-prueba"]
+  actorId: "usuario-autenticado-prueba"
 };
 
 const reserveRequest: ReserveLineRequest = {
@@ -57,7 +47,7 @@ const approveRequest: ApproveCountRequest = {
 };
 
 describe("UnavailableCriticalOperations", () => {
-  it("mantiene cerradas todas las operaciones críticas durante la ETAPA 2", async () => {
+  it("mantiene cerrados los marcadores no conectados al servicio transaccional", async () => {
     const operations = new UnavailableCriticalOperations();
     const attempts = [
       operations.reservarLinea(reserveRequest, trustedContext),

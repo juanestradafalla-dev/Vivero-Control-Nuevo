@@ -93,3 +93,18 @@ jobs:
       - name: Probar Auth, Firestore, Functions, reglas y concurrencia
         run: npm run test:emulators
       - run: npm audit --omit=dev --audit-level=high
+
+  repository-audit:
+    name: Secretos y artefactos prohibidos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.0
+      - name: Rechazar secretos, binarios y directorios generados
+        shell: bash
+        run: |
+          set -euo pipefail
+          forbidden_files="$(find . -type f \( -name 'google-services.json' -o -name '*.apk' -o -name '*.exe' -o -name '*.keystore' -o -name '*.jks' -o -name '.env' \) -print)"
+          forbidden_dirs="$(find . -type d \( -name node_modules -o -name build -o -name .gradle -o -name .idea \) -not -path './.git/*' -print)"
+          test -z "$forbidden_files"
+          test -z "$forbidden_dirs"
+          ! grep -R --line-number -E 'firebase[[:space:]]+deploy' .github backend/functions/package.json

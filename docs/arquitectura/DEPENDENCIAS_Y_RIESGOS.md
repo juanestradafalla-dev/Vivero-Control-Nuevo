@@ -39,9 +39,15 @@ anteriores y con cambios mayores de las dependencias directas. Ese cambio no se
 aplica porque podría romper compatibilidad y no constituye una actualización
 segura del árbol aprobado.
 
-## Exposición en la ETAPA 3
+## Android en la ETAPA 4
 
-La Function `reservarLinea` ya existe, pero el riesgo permanece contenido en el
+Se incorporan WorkManager 2.11.2 para trabajo persistente con restricción de red y pruebas locales con Room/Robolectric. El token de reserva usa AES-GCM y una clave no exportable de Android Keystore. Los riesgos pendientes son compatibilidad con modelos reales, pérdida o invalidación de claves por condiciones del dispositivo, retención local y calidad de señal; no se inventan políticas para ellos.
+
+La migración Room 1 a 2 conserva reservas anteriores, pero no puede reconstruir tokens que la Etapa 3 nunca persistió. El entorno ficticio debe reiniciar el escenario; queda prohibido resolverlo guardando un token plano.
+
+## Exposición en la ETAPA 4
+
+Las Functions `reservarLinea` y `enviarConteo` existen, pero el riesgo permanece contenido en el
 entorno local porque:
 
 - la Function exige `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`;
@@ -49,7 +55,8 @@ entorno local porque:
 - CI solo ejecuta Emulator Suite y no contiene pasos de despliegue;
 - el código de negocio genera UUID con `node:crypto.randomUUID`, no invoca las
   variantes v3, v5 o v6 afectadas de la dependencia transitiva;
-- la operación persiste únicamente el hash del token opaco.
+- las operaciones persisten únicamente el hash central y el token local cifrado;
+- `enviarConteo` no escribe inventario oficial y todas sus escrituras son transaccionales.
 
 Estos controles no aceptan el riesgo para producción. Antes de desplegar
 cualquier Function se debe actualizar a una cadena compatible sin el aviso o

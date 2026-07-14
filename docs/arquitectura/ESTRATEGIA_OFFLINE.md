@@ -12,12 +12,11 @@
 - Cada borrador queda aislado por identificador de usuario y de jornada. Un
   cambio de sesión no expone ni envía los borradores de otra cuenta.
 
-## Persistencia y sincronización futuras
+## Persistencia y sincronización implementadas en la ETAPA 4
 
-Room implementará el puerto de borradores locales y WorkManager implementará el
-puerto de trabajo diferido. La ETAPA 2 solo define esos puntos de extensión. El
-registro local incluirá un identificador global y una clave de idempotencia
-creada antes del primer intento.
+Room implementa los borradores locales y WorkManager el trabajo diferido con
+conectividad obligatoria y trabajo único. El registro local conserva alcance,
+payload congelado, estado, error y clave creada al confirmar el intento.
 
 ```text
 PENDIENTE -> SINCRONIZANDO -> ENVIADA
@@ -50,9 +49,9 @@ El conteo original, su autor y la reasignación deben permanecer en auditoría.
 
 ### Retención y protección
 
-El plazo de retención, el cifrado local y la respuesta ante relojes incorrectos
-siguen como decisiones pendientes de la ETAPA 1. La implementación no debe
-suponer valores antes de contar con los dispositivos reales.
+El token ya se cifra con AES-GCM y Android Keystore. El plazo de retención, la
+protección operativa completa del dispositivo y la respuesta ante relojes
+incorrectos siguen pendientes; la implementación no inventa esos valores.
 
 ## Relación
 

@@ -14,11 +14,14 @@ interface ConfirmedReservationDao {
         """
         SELECT * FROM confirmed_reservations
         WHERE userId = :userId
+          AND deviceId = :deviceId
+          AND tokenCiphertext IS NOT NULL
+          AND tokenIv IS NOT NULL
         ORDER BY confirmedAt DESC
         LIMIT 1
         """,
     )
-    suspend fun latestForUser(userId: String): ConfirmedReservationEntity?
+    suspend fun latestActiveForUserAndDevice(userId: String, deviceId: String): ConfirmedReservationEntity?
 
     @Query("SELECT * FROM confirmed_reservations WHERE reservationId = :reservationId LIMIT 1")
     suspend fun byId(reservationId: String): ConfirmedReservationEntity?

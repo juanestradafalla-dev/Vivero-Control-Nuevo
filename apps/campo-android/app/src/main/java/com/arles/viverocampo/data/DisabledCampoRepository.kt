@@ -26,7 +26,7 @@ class DisabledCampoRepository : CampoRepository {
         userId: String,
     ): ConfirmedReservation = unavailable()
 
-    override suspend fun latestConfirmedReservation(userId: String): ConfirmedReservation? = null
+    override suspend fun latestActiveReservation(userId: String, deviceId: String): ConfirmedReservation? = null
 
     override fun observeCountDraft(reservationId: String, userId: String, deviceId: String): Flow<LocalCountDraft?> = emptyFlow()
 

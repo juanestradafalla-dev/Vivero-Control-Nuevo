@@ -138,8 +138,8 @@ class FirebaseCampoRepository(
         }
     }
 
-    override suspend fun latestConfirmedReservation(userId: String): ConfirmedReservation? =
-        reservationDao.latestForUser(userId)?.toDomain()
+    override suspend fun latestActiveReservation(userId: String, deviceId: String): ConfirmedReservation? =
+        reservationDao.latestActiveForUserAndDevice(userId, deviceId)?.toDomain()
 
     override fun observeCountDraft(
         reservationId: String,

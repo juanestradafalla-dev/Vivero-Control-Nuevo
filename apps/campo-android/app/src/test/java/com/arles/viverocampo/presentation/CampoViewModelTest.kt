@@ -148,6 +148,60 @@ class CampoViewModelTest {
     }
 
     @Test
+    fun `finaliza conserva historial y permite contar dos líneas consecutivas`() = runTest {
+        var reservationNumber = 0
+        repository.reserveBehavior = {
+            reservationNumber += 1
+            if (reservationNumber == 1) confirmedReservation else secondConfirmedReservation
+        }
+        login()
+
+        viewModel.selectLine(availableLine)
+        viewModel.confirmReservation()
+        advanceUntilIdle()
+        enterValidCount()
+        viewModel.requestCountConfirmation()
+        viewModel.confirmCountSubmission()
+        advanceUntilIdle()
+        repository.forceSent(confirmedReservation.reservationId)
+        advanceUntilIdle()
+        viewModel.finishAndTakeAnotherLine()
+
+        assertNull(viewModel.uiState.value.confirmedReservation)
+        assertEquals(SyncState.ENVIADA, repository.draftFor(confirmedReservation.reservationId, "uid-auxiliar-1", DEVICE_ID)?.syncState)
+
+        viewModel.selectLine(secondAvailableLine)
+        viewModel.confirmReservation()
+        advanceUntilIdle()
+        enterValidCount()
+        viewModel.requestCountConfirmation()
+        viewModel.confirmCountSubmission()
+        advanceUntilIdle()
+        repository.forceSent(secondConfirmedReservation.reservationId)
+        advanceUntilIdle()
+        viewModel.finishAndTakeAnotherLine()
+
+        assertEquals(listOf(availableLine.id, secondAvailableLine.id), repository.reservePayloads.map { it.jornadaLineaId })
+        assertEquals(SyncState.ENVIADA, repository.draftFor(secondConfirmedReservation.reservationId, "uid-auxiliar-1", DEVICE_ID)?.syncState)
+        assertNull(viewModel.uiState.value.confirmedReservation)
+    }
+
+    @Test
+    fun `no restaura una reserva consumida al iniciar sesión nuevamente`() = runTest {
+        loginWithReservation()
+        enterValidCount()
+        viewModel.requestCountConfirmation()
+        viewModel.confirmCountSubmission()
+        advanceUntilIdle()
+        repository.forceSent(confirmedReservation.reservationId)
+        advanceUntilIdle()
+        viewModel.signOut()
+        advanceUntilIdle()
+        login()
+        assertNull(viewModel.uiState.value.confirmedReservation)
+    }
+
+    @Test
     fun `payload de reserva mantiene exactamente su contrato compartido`() {
         val payload = ReserveLinePayload("jornada-linea-prueba", "dispositivo-prueba", "clave-prueba-0001")
         assertEquals(setOf("jornadaLineaId", "dispositivoId", "claveIdempotencia"), payload.toWireMap().keys)
@@ -193,6 +247,7 @@ class CampoViewModelTest {
         val reservePayloads = mutableListOf<ReserveLinePayload>()
         var reserveBehavior: suspend () -> ConfirmedReservation = { confirmedReservation }
         var latestReservation: ConfirmedReservation? = null
+        private val consumedReservations = mutableSetOf<String>()
 
         override suspend fun signIn(email: String, password: String) = UserProfile("uid-auxiliar-1", "Auxiliar ficticio", "AUXILIAR")
         override suspend fun signOut() = Unit
@@ -201,7 +256,9 @@ class CampoViewModelTest {
             reservePayloads += payload
             return reserveBehavior().also { latestReservation = it }
         }
-        override suspend fun latestConfirmedReservation(userId: String): ConfirmedReservation? = latestReservation?.takeIf { it.userId == userId }
+        override suspend fun latestActiveReservation(userId: String, deviceId: String): ConfirmedReservation? = latestReservation?.takeIf {
+            it.userId == userId && it.deviceId == deviceId && it.reservationId !in consumedReservations
+        }
         override fun observeCountDraft(reservationId: String, userId: String, deviceId: String): Flow<LocalCountDraft?> =
             drafts.getOrPut(Triple(reservationId, userId, deviceId)) { MutableStateFlow(null) }
         override suspend fun saveCountInput(reservationId: String, userId: String, deviceId: String, input: CountInput) {
@@ -250,16 +307,32 @@ class CampoViewModelTest {
             val entry = drafts.entries.first { it.key.first == reservationId }.value
             entry.value = entry.value?.copy(syncState = SyncState.ERROR, errorCode = code, errorMessage = "Corrige el contenido")
         }
+        fun forceSent(reservationId: String) {
+            val entry = drafts.entries.first { it.key.first == reservationId }.value
+            entry.value = entry.value?.copy(
+                syncState = SyncState.ENVIADA,
+                countId = "conteo-$reservationId",
+                centralState = "PENDIENTE_REVISION",
+                serverReceivedAt = "2026-07-14T13:00:00.000Z",
+            )
+            consumedReservations += reservationId
+        }
     }
 
     private companion object {
         const val DEVICE_ID = "DISPOSITIVO-PRUEBA"
         val location = VisibleLocation("VIVERO-PRUEBA", "MODULO-1", "CAMA-1", "LINEA-1", "Línea ficticia 1", 1)
         val availableLine = JourneyLine("jornada-linea-1", "DISPONIBLE", 0, location)
-        val journeySnapshot = JourneySnapshot("jornada-prueba", "Jornada ficticia", listOf(availableLine))
+        val secondLocation = location.copy(line = "LINEA-2", displayName = "Línea ficticia 2", order = 2)
+        val secondAvailableLine = JourneyLine("jornada-linea-2", "DISPONIBLE", 0, secondLocation)
+        val journeySnapshot = JourneySnapshot("jornada-prueba", "Jornada ficticia", listOf(availableLine, secondAvailableLine))
         val confirmedReservation = ConfirmedReservation(
             "reserva-prueba", "uid-auxiliar-1", DEVICE_ID, "jornada-prueba", availableLine.id, "EN_CONTEO",
             "2026-07-13T12:00:00.000Z", 1, location,
+        )
+        val secondConfirmedReservation = ConfirmedReservation(
+            "reserva-prueba-2", "uid-auxiliar-1", DEVICE_ID, "jornada-prueba", secondAvailableLine.id, "EN_CONTEO",
+            "2026-07-13T12:10:00.000Z", 1, secondLocation,
         )
     }
 }

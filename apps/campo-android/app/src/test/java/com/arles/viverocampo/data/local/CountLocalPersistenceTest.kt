@@ -45,6 +45,10 @@ class CountLocalPersistenceTest {
     fun `éxito central marca ENVIADA y elimina ciphertext e IV del token`() = runTest {
         database.confirmedReservationDao().save(reservation())
         database.countDraftDao().save(draft())
+        assertEquals(
+            "reserva-1",
+            database.confirmedReservationDao().latestActiveForUserAndDevice("usuario-1", "dispositivo-1")?.reservationId,
+        )
         CountLocalPersistence(database).markSentAndRemoveToken(
             "reserva-1",
             "conteo-1",
@@ -57,6 +61,7 @@ class CountLocalPersistenceTest {
         assertNull(reservation?.tokenIv)
         assertEquals(SyncState.ENVIADA.name, sent?.syncState)
         assertEquals("conteo-1", sent?.countId)
+        assertNull(database.confirmedReservationDao().latestActiveForUserAndDevice("usuario-1", "dispositivo-1"))
     }
 
     private fun reservation() = ConfirmedReservationEntity(

@@ -1,16 +1,25 @@
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import {type FormEvent, useEffect, useRef, useState} from "react";
 
 import type {
+  MonitorLine,
   MonitorRepository,
   MonitorSnapshot,
   MonitorUnsubscribe,
   MonitorUser,
 } from "../domain/MonitorModels";
-import { sortMonitorLines } from "../domain/MonitorModels";
+import {sortMonitorLines} from "../domain/MonitorModels";
 import "./app.css";
 
 interface AppProps {
   readonly repository: MonitorRepository;
+}
+
+interface ReviewDialog {
+  readonly kind: "APPROVE" | "RETURN";
+  readonly line: MonitorLine;
+  readonly idempotencyKey: string;
+  readonly attempted: boolean;
+  readonly reason: string;
 }
 
 function formatTime(value: string): string {
@@ -24,15 +33,22 @@ function formatTime(value: string): string {
       }).format(date);
 }
 
-export function App({ repository }: AppProps) {
+function signed(value: number): string {
+  return value > 0 ? `+${value}` : String(value);
+}
+
+export function App({repository}: AppProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [user, setUser] = useState<MonitorUser>();
   const [snapshot, setSnapshot] = useState<MonitorSnapshot>();
   const [error, setError] = useState<string>();
+  const [notice, setNotice] = useState<string>();
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [stateFilter, setStateFilter] = useState("TODOS");
+  const [stateFilter, setStateFilter] = useState("PENDIENTE_REVISION");
+  const [reviewDialog, setReviewDialog] = useState<ReviewDialog>();
+  const [reviewing, setReviewing] = useState(false);
   const unsubscribeRef = useRef<MonitorUnsubscribe | undefined>(undefined);
 
   useEffect(() => () => unsubscribeRef.current?.(), []);
@@ -67,8 +83,60 @@ export function App({ repository }: AppProps) {
     setUser(undefined);
     setSnapshot(undefined);
     setError(undefined);
+    setNotice(undefined);
     setSearch("");
-    setStateFilter("TODOS");
+    setStateFilter("PENDIENTE_REVISION");
+    setReviewDialog(undefined);
+  };
+
+  const openReview = (kind: ReviewDialog["kind"], line: MonitorLine) => {
+    setError(undefined);
+    setNotice(undefined);
+    setReviewDialog({kind, line, idempotencyKey: crypto.randomUUID(), attempted: false, reason: ""});
+  };
+
+  const updateReviewReason = (reason: string) => {
+    setReviewDialog((current) => current && ({
+      ...current,
+      reason,
+      idempotencyKey: current.attempted ? crypto.randomUUID() : current.idempotencyKey,
+      attempted: false,
+    }));
+  };
+
+  const submitReview = async () => {
+    if (!reviewDialog?.line.count || !user || reviewing) return;
+    const selfApproval = reviewDialog.line.count.authorUserId === user.id;
+    const reason = reviewDialog.reason.trim();
+    if (reviewDialog.kind === "RETURN" && reason === "") {
+      setError("Escribe el motivo de la devolución.");
+      return;
+    }
+    if (reviewDialog.kind === "APPROVE" && selfApproval && user.role === "ADMINISTRADOR" && reason === "") {
+      setError("La aprobación excepcional del propio conteo exige un motivo.");
+      return;
+    }
+    setReviewing(true);
+    setError(undefined);
+    setReviewDialog({...reviewDialog, attempted: true});
+    try {
+      if (reviewDialog.kind === "APPROVE") {
+        await repository.approveCount(
+          reviewDialog.line.count.id,
+          reviewDialog.idempotencyKey,
+          selfApproval && user.role === "ADMINISTRADOR" ? reason : undefined,
+        );
+        setNotice("Conteo aprobado mediante transacción central.");
+      } else {
+        await repository.returnCount(reviewDialog.line.count.id, reason, reviewDialog.idempotencyKey);
+        setNotice("Conteo devuelto mediante transacción central.");
+      }
+      setReviewDialog(undefined);
+    } catch (reviewError) {
+      setError(reviewError instanceof Error ? reviewError.message : "No fue posible completar la revisión.");
+    } finally {
+      setReviewing(false);
+    }
   };
 
   const visibleLines = sortMonitorLines(snapshot?.lines ?? []).filter((line) => {
@@ -84,7 +152,7 @@ export function App({ repository }: AppProps) {
           <span className="brand-mark" aria-hidden="true">VC</span>
           <div>
             <strong>Vivero Maestro</strong>
-            <small>Monitor operativo de solo lectura</small>
+            <small>Revisión transaccional de conteos</small>
           </div>
         </div>
         {user && (
@@ -103,8 +171,8 @@ export function App({ repository }: AppProps) {
 
       {!user ? (
         <section className="login-panel" aria-labelledby="login-title">
-          <p className="eyebrow">ETAPA 4</p>
-          <h1 id="login-title">Acceso al monitor</h1>
+          <p className="eyebrow">ETAPA 5</p>
+          <h1 id="login-title">Acceso a revisión</h1>
           <p>Use únicamente una cuenta ficticia cargada en Firebase Emulator Suite.</p>
           <form onSubmit={handleSignIn}>
             <label>
@@ -125,13 +193,14 @@ export function App({ repository }: AppProps) {
         <section className="monitor" aria-labelledby="monitor-title">
           <div className="monitor-heading">
             <div>
-              <p className="eyebrow">JORNADA ACTIVA</p>
+              <p className="eyebrow">BANDEJA DE REVISIÓN</p>
               <h1 id="monitor-title">{snapshot?.journeyDisplayName ?? "Cargando jornada…"}</h1>
             </div>
             <span className="live-indicator"><i aria-hidden="true" /> Actualización en vivo</span>
           </div>
 
           {error && <p className="alert" role="alert">{error}</p>}
+          {notice && <p className="notice" role="status">{notice}</p>}
           <div className="monitor-filters">
             <label>
               Buscar ubicación
@@ -141,53 +210,132 @@ export function App({ repository }: AppProps) {
               Estado
               <select value={stateFilter} onChange={(event) => setStateFilter(event.target.value)}>
                 <option value="TODOS">Todos</option>
+                <option value="PENDIENTE_REVISION">Pendiente de revisión</option>
+                <option value="DEVUELTA">Devuelta</option>
+                <option value="APROBADA">Aprobada</option>
                 <option value="DISPONIBLE">Disponible</option>
                 <option value="EN_CONTEO">En conteo</option>
-                <option value="PENDIENTE_REVISION">Pendiente de revisión</option>
               </select>
             </label>
           </div>
           {!snapshot ? (
             <p className="empty-state">Esperando datos del emulador…</p>
+          ) : visibleLines.length === 0 ? (
+            <p className="empty-state">No hay líneas que coincidan con el filtro.</p>
           ) : (
             <div className="line-grid" aria-label="Líneas de la jornada">
-              {visibleLines.map((line) => (
-                <article className="line-card" key={line.id}>
-                  <div>
-                    <span className={`state state--${line.state.toLowerCase()}`}>{line.state.replaceAll("_", " ")}</span>
-                    <h2>{line.location.displayName}</h2>
-                    <p>{line.location.nursery} · {line.location.module} · {line.location.bed}</p>
-                  </div>
-                  {line.state === "EN_CONTEO" && (
-                    user.canViewReservationDetails && line.reservation ? (
-                      <dl className="reservation-detail">
-                        <div><dt>Reservada por</dt><dd>{line.reservation.userDisplayName}</dd></div>
-                        <div><dt>Desde</dt><dd>{formatTime(line.reservation.reservedAt)}</dd></div>
-                      </dl>
-                    ) : <p className="reservation-private">Reserva activa</p>
-                  )}
-                  {line.state === "PENDIENTE_REVISION" && (
-                    user.canViewReservationDetails && line.count ? (
-                      <dl className="count-detail">
-                        <div><dt>Autor</dt><dd>{line.count.authorDisplayName} · {line.count.effectiveRole}</dd></div>
-                        <div><dt>Dispositivo</dt><dd>{line.count.deviceId}</dd></div>
-                        <div><dt>Hembras</dt><dd>{line.count.females}</dd></div>
-                        <div><dt>Machos</dt><dd>{line.count.males}</dd></div>
-                        <div><dt>Patrones</dt><dd>{line.count.rootstocks}</dd></div>
-                        <div><dt>Total</dt><dd><strong>{line.count.total}</strong></dd></div>
-                        <div><dt>Observaciones</dt><dd>{line.count.observations ?? "Sin observaciones"}</dd></div>
-                        <div><dt>Hora dispositivo</dt><dd>{formatTime(line.count.deviceTimestamp)}</dd></div>
-                        <div><dt>Hora servidor</dt><dd>{formatTime(line.count.serverTimestamp)}</dd></div>
-                        <div><dt>Versión</dt><dd>{line.count.version}</dd></div>
-                      </dl>
-                    ) : <p className="reservation-private">Conteo pendiente de revisión · detalle restringido</p>
-                  )}
-                </article>
-              ))}
+              {visibleLines.map((line) => {
+                const count = line.count;
+                const inventory = line.inventory;
+                const ownCount = count?.authorUserId === user.id;
+                const supervisorOwnApproval = ownCount && user.role === "SUPERVISOR";
+                return (
+                  <article className="line-card" key={line.id}>
+                    <div>
+                      <span className={`state state--${line.state.toLowerCase()}`}>{line.state.replaceAll("_", " ")}</span>
+                      <h2>{line.location.displayName}</h2>
+                      <p>{line.location.nursery} · {line.location.module} · {line.location.bed}</p>
+                    </div>
+                    {line.state === "EN_CONTEO" && (
+                      user.canViewReservationDetails && line.reservation ? (
+                        <dl className="reservation-detail">
+                          <div><dt>Reservada por</dt><dd>{line.reservation.userDisplayName}</dd></div>
+                          <div><dt>Desde</dt><dd>{formatTime(line.reservation.reservedAt)}</dd></div>
+                        </dl>
+                      ) : <p className="reservation-private">Reserva activa</p>
+                    )}
+                    {line.state === "PENDIENTE_REVISION" && (
+                      user.canViewReservationDetails && count ? (
+                        <>
+                          <dl className="count-detail">
+                            <div><dt>Autor</dt><dd>{count.authorDisplayName} · {count.effectiveRole}</dd></div>
+                            <div><dt>Dispositivo</dt><dd>{count.deviceId}</dd></div>
+                            <div><dt>Hembras</dt><dd>{count.females}</dd></div>
+                            <div><dt>Machos</dt><dd>{count.males}</dd></div>
+                            <div><dt>Patrones</dt><dd>{count.rootstocks}</dd></div>
+                            <div><dt>Total</dt><dd><strong>{count.total}</strong></dd></div>
+                            <div><dt>Observaciones</dt><dd>{count.observations ?? "Sin observaciones"}</dd></div>
+                            <div><dt>Hora dispositivo</dt><dd>{formatTime(count.deviceTimestamp)}</dd></div>
+                            <div><dt>Hora servidor</dt><dd>{formatTime(count.serverTimestamp)}</dd></div>
+                            <div><dt>Versión</dt><dd>{count.version}</dd></div>
+                            <div><dt>Inventario actual</dt><dd>{inventory?.total ?? "No disponible"}</dd></div>
+                            <div><dt>Diferencia total</dt><dd>{inventory ? signed(count.total - inventory.total) : "—"}</dd></div>
+                          </dl>
+                          {user.canReview && (
+                            <div className="review-actions">
+                              <button
+                                className="button"
+                                type="button"
+                                disabled={!inventory || supervisorOwnApproval}
+                                onClick={() => openReview("APPROVE", line)}
+                              >
+                                Aprobar
+                              </button>
+                              <button className="button button--secondary" type="button" onClick={() => openReview("RETURN", line)}>
+                                Devolver
+                              </button>
+                            </div>
+                          )}
+                          {supervisorOwnApproval && <p className="warning">Un supervisor no puede aprobar su propio conteo.</p>}
+                          {!inventory && <p className="warning">No se puede aprobar sin inventario oficial inicial.</p>}
+                        </>
+                      ) : <p className="reservation-private">Conteo pendiente de revisión · detalle restringido</p>
+                    )}
+                  </article>
+                );
+              })}
             </div>
           )}
-          <p className="read-only-note">Este monitor no permite reservar, liberar, aprobar, devolver ni modificar líneas o conteos.</p>
+          <p className="read-only-note">
+            Los conteos son inmutables: Maestro solo solicita aprobar o devolver al backend transaccional. No edita conteos ni inventario directamente.
+          </p>
         </section>
+      )}
+
+      {reviewDialog?.line.count && user && (
+        <div className="dialog-backdrop" role="presentation">
+          <section className="review-dialog" role="dialog" aria-modal="true" aria-labelledby="review-title">
+            <p className="eyebrow">CONFIRMACIÓN CENTRAL</p>
+            <h2 id="review-title">{reviewDialog.kind === "APPROVE" ? "Aprobar conteo" : "Devolver conteo"}</h2>
+            <p>{reviewDialog.line.location.nursery} · {reviewDialog.line.location.module} · {reviewDialog.line.location.bed} · {reviewDialog.line.location.line}</p>
+            {reviewDialog.kind === "APPROVE" && reviewDialog.line.inventory ? (
+              <div className="inventory-summary" aria-label="Resumen de aprobación">
+                <strong>Inventario anterior → Conteo nuevo → Diferencia</strong>
+                <span>Hembras: {reviewDialog.line.inventory.females} → {reviewDialog.line.count.females} → {signed(reviewDialog.line.count.females - reviewDialog.line.inventory.females)}</span>
+                <span>Machos: {reviewDialog.line.inventory.males} → {reviewDialog.line.count.males} → {signed(reviewDialog.line.count.males - reviewDialog.line.inventory.males)}</span>
+                <span>Patrones: {reviewDialog.line.inventory.rootstocks} → {reviewDialog.line.count.rootstocks} → {signed(reviewDialog.line.count.rootstocks - reviewDialog.line.inventory.rootstocks)}</span>
+                <span>Total: {reviewDialog.line.inventory.total} → {reviewDialog.line.count.total} → {signed(reviewDialog.line.count.total - reviewDialog.line.inventory.total)}</span>
+              </div>
+            ) : (
+              <div className="inventory-summary">
+                <span>Conteo total: {reviewDialog.line.count.total}</span>
+                <span>El conteo original no será editado.</span>
+              </div>
+            )}
+            {reviewDialog.kind === "APPROVE" && reviewDialog.line.count.authorUserId === user.id && user.role === "ADMINISTRADOR" && (
+              <p className="warning">Advertencia: aprobarás excepcionalmente tu propio conteo. El motivo quedará auditado.</p>
+            )}
+            {(reviewDialog.kind === "RETURN" || (reviewDialog.line.count.authorUserId === user.id && user.role === "ADMINISTRADOR")) && (
+              <label>
+                {reviewDialog.kind === "RETURN" ? "Motivo de devolución" : "Motivo de la excepción"}
+                <textarea
+                  rows={4}
+                  maxLength={2000}
+                  value={reviewDialog.reason}
+                  onChange={(event) => updateReviewReason(event.target.value)}
+                />
+              </label>
+            )}
+            <div className="dialog-actions">
+              <button className="button button--secondary" type="button" disabled={reviewing} onClick={() => setReviewDialog(undefined)}>
+                Cancelar
+              </button>
+              <button className="button" type="button" disabled={reviewing} onClick={submitReview}>
+                {reviewing ? "Procesando…" : reviewDialog.kind === "APPROVE" ? "Confirmar aprobación" : "Confirmar devolución"}
+              </button>
+            </div>
+          </section>
+        </div>
       )}
     </main>
   );

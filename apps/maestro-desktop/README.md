@@ -1,23 +1,15 @@
 # Vivero Maestro
 
-Monitor Electron/React de solo lectura para la ETAPA 4. Inicia sesión contra Auth Emulator y observa la jornada, reservas y conteos mediante snapshots de Firestore Emulator.
+Aplicación Electron/React de la Etapa 5 para revisar conteos en Firebase Emulator Suite.
 
-## Alcance
-
-- Presenta `DISPONIBLE`, `EN_CONTEO` y `PENDIENTE_REVISION`.
-- Ofrece búsqueda por ubicación y filtro por estado.
-- Supervisor y administrador autorizados ven autor, rol, dispositivo, cantidades, total, observaciones, horas y versión.
-- Auxiliares no consultan ni ven conteos ajenos.
-- No incluye botones de aprobar, devolver, corregir, reasignar, liberar ni modificar inventario.
-
-## Seguridad
-
-- Solo acepta emuladores y proyectos `demo-*`.
-- `.env.example` contiene valores públicos de prueba, no secretos.
-- `contextIsolation=true`, `nodeIntegration=false` y `sandbox=true`.
-- Ventanas, navegación externa y permisos permanecen bloqueados.
-
-## Comandos
+- Observa líneas, conteos e inventarios ficticios mediante snapshots.
+- Presenta ubicación, autor, rol, dispositivo, cantidades, observaciones, horas, versión, inventario actual y diferencia.
+- Muestra un resumen no editable antes de aprobar.
+- Exige motivo antes de devolver.
+- Bloquea la aprobación propia del supervisor.
+- Advierte y exige motivo al administrador que aprueba excepcionalmente su conteo.
+- Solicita acciones mediante Callables; no escribe documentos críticos directamente.
+- Auxiliares no leen detalle ajeno ni ven acciones.
 
 ```powershell
 npm ci
@@ -26,7 +18,6 @@ npm run typecheck
 npm test
 npm run build
 npm audit --omit=dev --audit-level=high
-npm run dev
 ```
 
-No se genera ni versiona instalador.
+No incluye corrección, reasignación, liberación, gestión de jornadas ni instalador.

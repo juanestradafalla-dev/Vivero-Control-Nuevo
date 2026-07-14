@@ -1,47 +1,64 @@
 # Vivero Control Nuevo
 
-Sistema nuevo para operar inventario por línea mediante Vivero Campo (Android), Vivero Maestro (Windows) y un backend transaccional. Este repositorio no modifica ni reutiliza el proyecto anterior `Vivero-Control`.
+Sistema nuevo para operar inventario por línea mediante Vivero Campo (Android), Vivero Maestro (Windows) y un backend transaccional. Este repositorio no consulta, modifica ni reutiliza el proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 4
+## Estado: ETAPA 5
 
 La vertical disponible funciona exclusivamente con Firebase Emulator Suite y datos ficticios:
 
-1. una cuenta autenticada reserva una línea con `reservarLinea`;
-2. Campo protege el token con Android Keystore y AES-GCM;
-3. el conteo se captura en un borrador Room aislado por cuenta, dispositivo y reserva;
-4. una confirmación explícita congela payload y clave idempotente;
-5. WorkManager espera conectividad y reintenta el mismo intento lógico;
-6. `enviarConteo` valida fuentes centrales y, en una transacción, crea un conteo inmutable, consume la reserva y cambia `EN_CONTEO` a `PENDIENTE_REVISION`;
-7. Maestro muestra el conteo al supervisor o administrador como monitor de solo lectura.
+1. Campo reserva una línea, captura el conteo offline y lo sincroniza idempotentemente.
+2. Después de `ENVIADA`, la persona finaliza y puede tomar otra línea sin perder el historial local.
+3. `enviarConteo` deja la línea en `PENDIENTE_REVISION` sin tocar inventario.
+4. Maestro presenta una bandeja con conteo, inventario oficial actual y diferencias.
+5. Supervisor o administrador autorizado solicita `aprobarConteo` o `devolverConteo`.
+6. La aprobación reemplaza la fotografía oficial y crea un movimiento histórico en una sola transacción.
+7. La devolución conserva el inventario intacto y deja la corrección para la Etapa 6.
 
 > **MODO DE PRUEBA — EMULADOR.** No existe Firebase real configurado, no hay credenciales de producción y ningún comando despliega recursos.
 
-`ENVIADA` es un estado local de sincronización. No existe como estado central. Un conteo pendiente de revisión no crea, actualiza ni reemplaza inventario oficial.
+Los conteos y las decisiones son inmutables desde clientes. Maestro no escribe directamente inventario, movimientos, decisiones, auditoría ni estados de línea.
 
-## Componentes
+## Reglas de revisión
+
+- Un auxiliar no revisa conteos.
+- Supervisor y administrador requieren autorización activa de la jornada.
+- Un supervisor no puede aprobar su propio conteo.
+- Un administrador puede hacerlo excepcionalmente con advertencia y motivo obligatorio auditado.
+- Toda devolución exige motivo.
+- Repetir la misma clave con el mismo payload recupera el resultado anterior.
+- Una misma clave con otro payload produce `IDEMPOTENCY_CONFLICT`.
+- Si dos decisiones compiten, solo una puede confirmar la transición y sus efectos.
+- Nunca se asume inventario cero: si falta la fotografía inicial, la aprobación se rechaza íntegramente.
+
+## Inventario ficticio del emulador
+
+El seed repetible crea estas fotografías claramente ficticias:
+
+| Línea | Hembras | Machos | Patrones | Total |
+|---|---:|---:|---:|---:|
+| `LINEA-PRUEBA-1` | 500 | 300 | 200 | 1.000 |
+| `LINEA-PRUEBA-2` | 380 | 220 | 150 | 750 |
+| `LINEA-PRUEBA-3` | 270 | 180 | 90 | 540 |
+
+Una aprobación de 450 hembras, 320 machos y 210 patrones para la primera línea reemplaza 1.000 por 980 y registra diferencias `-50`, `+20`, `+10` y `-20`.
+
+## Estructura
 
 ```text
 Vivero-Control-Nuevo/
 |-- .github/workflows/       # CI y auditoría, sin despliegue
 |-- apps/campo-android/      # Kotlin, Compose, Room, WorkManager y Keystore
-|-- apps/maestro-desktop/    # Electron, React y TypeScript; solo lectura
-|-- backend/                 # Functions, reglas, emuladores y seed ficticio
+|-- apps/maestro-desktop/    # Electron, React y bandeja de revisión
+|-- backend/                 # Callables, reglas, emuladores y seed ficticio
 |-- contracts/               # JSON Schema y ejemplos compartidos
 |-- data/templates/          # plantillas vacías para levantamiento futuro
 |-- docs/                    # definición, arquitectura y pruebas
 `-- tests/                   # espacio para escenarios integrales futuros
 ```
 
-## Requisitos
+## Emuladores
 
-- JDK 21.
-- Android SDK 36.1; `minSdk` provisional 23.
-- Node.js 22 o posterior y npm.
-- Java disponible para Firestore Emulator.
-
-Gradle Wrapper, dependency locking y `package-lock.json` fijan dependencias reproducibles. No se incluye `google-services.json`.
-
-## Emuladores y datos ficticios
+Requisitos: JDK 21, Android SDK 36.1, Node.js 22 o posterior y npm.
 
 ```powershell
 Set-Location backend/functions
@@ -57,7 +74,7 @@ Set-Location backend/functions
 npm run emulator:seed
 ```
 
-Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed se niega a trabajar si el proyecto no comienza por `demo-`.
+Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las cuatro Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
 
 | Correo ficticio | Rol |
 |---|---|
@@ -67,27 +84,6 @@ Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`.
 | `administrador@prueba.local` | Administrador |
 
 Contraseña exclusiva del emulador: `SoloEmulador-Etapa3!`. Es pública y no debe reutilizarse.
-
-## Ejecutar clientes
-
-Campo, con Emulator Suite activo:
-
-```powershell
-Set-Location apps/campo-android
-./gradlew.bat installDebug
-```
-
-Android Emulator usa `10.0.2.2`. La variante `release` carece de configuración Firebase y falla de forma segura.
-
-Maestro:
-
-```powershell
-Set-Location apps/maestro-desktop
-npm ci
-npm run dev
-```
-
-Maestro permite búsqueda y filtro por estado. Solo supervisor o administrador autorizados consultan el detalle de conteos. No existen acciones de aprobar, devolver, corregir, reasignar, liberar ni modificar inventario.
 
 ## Verificación
 
@@ -113,7 +109,7 @@ npm test
 npm run build
 npm audit --omit=dev --audit-level=high
 
-# backend y emuladores
+# backend, reglas y concurrencia
 Set-Location ../../backend/functions
 npm ci
 npm run lint
@@ -124,19 +120,17 @@ npm run test:emulators
 npm audit --omit=dev --audit-level=high
 ```
 
-`test:emulators` reserva primero y luego envía mediante Auth, Functions y Firestore Emulator reales. Incluye dos reservas concurrentes, dos envíos concurrentes, recuperación idempotente y reglas positivas/negativas.
+## Documentación de la ETAPA 5
 
-## Documentación de la ETAPA 4
-
-- [Modelo Firestore](docs/arquitectura/MODELO_FIRESTORE_ETAPA_04.md)
-- [Operación enviarConteo](docs/arquitectura/OPERACION_ENVIAR_CONTEO.md)
-- [Captura offline y sincronización](docs/arquitectura/CAPTURA_OFFLINE_Y_SINCRONIZACION.md)
-- [Protección del token en Android](docs/arquitectura/PROTECCION_TOKEN_RESERVA_ANDROID.md)
-- [Pruebas](docs/pruebas/PRUEBAS_ETAPA_04.md)
-- [Criterios de aceptación](docs/ETAPA_04_CRITERIOS_DE_ACEPTACION.md)
+- [Operación aprobarConteo](docs/arquitectura/OPERACION_APROBAR_CONTEO.md)
+- [Operación devolverConteo](docs/arquitectura/OPERACION_DEVOLVER_CONTEO.md)
+- [Inventario oficial y movimientos](docs/arquitectura/INVENTARIO_OFICIAL_Y_MOVIMIENTOS_ETAPA_05.md)
+- [Reglas de autorrevisión](docs/arquitectura/REGLAS_AUTORREVISION_ETAPA_05.md)
+- [Pruebas y concurrencia](docs/pruebas/PRUEBAS_ETAPA_05.md)
+- [Criterios de aceptación](docs/ETAPA_05_CRITERIOS_DE_ACEPTACION.md)
 - [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
 - [Decisiones pendientes](docs/DECISIONES_PENDIENTES.md)
 
 ## Exclusiones vigentes
 
-No están implementados aprobación, devolución, correcciones, reasignación, inventario oficial, movimientos, liberación manual, gestión de jornadas, administración de usuarios, datos reales, migración, Firebase real, despliegues, APK de producción, instalador definitivo, descartes, despachos, químicos, aplicaciones ni reingresos.
+No están implementados: corrección de conteos devueltos, reasignación, liberación de reservas, gestión completa de jornadas, administración de usuarios, datos reales, migración, Firebase de producción, despliegues, APK de producción, instalador Windows definitivo, descartes, despachos, químicos, aplicaciones ni reingresos.

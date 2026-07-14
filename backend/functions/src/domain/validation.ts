@@ -1,4 +1,9 @@
-import type {ReserveLineRequest, SendCountRequest} from "./contracts.js";
+import type {
+  ApproveCountRequest,
+  ReserveLineRequest,
+  ReturnCountRequest,
+  SendCountRequest
+} from "./contracts.js";
 import {domainErrors} from "./errors.js";
 
 const safeIdPattern = /^[A-Za-z0-9._:-]{3,128}$/;
@@ -17,6 +22,59 @@ const sendCountFields = new Set([
 ]);
 const tokenPattern = /^[A-Za-z0-9_-]{32,256}$/;
 const timestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
+const approveCountFields = new Set(["conteoId", "claveIdempotencia", "motivoExcepcion"]);
+const returnCountFields = new Set(["conteoId", "motivo", "claveIdempotencia"]);
+const REVIEW_REASON_LIMIT = 2000;
+
+function parseReviewBase(
+  value: unknown,
+  allowedFields: ReadonlySet<string>
+): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw domainErrors.invalidArgument();
+  }
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).some((field) => !allowedFields.has(field))) {
+    throw domainErrors.invalidArgument();
+  }
+  if (
+    typeof record.conteoId !== "string" ||
+    typeof record.claveIdempotencia !== "string" ||
+    !safeIdPattern.test(record.conteoId) ||
+    !idempotencyPattern.test(record.claveIdempotencia)
+  ) {
+    throw domainErrors.invalidArgument();
+  }
+  return record;
+}
+
+function validReason(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0 && value.length <= REVIEW_REASON_LIMIT;
+}
+
+export function parseApproveCountRequest(value: unknown): ApproveCountRequest {
+  const record = parseReviewBase(value, approveCountFields);
+  if (record.motivoExcepcion !== undefined && !validReason(record.motivoExcepcion)) {
+    throw domainErrors.invalidArgument();
+  }
+  return {
+    conteoId: record.conteoId as string,
+    claveIdempotencia: record.claveIdempotencia as string,
+    ...(record.motivoExcepcion === undefined
+      ? {}
+      : {motivoExcepcion: (record.motivoExcepcion as string).trim()})
+  };
+}
+
+export function parseReturnCountRequest(value: unknown): ReturnCountRequest {
+  const record = parseReviewBase(value, returnCountFields);
+  if (!validReason(record.motivo)) throw domainErrors.returnReasonRequired();
+  return {
+    conteoId: record.conteoId as string,
+    motivo: (record.motivo as string).trim(),
+    claveIdempotencia: record.claveIdempotencia as string
+  };
+}
 
 export function parseReserveLineRequest(value: unknown): ReserveLineRequest {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {

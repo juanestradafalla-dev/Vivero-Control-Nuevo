@@ -25,6 +25,14 @@ export type ControlledErrorCode =
   | "INVALID_RESERVATION_TOKEN"
   | "LINE_RESERVATION_MISMATCH"
   | "LINE_NOT_IN_COUNT"
+  | "COUNT_NOT_FOUND"
+  | "COUNT_NOT_PENDING_REVIEW"
+  | "COUNT_LINE_MISMATCH"
+  | "REVIEW_NOT_ALLOWED"
+  | "SELF_APPROVAL_FORBIDDEN"
+  | "EXCEPTION_REASON_REQUIRED"
+  | "RETURN_REASON_REQUIRED"
+  | "INVENTORY_NOT_FOUND"
   | "IDEMPOTENCY_CONFLICT"
   | "EMULATOR_ONLY"
   | "INTERNAL_ERROR";
@@ -111,8 +119,45 @@ export interface ReturnCountRequest {
 
 export interface ApproveCountRequest {
   readonly conteoId: string;
-  readonly motivo?: string;
+  readonly motivoExcepcion?: string;
   readonly claveIdempotencia: string;
+}
+
+export interface InventoryValues {
+  readonly hembras: number;
+  readonly machos: number;
+  readonly patrones: number;
+  readonly total: number;
+}
+
+export interface InventoryDifferences {
+  readonly hembras: number;
+  readonly machos: number;
+  readonly patrones: number;
+  readonly total: number;
+}
+
+export interface ApproveCountResult {
+  readonly conteoId: string;
+  readonly jornadaLineaId: string;
+  readonly decisionId: string;
+  readonly movimientoId: string;
+  readonly estadoCentral: "APROBADA";
+  readonly inventarioAnterior: InventoryValues;
+  readonly inventarioNuevo: InventoryValues;
+  readonly diferencias: InventoryDifferences;
+  readonly versionInventario: number;
+  readonly versionLinea: number;
+  readonly aprobadaEn: string;
+}
+
+export interface ReturnCountResult {
+  readonly conteoId: string;
+  readonly jornadaLineaId: string;
+  readonly decisionId: string;
+  readonly estadoCentral: "DEVUELTA";
+  readonly versionLinea: number;
+  readonly devueltaEn: string;
 }
 
 export interface OperationResult {

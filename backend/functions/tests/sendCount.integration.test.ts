@@ -270,9 +270,12 @@ describe("enviarConteo mediante Auth, Functions y Firestore Emulator", () => {
   it("no crea ni modifica inventario oficial ni movimientos", async () => {
     const client = await authenticatedClient();
     const reservation = await reserve(client.functions);
-    await send(client.functions, payload(reservation));
     const database = adminDatabase();
-    expect((await database.collection("inventarioOficialLineas").get()).empty).toBe(true);
+    const inventoryBefore = (await database.collection("inventarioOficialLineas").doc("LINEA-PRUEBA-1").get()).data();
+    await send(client.functions, payload(reservation));
+    expect((await database.collection("inventarioOficialLineas").doc("LINEA-PRUEBA-1").get()).data())
+      .toEqual(inventoryBefore);
+    expect((await database.collection("inventarioOficialLineas").get()).size).toBe(3);
     expect((await database.collection("movimientosInventario").get()).empty).toBe(true);
   });
 });

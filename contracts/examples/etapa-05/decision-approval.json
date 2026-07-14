@@ -1,0 +1,17 @@
+{
+  "id": "decision-etapa-05-001",
+  "conteoId": "conteo-etapa-05-001",
+  "jornadaId": "jornada-etapa-05-001",
+  "jornadaLineaId": "jornada-linea-etapa-05-001",
+  "lineaId": "linea-etapa-05-001",
+  "autorUsuarioId": "usuario-auxiliar-etapa-05-001",
+  "revisorUsuarioId": "usuario-supervisor-etapa-05-001",
+  "revisorNombreVisible": "Supervisor ficticio",
+  "rolEfectivoRevisor": "SUPERVISOR",
+  "decision": "APROBAR",
+  "autorrevisionAdministrativa": false,
+  "claveIdempotencia": "aprobar-decision-etapa-05-001",
+  "decididaEn": "2026-07-14T12:00:00.000Z",
+  "eventoAuditoriaId": "auditoria-etapa-05-001",
+  "movimientoId": "movimiento-etapa-05-001"
+}

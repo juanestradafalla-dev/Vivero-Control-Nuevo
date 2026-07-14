@@ -1,0 +1,5 @@
+{
+  "conteoId": "conteo-etapa-05-002",
+  "claveIdempotencia": "aprobar-propio-etapa-05-001",
+  "motivoExcepcion": "Operación ficticia con una única cuenta maestra disponible."
+}

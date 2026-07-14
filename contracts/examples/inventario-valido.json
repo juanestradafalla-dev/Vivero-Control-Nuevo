@@ -1,5 +1,7 @@
 {
   "id": "inventario-ejemplo-001",
+  "jornadaId": "jornada-ejemplo-001",
+  "jornadaLineaId": "jornada-linea-ejemplo-001",
   "lineaId": "linea-ejemplo-001",
   "hembras": 700,
   "machos": 200,
@@ -7,6 +9,7 @@
   "total": 1000,
   "conteoAprobadoId": "conteo-ejemplo-aprobado-001",
   "version": 1,
+  "origen": "SEED_FICTICIO_ETAPA_5",
   "actualizadoPorUsuarioId": "usuario-supervisor-ejemplo-001",
   "actualizadoEn": "2026-07-13T12:00:00.000Z"
 }

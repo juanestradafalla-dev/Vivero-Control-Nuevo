@@ -23,7 +23,11 @@ export const expectedSchemas = [
   "jornada-autorizacion.schema.json",
   "resultado-idempotente.schema.json",
   "send-count-request.schema.json",
-  "send-count-result.schema.json"
+  "send-count-result.schema.json",
+  "approve-count-request.schema.json",
+  "approve-count-result.schema.json",
+  "return-count-request.schema.json",
+  "return-count-result.schema.json"
 ];
 
 export const expectedEnums = new Map([

@@ -1,0 +1,16 @@
+{
+  "id": "idempotencia-devolver-etapa-05-001",
+  "actorUsuarioId": "usuario-supervisor-etapa-05-001",
+  "operacion": "DEVOLVER_CONTEO",
+  "claveHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "payloadHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "resultado": {
+    "conteoId": "conteo-etapa-05-003",
+    "jornadaLineaId": "jornada-linea-etapa-05-003",
+    "decisionId": "decision-etapa-05-003",
+    "estadoCentral": "DEVUELTA",
+    "versionLinea": 3,
+    "devueltaEn": "2026-07-14T12:05:00.000Z"
+  },
+  "creadoEn": "2026-07-14T12:05:00.000Z"
+}

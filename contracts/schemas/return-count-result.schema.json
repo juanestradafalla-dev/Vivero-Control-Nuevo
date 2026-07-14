@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/return-count-result.schema.json",
+  "title": "Resultado de devolverConteo",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["conteoId", "jornadaLineaId", "decisionId", "estadoCentral", "versionLinea", "devueltaEn"],
+  "properties": {
+    "conteoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaLineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "decisionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "estadoCentral": {"const": "DEVUELTA"},
+    "versionLinea": {"type": "integer", "minimum": 1},
+    "devueltaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

@@ -77,6 +77,22 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /decisionesRevision/{decisionId} {
+      allow read: if activeUser() &&
+        (resource.data.autorUsuarioId == request.auth.uid || canSupervise(resource.data.jornadaId));
+      allow create, update, delete: if false;
+    }
+
+    match /inventarioOficialLineas/{inventarioId} {
+      allow read: if canSupervise(resource.data.jornadaId);
+      allow create, update, delete: if false;
+    }
+
+    match /movimientosInventario/{movimientoId} {
+      allow read: if canSupervise(resource.data.jornadaId);
+      allow create, update, delete: if false;
+    }
+
     match /idempotencia/{idempotenciaId} {
       allow read, write: if false;
     }

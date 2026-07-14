@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/approve-count-request.schema.json",
+  "title": "Solicitud de aprobarConteo",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["conteoId", "claveIdempotencia"],
+  "properties": {
+    "conteoId": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"},
+    "motivoExcepcion": {"type": "string", "minLength": 1, "maxLength": 2000}
+  },
+  "description": "motivoExcepcion solo corresponde a la aprobación excepcional del propio conteo por un administrador; identidad, rol y tiempo proceden del backend."
+}

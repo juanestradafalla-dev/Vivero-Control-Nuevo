@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/send-count-request.schema.json",
+  "title": "EnviarConteoRequest",
+  "description": "Payload cliente. No acepta identidad, rol, jornada, línea, total, estado ni tiempo del servidor.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["reservaId", "tokenReserva", "dispositivoId", "hembras", "machos", "patrones", "timestampDispositivo", "claveIdempotencia"],
+  "properties": {
+    "reservaId": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+    "tokenReserva": {"type": "string", "minLength": 32, "maxLength": 256, "pattern": "^[A-Za-z0-9_-]+$"},
+    "dispositivoId": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+    "hembras": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "machos": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "patrones": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "observaciones": {"type": "string", "maxLength": 4000},
+    "timestampDispositivo": {"type": "string", "format": "date-time"},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}
+  }
+}

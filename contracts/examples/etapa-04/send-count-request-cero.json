@@ -1,0 +1,10 @@
+{
+  "reservaId": "reserva-ficticia-cero",
+  "tokenReserva": "TOKEN_FICTICIO_OPACO_0000000000000000",
+  "dispositivoId": "ANDROID-INSTALACION-FICTICIA-001",
+  "hembras": 0,
+  "machos": 0,
+  "patrones": 0,
+  "timestampDispositivo": "2026-07-13T15:30:00.000Z",
+  "claveIdempotencia": "envio-conteo-cero-ficticio"
+}

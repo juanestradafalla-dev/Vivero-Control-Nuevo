@@ -18,6 +18,13 @@ export type ControlledErrorCode =
   | "JOURNEY_ACCESS_DENIED"
   | "JOURNEY_LINE_NOT_FOUND"
   | "LINE_NOT_AVAILABLE"
+  | "RESERVATION_NOT_FOUND"
+  | "RESERVATION_NOT_ACTIVE"
+  | "RESERVATION_ACCESS_DENIED"
+  | "DEVICE_MISMATCH"
+  | "INVALID_RESERVATION_TOKEN"
+  | "LINE_RESERVATION_MISMATCH"
+  | "LINE_NOT_IN_COUNT"
   | "IDEMPOTENCY_CONFLICT"
   | "EMULATOR_ONLY"
   | "INTERNAL_ERROR";
@@ -47,11 +54,37 @@ export interface ReserveLineResult {
   readonly ubicacion: VisibleLocation;
 }
 
+export interface SendCountRequest {
+  readonly reservaId: string;
+  readonly tokenReserva: string;
+  readonly dispositivoId: string;
+  readonly hembras: number;
+  readonly machos: number;
+  readonly patrones: number;
+  readonly observaciones?: string;
+  readonly timestampDispositivo: string;
+  readonly claveIdempotencia: string;
+}
+
+export interface SendCountResult {
+  readonly conteoId: string;
+  readonly jornadaLineaId: string;
+  readonly estadoCentral: "PENDIENTE_REVISION";
+  readonly hembras: number;
+  readonly machos: number;
+  readonly patrones: number;
+  readonly total: number;
+  readonly versionConteo: 1;
+  readonly versionLinea: number;
+  readonly recibidoEn: string;
+}
+
 /** Contexto construido exclusivamente desde Authentication y fuentes centrales. */
 export interface TrustedOperationContext {
   readonly actorId: string;
 }
 
+/** Contrato de frontera reservado para una futura operación de revisión; no es enviarConteo. */
 export interface SubmitCountRequest {
   readonly jornadaLineaId: string;
   readonly reservaId: string;

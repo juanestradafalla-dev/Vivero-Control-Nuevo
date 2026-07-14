@@ -1,0 +1,12 @@
+{
+  "conteoId": "conteo-ficticio-001",
+  "jornadaLineaId": "JORNADA-PRUEBA-ETAPA-3__LINEA-PRUEBA-1",
+  "estadoCentral": "PENDIENTE_REVISION",
+  "hembras": 100,
+  "machos": 20,
+  "patrones": 5,
+  "total": 125,
+  "versionConteo": 1,
+  "versionLinea": 2,
+  "recibidoEn": "2026-07-13T15:30:05.000Z"
+}

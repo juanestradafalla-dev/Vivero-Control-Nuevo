@@ -19,4 +19,10 @@ interface ConfirmedReservationDao {
         """,
     )
     suspend fun latestForUser(userId: String): ConfirmedReservationEntity?
+
+    @Query("SELECT * FROM confirmed_reservations WHERE reservationId = :reservationId LIMIT 1")
+    suspend fun byId(reservationId: String): ConfirmedReservationEntity?
+
+    @Query("UPDATE confirmed_reservations SET tokenCiphertext = NULL, tokenIv = NULL WHERE reservationId = :reservationId")
+    suspend fun clearEncryptedToken(reservationId: String)
 }

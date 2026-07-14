@@ -3,6 +3,7 @@ package com.arles.viverocampo.presentation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,6 +29,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.arles.viverocampo.domain.JourneyLine
+import com.arles.viverocampo.domain.SyncState
 
 private val ViveroGreen = Color(0xFF1B5E20)
 private val ViveroBackground = Color(0xFFF1F8F2)
@@ -57,6 +60,14 @@ fun CampoRoute(viewModel: CampoViewModel) {
         onSelectLine = viewModel::selectLine,
         onCancelSelection = viewModel::cancelSelection,
         onConfirmReservation = viewModel::confirmReservation,
+        onFemalesChange = viewModel::updateFemales,
+        onMalesChange = viewModel::updateMales,
+        onRootstocksChange = viewModel::updateRootstocks,
+        onObservationsChange = viewModel::updateObservations,
+        onRequestCountConfirmation = viewModel::requestCountConfirmation,
+        onCancelCountConfirmation = viewModel::cancelCountConfirmation,
+        onConfirmCountSubmission = viewModel::confirmCountSubmission,
+        onRetry = viewModel::retryCountSubmission,
     )
 }
 
@@ -67,29 +78,39 @@ private fun CampoScreen(
     onPasswordChange: (String) -> Unit,
     onSignIn: () -> Unit,
     onSignOut: () -> Unit,
-    onSelectLine: (com.arles.viverocampo.domain.JourneyLine) -> Unit,
+    onSelectLine: (JourneyLine) -> Unit,
     onCancelSelection: () -> Unit,
     onConfirmReservation: () -> Unit,
+    onFemalesChange: (String) -> Unit,
+    onMalesChange: (String) -> Unit,
+    onRootstocksChange: (String) -> Unit,
+    onObservationsChange: (String) -> Unit,
+    onRequestCountConfirmation: () -> Unit,
+    onCancelCountConfirmation: () -> Unit,
+    onConfirmCountSubmission: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     Surface(modifier = Modifier.fillMaxSize(), color = ViveroBackground) {
         Column(modifier = Modifier.fillMaxSize()) {
             Text(
-                text = if (state.emulatorEnabled) {
-                    "MODO DE PRUEBA — EMULADOR"
-                } else {
-                    "FIREBASE DESHABILITADO — SIN PRODUCCIÓN"
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(TestBanner)
-                    .padding(12.dp),
+                text = if (state.emulatorEnabled) "MODO DE PRUEBA — EMULADOR" else "FIREBASE DESHABILITADO — SIN PRODUCCIÓN",
+                modifier = Modifier.fillMaxWidth().background(TestBanner).padding(12.dp),
                 color = Color.Black,
                 fontWeight = FontWeight.Bold,
             )
-            if (state.user == null) {
-                LoginContent(state, onEmailChange, onPasswordChange, onSignIn)
-            } else {
-                JourneyContent(state, onSignOut, onSelectLine)
+            when {
+                state.user == null -> LoginContent(state, onEmailChange, onPasswordChange, onSignIn)
+                state.confirmedReservation != null -> CountContent(
+                    state,
+                    onSignOut,
+                    onFemalesChange,
+                    onMalesChange,
+                    onRootstocksChange,
+                    onObservationsChange,
+                    onRequestCountConfirmation,
+                    onRetry,
+                )
+                else -> JourneyContent(state, onSignOut, onSelectLine)
             }
         }
     }
@@ -113,8 +134,37 @@ private fun CampoScreen(
                 }
             },
             dismissButton = {
-                OutlinedButton(onClick = onCancelSelection, enabled = !state.reserving) {
-                    Text("Cancelar")
+                OutlinedButton(onClick = onCancelSelection, enabled = !state.reserving) { Text("Cancelar") }
+            },
+        )
+    }
+
+    if (state.showCountSummary) {
+        val reservation = requireNotNull(state.confirmedReservation)
+        AlertDialog(
+            onDismissRequest = onCancelCountConfirmation,
+            title = { Text("Confirmar conteo") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("${reservation.location.nursery} · ${reservation.location.module}")
+                    Text("${reservation.location.bed} · ${reservation.location.line}", fontWeight = FontWeight.Bold)
+                    Text("Hembras: ${state.countInput.females}")
+                    Text("Machos: ${state.countInput.males}")
+                    Text("Patrones: ${state.countInput.rootstocks}")
+                    Text("Total: ${state.countTotal ?: 0}", fontWeight = FontWeight.Bold)
+                    Text("Observaciones: ${state.countInput.observations.ifBlank { "Sin observaciones" }}")
+                    Text("Responsable: ${state.user?.name.orEmpty()}")
+                    Text("Al confirmar, este intento queda congelado para sus reintentos.")
+                }
+            },
+            confirmButton = {
+                Button(onClick = onConfirmCountSubmission, enabled = !state.confirmingCount) {
+                    Text(if (state.confirmingCount) "Confirmando…" else "Confirmar y enviar")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = onCancelCountConfirmation, enabled = !state.confirmingCount) {
+                    Text("Volver")
                 }
             },
         )
@@ -128,10 +178,7 @@ private fun LoginContent(
     onPasswordChange: (String) -> Unit,
     onSignIn: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier.padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
+    Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Vivero Campo", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text("Inicio de sesión exclusivo para cuentas ficticias del Auth Emulator.")
         OutlinedTextField(
@@ -153,11 +200,7 @@ private fun LoginContent(
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         )
-        Button(
-            onClick = onSignIn,
-            enabled = state.emulatorEnabled && !state.signingIn,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
+        Button(onClick = onSignIn, enabled = state.emulatorEnabled && !state.signingIn, modifier = Modifier.fillMaxWidth()) {
             Text(if (state.signingIn) "Ingresando…" else "Iniciar sesión")
         }
         state.message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -165,14 +208,117 @@ private fun LoginContent(
 }
 
 @Composable
-private fun JourneyContent(
+private fun CountContent(
     state: CampoUiState,
     onSignOut: () -> Unit,
-    onSelectLine: (com.arles.viverocampo.domain.JourneyLine) -> Unit,
+    onFemalesChange: (String) -> Unit,
+    onMalesChange: (String) -> Unit,
+    onRootstocksChange: (String) -> Unit,
+    onObservationsChange: (String) -> Unit,
+    onRequestCountConfirmation: () -> Unit,
+    onRetry: () -> Unit,
 ) {
+    val reservation = requireNotNull(state.confirmedReservation)
+    val syncState = state.countDraft?.syncState ?: SyncState.PENDIENTE
+    val editable = (syncState == SyncState.ERROR && state.countDraft?.errorCode == "INVALID_ARGUMENT") ||
+        (syncState == SyncState.PENDIENTE && state.countDraft?.frozenPayload == null)
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
+        contentPadding = PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Text(state.user?.name.orEmpty(), fontWeight = FontWeight.Bold)
+                    Text("Conexión: ${state.connectionStatus}")
+                    Text("Sincronización local: ${syncState.name}")
+                }
+                OutlinedButton(onClick = onSignOut, enabled = syncState != SyncState.SINCRONIZANDO) { Text("Salir") }
+            }
+        }
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("Línea en conteo", fontWeight = FontWeight.Bold)
+                    Text("Jornada: ${reservation.journeyId}")
+                    Text("Vivero: ${reservation.location.nursery}")
+                    Text("Módulo: ${reservation.location.module}")
+                    Text("Cama: ${reservation.location.bed}")
+                    Text("Línea: ${reservation.location.line}", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+        item { QuantityField("Hembras", state.countInput.females, state.countErrors.females, editable, onFemalesChange) }
+        item { QuantityField("Machos", state.countInput.males, state.countErrors.males, editable, onMalesChange) }
+        item { QuantityField("Patrones", state.countInput.rootstocks, state.countErrors.rootstocks, editable, onRootstocksChange) }
+        item {
+            OutlinedTextField(
+                value = state.countInput.observations,
+                onValueChange = onObservationsChange,
+                label = { Text("Observaciones opcionales") },
+                minLines = 3,
+                enabled = editable,
+                isError = state.countErrors.observations != null,
+                supportingText = { state.countErrors.observations?.let { Text(it) } },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    "Total: ${state.countTotal ?: "—"}",
+                    modifier = Modifier.padding(18.dp),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        }
+        if (state.zeroWarning) {
+            item { Text("Advertencia: el total cero se acepta técnicamente en el emulador; su política operativa sigue pendiente.") }
+        }
+        state.message?.let { item { Text(it, color = if (syncState == SyncState.ENVIADA) ViveroGreen else MaterialTheme.colorScheme.error) } }
+        item {
+            when (syncState) {
+                SyncState.ENVIADA -> Text("Conteo confirmado por el servidor y pendiente de revisión.", color = ViveroGreen, fontWeight = FontWeight.Bold)
+                SyncState.ERROR -> Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) { Text("Reintentar mismo envío") }
+                SyncState.SINCRONIZANDO -> Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("Sincronizando…") }
+                SyncState.PENDIENTE -> Button(
+                    onClick = onRequestCountConfirmation,
+                    enabled = editable,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(if (state.countDraft?.frozenPayload == null) "Revisar y confirmar" else "Esperando conexión") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuantityField(
+    label: String,
+    value: String,
+    error: String?,
+    enabled: Boolean,
+    onValueChange: (String) -> Unit,
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        singleLine = true,
+        enabled = enabled,
+        isError = error != null,
+        supportingText = { error?.let { Text(it) } },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@Composable
+private fun JourneyContent(state: CampoUiState, onSignOut: () -> Unit, onSelectLine: (JourneyLine) -> Unit) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
@@ -185,23 +331,7 @@ private fun JourneyContent(
                 OutlinedButton(onClick = onSignOut, enabled = !state.reserving) { Text("Salir") }
             }
         }
-        state.message?.let { message ->
-            item { Text(message, color = if (state.confirmedReservation == null) MaterialTheme.colorScheme.error else ViveroGreen) }
-        }
-        state.confirmedReservation?.let { reservation ->
-            item {
-                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Línea reservada", fontWeight = FontWeight.Bold)
-                        Text(reservation.location.displayName)
-                        Text("Estado: ${reservation.state}")
-                        Text("Usuario: ${state.user?.name.orEmpty()}")
-                        Text("Hora confirmada: ${reservation.confirmedAt}")
-                        Text("El formulario de conteo se implementará después.")
-                    }
-                }
-            }
-        }
+        state.message?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
         item {
             Text(
                 state.journey?.displayName ?: "Cargando jornada ficticia…",
@@ -215,10 +345,7 @@ private fun JourneyContent(
                     Text(line.location.displayName, fontWeight = FontWeight.Bold)
                     Text("${line.location.nursery} · ${line.location.module} · ${line.location.bed}")
                     Text("Estado: ${line.state}")
-                    Button(
-                        onClick = { onSelectLine(line) },
-                        enabled = line.state == "DISPONIBLE" && !state.reserving,
-                    ) {
+                    Button(onClick = { onSelectLine(line) }, enabled = line.state == "DISPONIBLE" && !state.reserving) {
                         Text(if (line.state == "DISPONIBLE") "Tomar línea" else "No disponible")
                     }
                 }

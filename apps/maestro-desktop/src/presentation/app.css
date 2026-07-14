@@ -14,7 +14,7 @@ body {
   min-height: 100vh;
 }
 
-button, input { font: inherit; }
+button, input, select { font: inherit; }
 
 .app-shell { min-height: 100vh; }
 
@@ -102,6 +102,15 @@ input {
   background: #fff;
 }
 
+select {
+  min-width: 210px;
+  padding: 12px 13px;
+  border: 1px solid #b8ccbd;
+  border-radius: 9px;
+  color: #17352a;
+  background: #fff;
+}
+
 input:focus { outline: 3px solid #9ccca8; border-color: #1b6f3b; }
 
 .button {
@@ -139,6 +148,13 @@ input:focus { outline: 3px solid #9ccca8; border-color: #1b6f3b; }
 
 .line-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(275px, 1fr)); gap: 18px; }
 
+.monitor-filters {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(210px, .35fr);
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
 .line-card {
   display: grid;
   min-height: 235px;
@@ -157,12 +173,17 @@ input:focus { outline: 3px solid #9ccca8; border-color: #1b6f3b; }
 .state { display: inline-block; padding: 5px 9px; border-radius: 999px; font-size: .72rem; font-weight: 900; letter-spacing: .04em; }
 .state--disponible { color: #17612f; background: #dff3e5; }
 .state--en_conteo { color: #725514; background: #fff0b8; }
+.state--pendiente_revision { color: #73411b; background: #ffe0c2; }
 
 .reservation-detail { display: grid; gap: 10px; margin: 0; padding-top: 17px; border-top: 1px solid #e2ebe3; }
 .reservation-detail div { display: flex; justify-content: space-between; gap: 12px; }
 .reservation-detail dt { color: #66766d; }
 .reservation-detail dd { margin: 0; color: #17352a; font-weight: 750; text-align: right; }
 .reservation-private { padding-top: 17px; border-top: 1px solid #e2ebe3; font-weight: 750; }
+.count-detail { display: grid; gap: 8px; margin: 0; padding-top: 17px; border-top: 1px solid #e2ebe3; }
+.count-detail div { display: flex; justify-content: space-between; gap: 12px; }
+.count-detail dt { color: #66766d; }
+.count-detail dd { margin: 0; max-width: 62%; color: #17352a; text-align: right; overflow-wrap: anywhere; }
 
 .empty-state { padding: 60px; border: 1px dashed #adc7b3; border-radius: 18px; color: #617269; text-align: center; }
 .read-only-note { margin-top: 28px; color: #607168; font-size: .9rem; text-align: center; }
@@ -171,4 +192,5 @@ input:focus { outline: 3px solid #9ccca8; border-color: #1b6f3b; }
   .topbar, .monitor-heading { align-items: flex-start; flex-direction: column; }
   .session { width: 100%; justify-content: space-between; }
   .login-panel, .monitor { width: min(100% - 28px, 1120px); padding-top: 38px; }
+  .monitor-filters { grid-template-columns: 1fr; }
 }

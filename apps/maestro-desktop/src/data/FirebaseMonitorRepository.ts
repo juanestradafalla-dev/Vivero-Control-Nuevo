@@ -15,6 +15,7 @@ import {
 
 import {loadEmulatorConfig} from "../core/emulatorConfig";
 import type {
+  MonitorCount,
   MonitorLine,
   MonitorLocation,
   MonitorRepository,
@@ -115,13 +116,18 @@ export class FirebaseMonitorRepository implements MonitorRepository {
     let journeyDisplayName: string | undefined;
     let lines: MonitorLine[] = [];
     let reservations = new Map<string, MonitorReservation>();
+    let counts = new Map<string, MonitorCount>();
 
     const publish = () => {
       if (!journeyDisplayName) return;
       onMonitorSnapshot({
         journeyId: activeJourneyId,
         journeyDisplayName,
-        lines: sortMonitorLines(lines.map((line) => ({...line, reservation: reservations.get(line.id)}))),
+        lines: sortMonitorLines(lines.map((line) => ({
+          ...line,
+          reservation: reservations.get(line.id),
+          count: counts.get(line.id),
+        }))),
       });
     };
     const subscriptions = [
@@ -145,7 +151,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
           lines = snapshot.docs.flatMap((documentSnapshot) => {
             const data = documentSnapshot.data();
             const location = parseLocation(data.ubicacion);
-            if (!location || (data.estadoCentral !== "DISPONIBLE" && data.estadoCentral !== "EN_CONTEO")) {
+            if (!location || !["DISPONIBLE", "EN_CONTEO", "PENDIENTE_REVISION"].includes(data.estadoCentral as string)) {
               return [];
             }
             return [{id: documentSnapshot.id, state: data.estadoCentral, location}];
@@ -181,6 +187,52 @@ export class FirebaseMonitorRepository implements MonitorRepository {
             publish();
           },
           () => onError("No fue posible leer las reservas operativas."),
+        ),
+      );
+      subscriptions.push(
+        onSnapshot(
+          query(collection(this.firestore, "conteos"), where("jornadaId", "==", activeJourneyId)),
+          (snapshot) => {
+            counts = new Map(
+              snapshot.docs.flatMap((documentSnapshot) => {
+                const data = documentSnapshot.data();
+                const receivedAt = data.recibidoEn;
+                if (
+                  typeof data.jornadaLineaId !== "string" ||
+                  typeof data.autorNombreVisible !== "string" ||
+                  !isRole(data.rolEfectivo) ||
+                  typeof data.dispositivoId !== "string" ||
+                  !Number.isSafeInteger(data.hembras) ||
+                  !Number.isSafeInteger(data.machos) ||
+                  !Number.isSafeInteger(data.patrones) ||
+                  !Number.isSafeInteger(data.total) ||
+                  typeof data.timestampDispositivo !== "string" ||
+                  !(receivedAt instanceof Timestamp) ||
+                  !Number.isSafeInteger(data.versionNumero)
+                ) {
+                  return [];
+                }
+                const count: MonitorCount = {
+                  authorDisplayName: data.autorNombreVisible,
+                  effectiveRole: data.rolEfectivo,
+                  deviceId: data.dispositivoId,
+                  females: data.hembras,
+                  males: data.machos,
+                  rootstocks: data.patrones,
+                  total: data.total,
+                  ...(typeof data.observaciones === "string" && data.observaciones !== ""
+                    ? {observations: data.observaciones}
+                    : {}),
+                  deviceTimestamp: data.timestampDispositivo,
+                  serverTimestamp: receivedAt.toDate().toISOString(),
+                  version: data.versionNumero,
+                };
+                return [[data.jornadaLineaId, count] as const];
+              }),
+            );
+            publish();
+          },
+          () => onError("No fue posible leer los conteos pendientes."),
         ),
       );
     }

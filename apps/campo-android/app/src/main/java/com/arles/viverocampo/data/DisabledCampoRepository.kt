@@ -6,6 +6,9 @@ import com.arles.viverocampo.domain.ConfirmedReservation
 import com.arles.viverocampo.domain.JourneySnapshot
 import com.arles.viverocampo.domain.ReserveLinePayload
 import com.arles.viverocampo.domain.UserProfile
+import com.arles.viverocampo.domain.CountInput
+import com.arles.viverocampo.domain.CountSyncOutcome
+import com.arles.viverocampo.domain.LocalCountDraft
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 
@@ -24,6 +27,20 @@ class DisabledCampoRepository : CampoRepository {
     ): ConfirmedReservation = unavailable()
 
     override suspend fun latestConfirmedReservation(userId: String): ConfirmedReservation? = null
+
+    override fun observeCountDraft(reservationId: String, userId: String, deviceId: String): Flow<LocalCountDraft?> = emptyFlow()
+
+    override suspend fun saveCountInput(reservationId: String, userId: String, deviceId: String, input: CountInput) = unavailable()
+
+    override suspend fun freezeCountAttempt(
+        reservationId: String,
+        userId: String,
+        deviceId: String,
+        idempotencyKey: String,
+        deviceTimestamp: String,
+    ): LocalCountDraft = unavailable()
+
+    override suspend fun synchronizeCount(reservationId: String): CountSyncOutcome = unavailable()
 
     private fun unavailable(): Nothing = throw CampoRepositoryException(
         "FIREBASE_DISABLED",

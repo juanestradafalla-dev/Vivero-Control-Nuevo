@@ -17,4 +17,18 @@ interface CampoRepository {
     ): ConfirmedReservation
 
     suspend fun latestConfirmedReservation(userId: String): ConfirmedReservation?
+
+    fun observeCountDraft(reservationId: String, userId: String, deviceId: String): Flow<LocalCountDraft?>
+
+    suspend fun saveCountInput(reservationId: String, userId: String, deviceId: String, input: CountInput)
+
+    suspend fun freezeCountAttempt(
+        reservationId: String,
+        userId: String,
+        deviceId: String,
+        idempotencyKey: String,
+        deviceTimestamp: String,
+    ): LocalCountDraft
+
+    suspend fun synchronizeCount(reservationId: String): CountSyncOutcome
 }

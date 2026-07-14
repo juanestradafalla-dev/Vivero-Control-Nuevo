@@ -37,11 +37,19 @@
     "ultimoContactoServidor": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
     "estadoReserva": {"$ref": "../enums/estados-reserva.json"},
     "liberadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "consumidaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
     "liberadaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "motivoLiberacion": {"type": "string", "minLength": 1, "maxLength": 2000},
     "politicaLiberacion": {"const": "MANUAL_SUPERVISOR_MVP"}
   },
   "allOf": [
+    {
+      "if": {"properties": {"estadoReserva": {"const": "CONSUMIDA"}}},
+      "then": {
+        "properties": {"consumidaEn": {}},
+        "required": ["consumidaEn"]
+      }
+    },
     {
       "if": {"properties": {"estadoReserva": {"const": "LIBERADA"}}},
       "then": {

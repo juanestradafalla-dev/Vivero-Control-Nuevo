@@ -21,7 +21,9 @@ export const expectedSchemas = [
   "reserve-line-result.schema.json",
   "error-controlado.schema.json",
   "jornada-autorizacion.schema.json",
-  "resultado-idempotente.schema.json"
+  "resultado-idempotente.schema.json",
+  "send-count-request.schema.json",
+  "send-count-result.schema.json"
 ];
 
 export const expectedEnums = new Map([

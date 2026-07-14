@@ -66,7 +66,15 @@ export async function seedEmulator() {
   const now = Timestamp.fromDate(new Date("2026-07-13T12:00:00.000Z"));
 
   for (const account of demoAccounts) await upsertAuthUser(auth, account);
-  for (const collectionName of ["reservas", "idempotencia", "auditoria", "jornadaLineas"]) {
+  for (const collectionName of [
+    "conteos",
+    "inventarioOficialLineas",
+    "movimientosInventario",
+    "reservas",
+    "idempotencia",
+    "auditoria",
+    "jornadaLineas"
+  ]) {
     await clearCollection(database, collectionName);
   }
 

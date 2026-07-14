@@ -11,6 +11,8 @@ import androidx.room.PrimaryKey
 data class ConfirmedReservationEntity(
     @PrimaryKey val reservationId: String,
     val userId: String,
+    val deviceId: String,
+    val journeyId: String,
     val journeyLineId: String,
     val state: String,
     val confirmedAt: String,
@@ -21,4 +23,6 @@ data class ConfirmedReservationEntity(
     val line: String,
     val displayName: String,
     val orderValue: Int,
+    val tokenCiphertext: String?,
+    val tokenIv: String?,
 )

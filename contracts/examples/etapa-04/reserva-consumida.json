@@ -1,0 +1,15 @@
+{
+  "id": "reserva-consumida-001",
+  "jornadaId": "jornada-ficticia-001",
+  "jornadaLineaId": "jornada-linea-ficticia-001",
+  "usuarioId": "usuario-ficticio-001",
+  "usuarioNombreVisible": "Auxiliar ficticio",
+  "rolEfectivo": "AUXILIAR",
+  "dispositivoId": "dispositivo-ficticio-001",
+  "claveIdempotencia": "clave-reserva-ficticia-001",
+  "tokenReservaHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "reservadaEn": "2026-07-13T19:00:00.000Z",
+  "estadoReserva": "CONSUMIDA",
+  "consumidaEn": "2026-07-13T20:00:00.000Z",
+  "politicaLiberacion": "MANUAL_SUPERVISOR_MVP"
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/send-count-result.schema.json",
+  "title": "EnviarConteoResult",
+  "description": "Confirmación central sin token de reserva y sin modificación de inventario oficial.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["conteoId", "jornadaLineaId", "estadoCentral", "hembras", "machos", "patrones", "total", "versionConteo", "versionLinea", "recibidoEn"],
+  "properties": {
+    "conteoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaLineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "estadoCentral": {"const": "PENDIENTE_REVISION"},
+    "hembras": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "machos": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "patrones": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "total": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "versionConteo": {"const": 1},
+    "versionLinea": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "recibidoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

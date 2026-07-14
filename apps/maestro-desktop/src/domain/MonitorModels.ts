@@ -21,11 +21,26 @@ export interface MonitorReservation {
   readonly reservedAt: string;
 }
 
+export interface MonitorCount {
+  readonly authorDisplayName: string;
+  readonly effectiveRole: MonitorRole;
+  readonly deviceId: string;
+  readonly females: number;
+  readonly males: number;
+  readonly rootstocks: number;
+  readonly total: number;
+  readonly observations?: string;
+  readonly deviceTimestamp: string;
+  readonly serverTimestamp: string;
+  readonly version: number;
+}
+
 export interface MonitorLine {
   readonly id: string;
-  readonly state: "DISPONIBLE" | "EN_CONTEO";
+  readonly state: "DISPONIBLE" | "EN_CONTEO" | "PENDIENTE_REVISION";
   readonly location: MonitorLocation;
   readonly reservation?: MonitorReservation;
+  readonly count?: MonitorCount;
 }
 
 export interface MonitorSnapshot {

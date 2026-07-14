@@ -1,31 +1,20 @@
 # Vivero Campo
 
-Aplicación Android `debug` de la ETAPA 3 para iniciar sesión, observar la jornada
-ficticia y reservar una línea mediante la Callable Function `reservarLinea`.
+Aplicación Android `debug` de la ETAPA 4. Las cuentas ficticias de auxiliar, supervisor y administrador siguen el mismo flujo: autenticar, reservar, capturar, confirmar y sincronizar un conteo.
 
-## Seguridad del entorno
+## Seguridad y persistencia
 
-- Proyecto fijo `demo-vivero-control-etapa3`.
-- Auth Emulator `10.0.2.2:9099`.
-- Firestore Emulator `10.0.2.2:8180`.
-- Functions Emulator `10.0.2.2:5001`.
-- Sin `google-services.json`, registro público ni credenciales reales.
-- `release` deshabilita Firebase y muestra un aviso de fallo seguro.
-- El dispositivo es un UUID por instalación; no concede permisos.
+- Solo conecta al proyecto demo y a Auth, Firestore y Functions Emulator.
+- No usa `google-services.json`, registro público ni credenciales reales.
+- `release` deshabilita Firebase y falla de forma segura.
+- Room conserva reserva y borrador por usuario, instalación y reserva.
+- `ReservationTokenVault` cifra el token con AES-GCM y una clave no exportable de Android Keystore antes de persistir ciphertext e IV.
+- El éxito central elimina ciphertext e IV; no existe fallback en texto plano.
+- `ENVIADA` es local y solo se asigna después de respuesta central.
 
-El host se puede sustituir para una prueba controlada con
-`-PemulatorHost=<IP_PRIVADA>`. Consulte
-[Configuración de emuladores](../../docs/arquitectura/CONFIGURACION_EMULADORES_CLIENTES.md).
+WorkManager 2.11.2 programa un trabajo único por intento con conectividad obligatoria. El payload y la clave idempotente permanecen congelados durante reintentos y sobreviven al reinicio.
 
-## Persistencia local
-
-Room guarda únicamente la reserva ya confirmada, incluida la identidad del
-usuario, ubicación, estado, hora y versión. No persiste contraseña, clave de
-idempotencia ni token opaco. Las consultas se filtran por usuario.
-
-La base aprovecha el aislamiento de la aplicación Android, pero todavía no tiene
-cifrado adicional ni política de borrado remoto. Antes de usar datos reales se
-deben definir protección del dispositivo, retención y recuperación.
+El host por defecto para Android Emulator es `10.0.2.2`; una prueba controlada puede pasar `-PemulatorHost=<IP_PRIVADA>`.
 
 ## Comandos
 
@@ -36,5 +25,4 @@ deben definir protección del dispositivo, retención y recuperación.
 ./gradlew.bat installDebug
 ```
 
-El formulario de conteo, liberación y sincronización diferida no pertenecen a
-esta etapa.
+Aprobación, devolución, corrección, reasignación, liberación e inventario están fuera de esta etapa.

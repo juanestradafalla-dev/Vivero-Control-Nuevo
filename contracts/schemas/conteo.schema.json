@@ -1,15 +1,18 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vivero-control.local/contracts/schemas/conteo.schema.json",
-  "title": "Conteo versionado",
-  "description": "Registro inmutable. El backend calcula total y crea una nueva versión para cada corrección; nunca sobrescribe la versión anterior.",
+  "title": "Conteo inmutable aceptado",
+  "description": "Registro central inmutable. PENDIENTE_REVISION no modifica inventario oficial y ENVIADA nunca es un estado central.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "id",
+    "jornadaId",
     "jornadaLineaId",
+    "lineaId",
     "reservaId",
     "autorUsuarioId",
+    "autorNombreVisible",
     "rolEfectivo",
     "dispositivoId",
     "hembras",
@@ -17,14 +20,21 @@
     "patrones",
     "total",
     "versionNumero",
+    "conteoAnteriorId",
     "claveIdempotencia",
-    "creadoEn"
+    "timestampDispositivo",
+    "recibidoEn",
+    "ubicacion",
+    "inmutable"
   ],
   "properties": {
     "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "jornadaLineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "lineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "reservaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "autorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "autorNombreVisible": {"type": "string", "minLength": 1, "maxLength": 240},
     "rolEfectivo": {"$ref": "../enums/roles.json"},
     "dispositivoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "hembras": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
@@ -33,21 +43,15 @@
     "total": {
       "allOf": [{"$ref": "comun.schema.json#/$defs/enteroNoNegativo"}],
       "readOnly": true,
-      "description": "Calculado centralmente: hembras + machos + patrones. La validación de invariantes rechaza cualquier valor distinto."
+      "description": "Calculado centralmente como hembras + machos + patrones."
     },
-    "versionNumero": {"type": "integer", "minimum": 1},
+    "versionNumero": {"const": 1},
+    "conteoAnteriorId": {"type": "null"},
     "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"},
-    "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
-    "observaciones": {"type": "string", "maxLength": 2000},
-    "corregidoDesdeConteoId": {"$ref": "comun.schema.json#/$defs/idGlobal"}
-  },
-  "allOf": [
-    {
-      "if": {
-        "properties": {"corregidoDesdeConteoId": {}},
-        "required": ["corregidoDesdeConteoId"]
-      },
-      "then": {"properties": {"versionNumero": {"type": "integer", "minimum": 2}}}
-    }
-  ]
+    "observaciones": {"type": "string", "maxLength": 4000},
+    "timestampDispositivo": {"type": "string", "format": "date-time"},
+    "recibidoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "ubicacion": {"$ref": "comun.schema.json#/$defs/ubicacionVisible"},
+    "inmutable": {"const": true}
+  }
 }

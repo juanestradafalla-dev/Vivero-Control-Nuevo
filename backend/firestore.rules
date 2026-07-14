@@ -71,6 +71,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /conteos/{conteoId} {
+      allow read: if activeUser() &&
+        (resource.data.autorUsuarioId == request.auth.uid || canSupervise(resource.data.jornadaId));
+      allow create, update, delete: if false;
+    }
+
     match /idempotencia/{idempotenciaId} {
       allow read, write: if false;
     }

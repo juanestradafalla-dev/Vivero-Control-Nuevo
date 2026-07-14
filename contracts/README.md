@@ -1,27 +1,24 @@
 # Contratos compartidos
 
-JSON Schema Draft 2020-12 define el lenguaje común de Campo, Maestro y backend.
-La ETAPA 3 agrega:
+Los JSON Schema Draft 2020-12 son el lenguaje común de Campo, Maestro y backend.
 
-- `ReserveLineRequest` con solo línea de jornada, dispositivo y clave;
-- `ReserveLineResult` con reserva, estado, token opaco, hora, versión y ubicación;
-- error controlado;
-- estado administrativo de jornada;
-- autorización de jornada;
-- resultado idempotente.
+La ETAPA 4 agrega `send-count-request.schema.json` y `send-count-result.schema.json`, amplía el registro idempotente con `ENVIAR_CONTEO` y formaliza el conteo inmutable, la reserva `CONSUMIDA` y los estados locales `PENDIENTE`, `SINCRONIZANDO`, `ENVIADA` y `ERROR`.
 
-Los ejemplos de `examples/etapa-03/` son ficticios. Las pruebas comprueban que
-los payload usados por Campo y backend cumplen los mismos esquemas y que una
-solicitud que intenta enviar un actor es inválida.
+Reglas de frontera:
+
+- `total` nunca forma parte de la solicitud: lo calcula el servidor;
+- identidad, rol, jornada, línea, estado central y hora de servidor no se aceptan del cliente;
+- `ENVIADA` es exclusivamente local y nunca es un estado de `jornadaLineas`;
+- un conteo aceptado es inmutable;
+- `PENDIENTE_REVISION` no crea ni modifica inventario oficial;
+- el token de reserva no aparece en resultados ni registros idempotentes.
+
+Los ejemplos ficticios están en `examples/etapa-04/`, incluidos casos válidos, total cero y un payload inválido que intenta enviar `total`.
 
 ```powershell
-Set-Location contracts
 npm ci
 npm run validate
 npm test
 ```
 
-`validate` compila todos los esquemas con Ajv 2020. Las pruebas mantienen además
-las invariantes aritméticas de contratos anteriores. Todavía no hay generación
-automática de Kotlin/TypeScript; cualquier cambio de DTO debe actualizar el
-esquema, sus ejemplos y las pruebas en el mismo commit.
+La validación compila todos los esquemas con Ajv 2020 y las pruebas comprueban referencias, propiedades adicionales e invariantes aritméticas. No existe generación automática de DTO: cualquier cambio debe actualizar esquema, ejemplo y pruebas juntos.

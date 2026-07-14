@@ -1,27 +1,43 @@
 package com.arles.viverocampo.data
 
+import androidx.room.withTransaction
 import com.arles.viverocampo.core.FirebaseEmulatorServices
-import com.arles.viverocampo.data.local.ConfirmedReservationDao
 import com.arles.viverocampo.data.local.ConfirmedReservationEntity
+import com.arles.viverocampo.data.local.CountDraftEntity
+import com.arles.viverocampo.data.local.CountLocalPersistence
+import com.arles.viverocampo.data.local.ViveroCampoDatabase
+import com.arles.viverocampo.data.security.EncryptedReservationToken
+import com.arles.viverocampo.data.security.ReservationTokenVault
 import com.arles.viverocampo.domain.CampoRepository
 import com.arles.viverocampo.domain.CampoRepositoryException
 import com.arles.viverocampo.domain.ConfirmedReservation
+import com.arles.viverocampo.domain.CountFormValidator
+import com.arles.viverocampo.domain.CountInput
+import com.arles.viverocampo.domain.CountSyncOutcome
+import com.arles.viverocampo.domain.FrozenCountPayload
 import com.arles.viverocampo.domain.JourneyLine
 import com.arles.viverocampo.domain.JourneySnapshot
+import com.arles.viverocampo.domain.LocalCountDraft
 import com.arles.viverocampo.domain.ReserveLinePayload
+import com.arles.viverocampo.domain.SyncState
 import com.arles.viverocampo.domain.UserProfile
 import com.arles.viverocampo.domain.VisibleLocation
 import com.google.firebase.functions.FirebaseFunctionsException
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
 
 class FirebaseCampoRepository(
     private val services: FirebaseEmulatorServices,
-    private val reservationDao: ConfirmedReservationDao,
+    private val database: ViveroCampoDatabase,
+    private val tokenVault: ReservationTokenVault,
 ) : CampoRepository {
     override val emulatorEnabled: Boolean = true
+    private val reservationDao = database.confirmedReservationDao()
+    private val draftDao = database.countDraftDao()
+    private val localPersistence = CountLocalPersistence(database)
 
     override suspend fun signIn(email: String, password: String): UserProfile {
         try {
@@ -38,11 +54,7 @@ class FirebaseCampoRepository(
             }
             val role = (profile.get("roles") as? List<*>)?.firstOrNull() as? String
                 ?: throw CampoRepositoryException("PERMISSION_DENIED", "La cuenta no tiene un rol operativo.")
-            return UserProfile(
-                id = user.uid,
-                name = profile.getString("nombreVisible") ?: "Usuario de prueba",
-                role = role,
-            )
+            return UserProfile(user.uid, profile.getString("nombreVisible") ?: "Usuario de prueba", role)
         } catch (error: CampoRepositoryException) {
             throw error
         } catch (error: Exception) {
@@ -57,15 +69,12 @@ class FirebaseCampoRepository(
     override fun observeActiveJourney(): Flow<JourneySnapshot> = callbackFlow {
         var journeyName: String? = null
         var lines: List<JourneyLine>? = null
-
         fun publishWhenReady() {
             val currentName = journeyName ?: return
             val currentLines = lines ?: return
             trySend(JourneySnapshot(ACTIVE_JOURNEY_ID, currentName, currentLines))
         }
-
-        val journeyRegistration = services.firestore.collection("jornadas")
-            .document(ACTIVE_JOURNEY_ID)
+        val journeyRegistration = services.firestore.collection("jornadas").document(ACTIVE_JOURNEY_ID)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     close(CampoRepositoryException("NETWORK_ERROR", "No fue posible leer la jornada de prueba.", error))
@@ -81,42 +90,44 @@ class FirebaseCampoRepository(
                     close(CampoRepositoryException("NETWORK_ERROR", "No fue posible leer las líneas de prueba.", error))
                 } else if (snapshot != null) {
                     lines = snapshot.documents.mapNotNull { document ->
-                        val location = parseLocation(document.get("ubicacion")) ?: return@mapNotNull null
                         JourneyLine(
                             id = document.id,
                             state = document.getString("estadoCentral") ?: return@mapNotNull null,
                             version = document.getLong("version")?.toInt() ?: 0,
-                            location = location,
+                            location = parseLocation(document.get("ubicacion")) ?: return@mapNotNull null,
                         )
                     }.sortedBy { it.location.order }
                     publishWhenReady()
                 }
             }
-
         awaitClose {
             journeyRegistration.remove()
             linesRegistration.remove()
         }
     }
 
-    override suspend fun reserveLine(
-        payload: ReserveLinePayload,
-        userId: String,
-    ): ConfirmedReservation {
+    override suspend fun reserveLine(payload: ReserveLinePayload, userId: String): ConfirmedReservation {
         try {
-            val response = services.functions.getHttpsCallable("reservarLinea")
-                .call(payload.toWireMap())
-                .await()
-                .data as? Map<*, *>
-                ?: throw CampoRepositoryException("INVALID_RESPONSE", "El backend devolvió una respuesta inválida.")
-            val reservation = parseReservation(response, userId)
-            reservationDao.save(reservation.toEntity())
+            val response = services.functions.getHttpsCallable("reservarLinea").call(payload.toWireMap()).await().data
+                as? Map<*, *> ?: throw CampoRepositoryException("INVALID_RESPONSE", "El backend devolvió una respuesta inválida.")
+            val token = response["tokenReserva"] as? String
+                ?: throw CampoRepositoryException("INVALID_RESPONSE", "La confirmación no contiene un token opaco válido.")
+            val reservation = parseReservation(response, userId, payload.dispositivoId)
+            val encrypted = try {
+                tokenVault.encrypt(token)
+            } catch (error: Exception) {
+                throw CampoRepositoryException(
+                    "TOKEN_ENCRYPTION_FAILED",
+                    "No fue posible proteger la reserva en este dispositivo.",
+                    error,
+                )
+            }
+            reservationDao.save(reservation.toEntity(encrypted))
             return reservation
         } catch (error: CampoRepositoryException) {
             throw error
         } catch (error: FirebaseFunctionsException) {
-            val controlledCode = (error.details as? Map<*, *>)?.get("code") as? String
-                ?: "NETWORK_ERROR"
+            val controlledCode = (error.details as? Map<*, *>)?.get("code") as? String ?: "NETWORK_ERROR"
             throw CampoRepositoryException(controlledCode, error.message ?: "No fue posible reservar la línea.", error)
         } catch (error: Exception) {
             throw CampoRepositoryException(
@@ -130,27 +141,160 @@ class FirebaseCampoRepository(
     override suspend fun latestConfirmedReservation(userId: String): ConfirmedReservation? =
         reservationDao.latestForUser(userId)?.toDomain()
 
-    private fun parseReservation(response: Map<*, *>, userId: String): ConfirmedReservation {
-        val token = response["tokenReserva"] as? String
-        if (token.isNullOrBlank()) {
-            throw CampoRepositoryException("INVALID_RESPONSE", "La confirmación no contiene un token opaco válido.")
+    override fun observeCountDraft(
+        reservationId: String,
+        userId: String,
+        deviceId: String,
+    ): Flow<LocalCountDraft?> = draftDao.observe(reservationId, userId, deviceId).map { it?.toDomain() }
+
+    override suspend fun saveCountInput(
+        reservationId: String,
+        userId: String,
+        deviceId: String,
+        input: CountInput,
+    ) {
+        val existing = draftDao.byReservationId(reservationId)
+        if (existing != null && (existing.userId != userId || existing.deviceId != deviceId)) {
+            throw CampoRepositoryException("DRAFT_ACCESS_DENIED", "El borrador pertenece a otra cuenta o dispositivo.")
         }
-        return ConfirmedReservation(
-            reservationId = response["reservaId"] as? String
-                ?: throw CampoRepositoryException("INVALID_RESPONSE", "Falta reservaId."),
-            userId = userId,
-            journeyLineId = response["jornadaLineaId"] as? String
-                ?: throw CampoRepositoryException("INVALID_RESPONSE", "Falta jornadaLineaId."),
-            state = response["estadoCentral"] as? String
-                ?: throw CampoRepositoryException("INVALID_RESPONSE", "Falta estadoCentral."),
-            confirmedAt = response["reservadaEn"] as? String
-                ?: throw CampoRepositoryException("INVALID_RESPONSE", "Falta reservadaEn."),
-            version = (response["version"] as? Number)?.toInt()
-                ?: throw CampoRepositoryException("INVALID_RESPONSE", "Falta version."),
-            location = parseLocation(response["ubicacion"])
-                ?: throw CampoRepositoryException("INVALID_RESPONSE", "Falta ubicación."),
+        if (existing?.syncState == SyncState.ENVIADA.name) return
+        if (existing?.idempotencyKey != null && existing.syncState != SyncState.ERROR.name) return
+        val changedAfterError = existing?.syncState == SyncState.ERROR.name && existing.input() != input
+        draftDao.save(
+            (existing ?: emptyDraft(reservationId, userId, deviceId)).copy(
+                femalesInput = input.females,
+                malesInput = input.males,
+                rootstocksInput = input.rootstocks,
+                observationsInput = input.observations,
+                syncState = if (changedAfterError) SyncState.PENDIENTE.name else existing?.syncState ?: SyncState.PENDIENTE.name,
+                frozenFemales = if (changedAfterError) null else existing?.frozenFemales,
+                frozenMales = if (changedAfterError) null else existing?.frozenMales,
+                frozenRootstocks = if (changedAfterError) null else existing?.frozenRootstocks,
+                frozenObservations = if (changedAfterError) null else existing?.frozenObservations,
+                frozenDeviceTimestamp = if (changedAfterError) null else existing?.frozenDeviceTimestamp,
+                idempotencyKey = if (changedAfterError) null else existing?.idempotencyKey,
+                errorCode = if (changedAfterError) null else existing?.errorCode,
+                errorMessage = if (changedAfterError) null else existing?.errorMessage,
+                updatedAtEpochMillis = System.currentTimeMillis(),
+            ),
         )
     }
+
+    override suspend fun freezeCountAttempt(
+        reservationId: String,
+        userId: String,
+        deviceId: String,
+        idempotencyKey: String,
+        deviceTimestamp: String,
+    ): LocalCountDraft = database.withTransaction {
+        val existing = draftDao.byReservationId(reservationId)
+            ?: throw CampoRepositoryException("INVALID_ARGUMENT", "No existe un borrador para confirmar.")
+        if (existing.userId != userId || existing.deviceId != deviceId) {
+            throw CampoRepositoryException("DRAFT_ACCESS_DENIED", "El borrador pertenece a otra cuenta o dispositivo.")
+        }
+        if (existing.idempotencyKey != null) return@withTransaction existing.toDomain()
+        val validation = CountFormValidator.validate(existing.input())
+        if (!validation.valid) throw CampoRepositoryException("INVALID_ARGUMENT", "Corrige los campos marcados antes de confirmar.")
+        val frozen = existing.copy(
+            syncState = SyncState.PENDIENTE.name,
+            frozenFemales = requireNotNull(validation.females),
+            frozenMales = requireNotNull(validation.males),
+            frozenRootstocks = requireNotNull(validation.rootstocks),
+            frozenObservations = existing.observationsInput,
+            frozenDeviceTimestamp = deviceTimestamp,
+            idempotencyKey = idempotencyKey,
+            errorCode = null,
+            errorMessage = null,
+            updatedAtEpochMillis = System.currentTimeMillis(),
+        )
+        draftDao.save(frozen)
+        frozen.toDomain()
+    }
+
+    override suspend fun synchronizeCount(reservationId: String): CountSyncOutcome {
+        val draft = draftDao.byReservationId(reservationId) ?: return CountSyncOutcome.PermanentFailure("DRAFT_NOT_FOUND")
+        if (draft.syncState == SyncState.ENVIADA.name) return CountSyncOutcome.Success
+        val reservation = reservationDao.byId(reservationId)
+            ?: return markFailure(draft, "RESERVATION_NOT_FOUND", "La reserva local ya no está disponible.", false)
+        if (services.auth.currentUser?.uid != draft.userId || reservation.userId != draft.userId || reservation.deviceId != draft.deviceId) {
+            return markFailure(draft, "DRAFT_ACCESS_DENIED", "Inicia sesión con la cuenta responsable para reintentar.", false)
+        }
+        val frozen = draft.toDomain().frozenPayload
+            ?: return markFailure(draft, "ATTEMPT_NOT_CONFIRMED", "Confirma el resumen antes de sincronizar.", false)
+        val encrypted = if (reservation.tokenCiphertext != null && reservation.tokenIv != null) {
+            EncryptedReservationToken(reservation.tokenCiphertext, reservation.tokenIv)
+        } else {
+            return markFailure(draft, "TOKEN_NOT_AVAILABLE", "La reserva protegida ya no está disponible.", false)
+        }
+        draftDao.save(draft.copy(syncState = SyncState.SINCRONIZANDO.name, errorCode = null, errorMessage = null))
+        val token = try {
+            tokenVault.decrypt(encrypted)
+        } catch (_: Exception) {
+            return markFailure(draft, "TOKEN_DECRYPTION_FAILED", "No fue posible abrir la reserva protegida.", false)
+        }
+        return try {
+            val response = services.functions.getHttpsCallable("enviarConteo")
+                .call(frozen.toWireMap(token)).await().data as? Map<*, *>
+                ?: return markFailure(draft, "INVALID_RESPONSE", "El servidor devolvió una respuesta inválida.", true)
+            val countId = response["conteoId"] as? String
+                ?: return markFailure(draft, "INVALID_RESPONSE", "Falta la confirmación del conteo.", true)
+            val centralState = response["estadoCentral"] as? String
+                ?: return markFailure(draft, "INVALID_RESPONSE", "Falta el estado central confirmado.", true)
+            val receivedAt = response["recibidoEn"] as? String
+                ?: return markFailure(draft, "INVALID_RESPONSE", "Falta la hora central confirmada.", true)
+            localPersistence.markSentAndRemoveToken(reservationId, countId, centralState, receivedAt)
+            CountSyncOutcome.Success
+        } catch (error: FirebaseFunctionsException) {
+            val controlledCode = (error.details as? Map<*, *>)?.get("code") as? String
+            if (controlledCode == null || controlledCode in RETRYABLE_CODES) {
+                markFailure(draft, controlledCode ?: "NETWORK_ERROR", "Sin confirmación central; se reintentará sin duplicar.", true)
+            } else {
+                markFailure(draft, controlledCode, actionableMessage(controlledCode), false)
+            }
+        } catch (_: Exception) {
+            markFailure(draft, "NETWORK_ERROR", "Sin confirmación central; se reintentará sin duplicar.", true)
+        }
+    }
+
+    private suspend fun markFailure(
+        draft: CountDraftEntity,
+        code: String,
+        message: String,
+        retryable: Boolean,
+    ): CountSyncOutcome {
+        val current = draftDao.byReservationId(draft.reservationId) ?: draft
+        draftDao.save(
+            current.copy(
+                syncState = SyncState.ERROR.name,
+                errorCode = code,
+                errorMessage = message,
+                updatedAtEpochMillis = System.currentTimeMillis(),
+            ),
+        )
+        return if (retryable) CountSyncOutcome.Retryable(code) else CountSyncOutcome.PermanentFailure(code)
+    }
+
+    private fun actionableMessage(code: String): String = when (code) {
+        "RESERVATION_NOT_ACTIVE", "LINE_NOT_IN_COUNT", "LINE_RESERVATION_MISMATCH" ->
+            "La reserva cambió en el servidor. Solicita revisión al supervisor."
+        "USER_INACTIVE", "JOURNEY_ACCESS_DENIED", "PERMISSION_DENIED" ->
+            "La cuenta ya no está autorizada. Contacta al supervisor."
+        else -> "El servidor rechazó el envío ($code). Corrige la causa antes de reintentar."
+    }
+
+    private fun parseReservation(response: Map<*, *>, userId: String, deviceId: String) = ConfirmedReservation(
+        reservationId = response["reservaId"] as? String ?: invalidResponse("Falta reservaId."),
+        userId = userId,
+        deviceId = deviceId,
+        journeyId = ACTIVE_JOURNEY_ID,
+        journeyLineId = response["jornadaLineaId"] as? String ?: invalidResponse("Falta jornadaLineaId."),
+        state = response["estadoCentral"] as? String ?: invalidResponse("Falta estadoCentral."),
+        confirmedAt = response["reservadaEn"] as? String ?: invalidResponse("Falta reservadaEn."),
+        version = (response["version"] as? Number)?.toInt() ?: invalidResponse("Falta version."),
+        location = parseLocation(response["ubicacion"]) ?: invalidResponse("Falta ubicación."),
+    )
+
+    private fun invalidResponse(message: String): Nothing = throw CampoRepositoryException("INVALID_RESPONSE", message)
 
     private fun parseLocation(value: Any?): VisibleLocation? {
         val location = value as? Map<*, *> ?: return null
@@ -164,9 +308,11 @@ class FirebaseCampoRepository(
         )
     }
 
-    private fun ConfirmedReservation.toEntity() = ConfirmedReservationEntity(
+    private fun ConfirmedReservation.toEntity(encrypted: EncryptedReservationToken) = ConfirmedReservationEntity(
         reservationId = reservationId,
         userId = userId,
+        deviceId = deviceId,
+        journeyId = journeyId,
         journeyLineId = journeyLineId,
         state = state,
         confirmedAt = confirmedAt,
@@ -177,11 +323,15 @@ class FirebaseCampoRepository(
         line = location.line,
         displayName = location.displayName,
         orderValue = location.order,
+        tokenCiphertext = encrypted.ciphertext,
+        tokenIv = encrypted.iv,
     )
 
     private fun ConfirmedReservationEntity.toDomain() = ConfirmedReservation(
         reservationId = reservationId,
         userId = userId,
+        deviceId = deviceId,
+        journeyId = journeyId,
         journeyLineId = journeyLineId,
         state = state,
         confirmedAt = confirmedAt,
@@ -189,7 +339,45 @@ class FirebaseCampoRepository(
         location = VisibleLocation(nursery, module, bed, line, displayName, orderValue),
     )
 
+    private fun CountDraftEntity.input() = CountInput(femalesInput, malesInput, rootstocksInput, observationsInput)
+
+    private fun CountDraftEntity.toDomain() = LocalCountDraft(
+        reservationId = reservationId,
+        userId = userId,
+        deviceId = deviceId,
+        input = input(),
+        syncState = SyncState.valueOf(syncState),
+        frozenPayload = if (
+            frozenFemales != null && frozenMales != null && frozenRootstocks != null &&
+            frozenObservations != null && frozenDeviceTimestamp != null && idempotencyKey != null
+        ) {
+            FrozenCountPayload(
+                reservationId,
+                deviceId,
+                frozenFemales,
+                frozenMales,
+                frozenRootstocks,
+                frozenObservations,
+                frozenDeviceTimestamp,
+                idempotencyKey,
+            )
+        } else {
+            null
+        },
+        errorCode = errorCode,
+        errorMessage = errorMessage,
+        countId = countId,
+        centralState = centralState,
+        serverReceivedAt = serverReceivedAt,
+    )
+
+    private fun emptyDraft(reservationId: String, userId: String, deviceId: String) = CountDraftEntity(
+        reservationId, userId, deviceId, "", "", "", "", SyncState.PENDIENTE.name,
+        null, null, null, null, null, null, null, null, null, null, null, System.currentTimeMillis(),
+    )
+
     private companion object {
         const val ACTIVE_JOURNEY_ID = "JORNADA-PRUEBA-ETAPA-3"
+        val RETRYABLE_CODES = setOf("NETWORK_ERROR", "INTERNAL_ERROR")
     }
 }

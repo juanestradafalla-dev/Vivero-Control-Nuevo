@@ -10,3 +10,12 @@ enum class SyncState {
     ENVIADA,
     ERROR,
 }
+
+object CountSyncStateMachine {
+    fun canTransition(from: SyncState, to: SyncState): Boolean = when (from) {
+        SyncState.PENDIENTE -> to == SyncState.SINCRONIZANDO
+        SyncState.SINCRONIZANDO -> to == SyncState.ENVIADA || to == SyncState.ERROR
+        SyncState.ERROR -> to == SyncState.PENDIENTE || to == SyncState.SINCRONIZANDO
+        SyncState.ENVIADA -> false
+    }
+}

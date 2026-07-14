@@ -24,8 +24,8 @@ async function assertInvalid(schemaFilename, exampleFilename) {
 }
 
 test("compila todos los esquemas Draft 2020-12 y resuelve sus referencias", () => {
-  assert.equal(registry.entityCount, 16);
-  assert.equal(registry.schemaCount, 17);
+  assert.equal(registry.entityCount, 18);
+  assert.equal(registry.schemaCount, 19);
   assert.equal(registry.enumCount, 5);
 });
 
@@ -103,4 +103,38 @@ test("acepta una autorización central de jornada", async () => {
 
 test("acepta el resultado idempotente persistido", async () => {
   await assertValid("resultado-idempotente.schema.json", "etapa-03/resultado-idempotente.json");
+});
+
+test("acepta el payload congelado de enviarConteo usado por Campo", async () => {
+  await assertValid("send-count-request.schema.json", "etapa-04/campo-send-count-request.json");
+});
+
+test("acepta técnicamente un conteo total cero", async () => {
+  await assertValid("send-count-request.schema.json", "etapa-04/send-count-request-cero.json");
+});
+
+test("rechaza el total calculado agregado por el cliente", async () => {
+  const result = await assertInvalid(
+    "send-count-request.schema.json",
+    "etapa-04/send-count-request-con-total.json"
+  );
+  assert.ok(result.schemaErrors.length > 0);
+});
+
+test("acepta el resultado de enviarConteo sin token de reserva", async () => {
+  const payload = await example("etapa-04/send-count-result.json");
+  const result = validateContract(registry, "send-count-result.schema.json", payload);
+  assert.equal(result.valid, true, JSON.stringify(result, null, 2));
+  assert.equal(Object.hasOwn(payload, "tokenReserva"), false);
+});
+
+test("acepta el resultado idempotente de ENVIAR_CONTEO", async () => {
+  await assertValid(
+    "resultado-idempotente.schema.json",
+    "etapa-04/resultado-idempotente-conteo.json"
+  );
+});
+
+test("acepta reserva CONSUMIDA con hora central", async () => {
+  await assertValid("reserva.schema.json", "etapa-04/reserva-consumida.json");
 });

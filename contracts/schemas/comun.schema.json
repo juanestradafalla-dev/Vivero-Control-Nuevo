@@ -29,7 +29,9 @@
     },
     "enteroNoNegativo": {
       "type": "integer",
-      "minimum": 0
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Entero no negativo dentro del rango seguro de JavaScript."
     },
     "ubicacionVisible": {
       "type": "object",

@@ -7,7 +7,7 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment
 } from "@firebase/rules-unit-testing";
-import {collection, doc, getDoc, getDocs, query, setDoc, where} from "firebase/firestore";
+import {collection, doc, getDoc, getDocs, query, setDoc, updateDoc, deleteDoc, where} from "firebase/firestore";
 import {afterAll, beforeAll, describe, it} from "vitest";
 
 import {ACTIVE_JOURNEY_ID, journeyLineId} from "../scripts/demoData.mjs";
@@ -19,13 +19,30 @@ beforeAll(async () => {
     projectId: "demo-vivero-control-etapa3",
     firestore: {rules: readFileSync(join(__dirname, "../../firestore.rules"), "utf8")}
   });
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    const database = context.firestore();
+    await setDoc(doc(database, "conteos/CONTEO-AUXILIAR-1"), {
+      id: "CONTEO-AUXILIAR-1",
+      jornadaId: ACTIVE_JOURNEY_ID,
+      jornadaLineaId: journeyLineId(1),
+      autorUsuarioId: "uid-auxiliar-1",
+      total: 980
+    });
+    await setDoc(doc(database, "conteos/CONTEO-AUXILIAR-2"), {
+      id: "CONTEO-AUXILIAR-2",
+      jornadaId: ACTIVE_JOURNEY_ID,
+      jornadaLineaId: journeyLineId(2),
+      autorUsuarioId: "uid-auxiliar-2",
+      total: 1000
+    });
+  });
 });
 
 afterAll(async () => {
   await testEnvironment.cleanup();
 });
 
-describe("lecturas mínimas y escrituras cerradas de la ETAPA 3", () => {
+describe("lecturas mínimas y escrituras cerradas hasta la ETAPA 4", () => {
   it("permite al auxiliar leer su perfil, jornada y líneas autorizadas", async () => {
     const database = testEnvironment.authenticatedContext("uid-auxiliar-1").firestore();
     await assertSucceeds(getDoc(doc(database, "usuarios/uid-auxiliar-1")));
@@ -70,6 +87,33 @@ describe("lecturas mínimas y escrituras cerradas de la ETAPA 3", () => {
     const database = testEnvironment.authenticatedContext("uid-administrador").firestore();
     await assertFails(getDoc(doc(database, "auditoria/evento-cualquiera")));
     await assertFails(getDoc(doc(database, "idempotencia/resultado-cualquiera")));
+  });
+
+  it("permite al autor leer y consultar únicamente sus conteos", async () => {
+    const database = testEnvironment.authenticatedContext("uid-auxiliar-1").firestore();
+    await assertSucceeds(getDoc(doc(database, "conteos/CONTEO-AUXILIAR-1")));
+    await assertFails(getDoc(doc(database, "conteos/CONTEO-AUXILIAR-2")));
+    await assertSucceeds(
+      getDocs(query(collection(database, "conteos"), where("autorUsuarioId", "==", "uid-auxiliar-1")))
+    );
+    await assertFails(getDocs(query(collection(database, "conteos"), where("jornadaId", "==", ACTIVE_JOURNEY_ID))));
+  });
+
+  it("permite a supervisor y administrador autorizados leer conteos de la jornada", async () => {
+    for (const uid of ["uid-supervisor", "uid-administrador"]) {
+      const database = testEnvironment.authenticatedContext(uid).firestore();
+      await assertSucceeds(getDoc(doc(database, "conteos/CONTEO-AUXILIAR-1")));
+      await assertSucceeds(
+        getDocs(query(collection(database, "conteos"), where("jornadaId", "==", ACTIVE_JOURNEY_ID)))
+      );
+    }
+  });
+
+  it("rechaza crear, editar o eliminar conteos desde cualquier cliente", async () => {
+    const database = testEnvironment.authenticatedContext("uid-administrador").firestore();
+    await assertFails(setDoc(doc(database, "conteos/CONTEO-DIRECTO"), {jornadaId: ACTIVE_JOURNEY_ID}));
+    await assertFails(updateDoc(doc(database, "conteos/CONTEO-AUXILIAR-1"), {total: 1}));
+    await assertFails(deleteDoc(doc(database, "conteos/CONTEO-AUXILIAR-1")));
   });
 
   it("rechaza todas las escrituras directas de estado, reserva, auditoría e idempotencia", async () => {

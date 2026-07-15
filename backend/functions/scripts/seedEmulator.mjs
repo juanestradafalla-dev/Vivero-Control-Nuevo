@@ -72,6 +72,7 @@ export async function seedEmulator() {
     "movimientosInventario",
     "decisionesRevision",
     "reasignacionesCorreccion",
+    "liberacionesReserva",
     "reservas",
     "idempotencia",
     "auditoria",

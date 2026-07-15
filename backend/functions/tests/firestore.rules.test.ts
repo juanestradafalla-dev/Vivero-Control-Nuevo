@@ -72,6 +72,16 @@ beforeAll(async () => {
       motivo: "Autor ausente",
       inmutable: true
     });
+    await setDoc(doc(database, "liberacionesReserva/LIBERACION-PRUEBA-1"), {
+      id: "LIBERACION-PRUEBA-1",
+      reservaId: "RESERVA-PRUEBA-PREEXISTENTE",
+      jornadaId: ACTIVE_JOURNEY_ID,
+      jornadaLineaId: journeyLineId(3),
+      tipoReserva: "INICIAL",
+      actorUsuarioId: "uid-supervisor",
+      motivo: "Liberación ficticia para reglas",
+      inmutable: true
+    });
     await setDoc(doc(database, "inventarioOficialLineas/LINEA-PRUEBA-1"), {
       id: "LINEA-PRUEBA-1",
       jornadaId: ACTIVE_JOURNEY_ID,
@@ -219,6 +229,25 @@ describe("lecturas mínimas y escrituras críticas cerradas en la ETAPA 5", () =
     await assertFails(setDoc(doc(database, "reasignacionesCorreccion/DIRECTA"), {conteoId: "CONTEO-AUXILIAR-1"}));
     await assertFails(updateDoc(doc(database, "reasignacionesCorreccion/REASIGNACION-PRUEBA-1"), {motivo: "Otro"}));
     await assertFails(deleteDoc(doc(database, "reasignacionesCorreccion/REASIGNACION-PRUEBA-1")));
+  });
+
+  it("limita las liberaciones a supervisión y rechaza todas sus escrituras directas", async () => {
+    const supervisor = testEnvironment.authenticatedContext("uid-supervisor").firestore();
+    const administrator = testEnvironment.authenticatedContext("uid-administrador").firestore();
+    const auxiliary = testEnvironment.authenticatedContext("uid-auxiliar-1").firestore();
+    await assertSucceeds(getDoc(doc(supervisor, "liberacionesReserva/LIBERACION-PRUEBA-1")));
+    await assertSucceeds(getDocs(query(
+      collection(administrator, "liberacionesReserva"),
+      where("jornadaId", "==", ACTIVE_JOURNEY_ID)
+    )));
+    await assertFails(getDoc(doc(auxiliary, "liberacionesReserva/LIBERACION-PRUEBA-1")));
+    await assertFails(setDoc(doc(administrator, "liberacionesReserva/LIBERACION-DIRECTA"), {
+      jornadaId: ACTIVE_JOURNEY_ID
+    }));
+    await assertFails(updateDoc(doc(administrator, "liberacionesReserva/LIBERACION-PRUEBA-1"), {
+      motivo: "Cambio directo"
+    }));
+    await assertFails(deleteDoc(doc(administrator, "liberacionesReserva/LIBERACION-PRUEBA-1")));
   });
 
   it("rechaza todas las escrituras directas de estado, reserva, auditoría e idempotencia", async () => {

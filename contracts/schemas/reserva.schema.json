@@ -23,6 +23,14 @@
     "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "tipoReserva": {"enum": ["INICIAL", "CORRECCION"]},
     "conteoAnteriorId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "conteoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "responsableCorreccionUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "reasignacionOrigenId": {
+      "oneOf": [
+        {"$ref": "comun.schema.json#/$defs/idGlobal"},
+        {"type": "null"}
+      ]
+    },
     "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "jornadaLineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "usuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
@@ -41,6 +49,7 @@
     "liberadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
     "consumidaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
     "liberadaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "liberacionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "motivoLiberacion": {"type": "string", "minLength": 1, "maxLength": 2000},
     "politicaLiberacion": {"const": "MANUAL_SUPERVISOR_MVP"}
   },
@@ -48,15 +57,20 @@
     {
       "if": {"properties": {"estadoReserva": {"const": "CONSUMIDA"}}},
       "then": {
-        "properties": {"consumidaEn": {}},
-        "required": ["consumidaEn"]
+        "properties": {"consumidaEn": {}, "conteoId": {}},
+        "required": ["consumidaEn", "conteoId"]
       }
     },
     {
       "if": {"properties": {"estadoReserva": {"const": "LIBERADA"}}},
       "then": {
-        "properties": {"motivoLiberacion": {}},
-        "required": ["motivoLiberacion"]
+        "properties": {
+          "liberadaEn": {},
+          "liberadaPorUsuarioId": {},
+          "motivoLiberacion": {},
+          "liberacionId": {}
+        },
+        "required": ["liberadaEn", "liberadaPorUsuarioId", "motivoLiberacion", "liberacionId"]
       }
     },
     {

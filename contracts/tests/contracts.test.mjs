@@ -24,8 +24,8 @@ async function assertInvalid(schemaFilename, exampleFilename) {
 }
 
 test("compila todos los esquemas Draft 2020-12 y resuelve sus referencias", () => {
-  assert.equal(registry.entityCount, 27);
-  assert.equal(registry.schemaCount, 28);
+  assert.equal(registry.entityCount, 30);
+  assert.equal(registry.schemaCount, 31);
   assert.equal(registry.enumCount, 5);
 });
 
@@ -207,5 +207,20 @@ test("rechaza una reasignacion sin motivo", async () => {
   await assertInvalid(
     "reassign-count-correction-request.schema.json",
     "etapa-07/reassign-count-correction-request-empty-reason.json"
+  );
+});
+
+test("acepta la liberacion manual y su resultado idempotente", async () => {
+  await assertValid("release-reservation-request.schema.json", "etapa-08/release-reservation-request.json");
+  await assertValid("release-reservation-result.schema.json", "etapa-08/release-reservation-result.json");
+  await assertValid("reservation-release.schema.json", "etapa-08/reservation-release.json");
+  await assertValid("reserva.schema.json", "etapa-08/reservation-released.json");
+  await assertValid("resultado-idempotente.schema.json", "etapa-08/idempotent-release-result.json");
+});
+
+test("rechaza una liberacion sin motivo", async () => {
+  await assertInvalid(
+    "release-reservation-request.schema.json",
+    "etapa-08/release-reservation-request-empty-reason.json"
   );
 });

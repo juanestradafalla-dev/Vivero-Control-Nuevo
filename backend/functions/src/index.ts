@@ -5,6 +5,7 @@ import type {ControlledErrorCode} from "./domain/contracts.js";
 import {DomainError, domainErrors} from "./domain/errors.js";
 import {InitiateCountCorrectionService} from "./domain/correctCount.js";
 import {ReassignCountCorrectionService} from "./domain/reassignCorrection.js";
+import {ReleaseReservationService} from "./domain/releaseReservation.js";
 import {ReserveLineService} from "./domain/reserveLine.js";
 import {ApproveCountService, ReturnCountService} from "./domain/reviewCount.js";
 import {SendCountService} from "./domain/sendCount.js";
@@ -12,6 +13,7 @@ import {
   parseApproveCountRequest,
   parseInitiateCountCorrectionRequest,
   parseReassignCountCorrectionRequest,
+  parseReleaseReservationRequest,
   parseReserveLineRequest,
   parseReturnCountRequest,
   parseSendCountRequest
@@ -30,6 +32,9 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
   if (code === "INVALID_ARGUMENT") return "invalid-argument";
   if (code === "LINE_NOT_AVAILABLE") return "failed-precondition";
   if (["RESERVATION_NOT_ACTIVE", "LINE_RESERVATION_MISMATCH", "LINE_NOT_IN_COUNT"].includes(code)) {
+    return "failed-precondition";
+  }
+  if (["RESERVATION_RELEASED", "RESERVATION_ALREADY_COUNTED", "RESERVATION_RELEASE_REASON_REQUIRED"].includes(code)) {
     return "failed-precondition";
   }
   if (["COUNT_NOT_PENDING_REVIEW", "COUNT_LINE_MISMATCH", "EXCEPTION_REASON_REQUIRED", "INVENTORY_NOT_FOUND"].includes(code)) {
@@ -61,6 +66,7 @@ const approveCountService = new ApproveCountService(firestore);
 const returnCountService = new ReturnCountService(firestore);
 const initiateCountCorrectionService = new InitiateCountCorrectionService(firestore);
 const reassignCountCorrectionService = new ReassignCountCorrectionService(firestore);
+const releaseReservationService = new ReleaseReservationService(firestore);
 
 export const reservarLinea = onCall({region: "us-central1"}, async (request) => {
   try {
@@ -116,6 +122,21 @@ export const reasignarCorreccionConteo = onCall({region: "us-central1"}, async (
   } catch (error) {
     if (error instanceof DomainError) throw toHttpsError(error);
     logger.error("Fallo interno en reasignarCorreccionConteo", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const liberarReservaLinea = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    const payload = parseReleaseReservationRequest(request.data);
+    return await releaseReservationService.execute(payload, {actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en liberarReservaLinea", {
       errorName: error instanceof Error ? error.name : "UnknownError"
     });
     throw toHttpsError(domainErrors.internal());

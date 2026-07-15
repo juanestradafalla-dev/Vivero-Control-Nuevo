@@ -1,0 +1,18 @@
+{
+  "id": "liberacion-ficticia-etapa-08-001",
+  "reservaId": "reserva-ficticia-etapa-08-001",
+  "jornadaId": "JORNADA-PRUEBA-ETAPA-3",
+  "jornadaLineaId": "JORNADA-PRUEBA-ETAPA-3__LINEA-PRUEBA-1",
+  "titularUsuarioId": "uid-auxiliar-1",
+  "tipoReserva": "INICIAL",
+  "estadoAnterior": "EN_CONTEO",
+  "estadoRestaurado": "DISPONIBLE",
+  "actorUsuarioId": "uid-supervisor",
+  "actorNombreVisible": "Supervisor ficticio",
+  "rolEfectivoActor": "SUPERVISOR",
+  "motivo": "El titular informó que no puede continuar el conteo.",
+  "liberadaEn": "2026-07-15T15:00:00.000Z",
+  "versionLinea": 2,
+  "eventoAuditoriaId": "auditoria-liberacion-etapa-08-001",
+  "inmutable": true
+}

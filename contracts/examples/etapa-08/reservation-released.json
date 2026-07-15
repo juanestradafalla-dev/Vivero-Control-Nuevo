@@ -1,0 +1,19 @@
+{
+  "id": "reserva-ficticia-etapa-08-001",
+  "tipoReserva": "INICIAL",
+  "jornadaId": "JORNADA-PRUEBA-ETAPA-3",
+  "jornadaLineaId": "JORNADA-PRUEBA-ETAPA-3__LINEA-PRUEBA-1",
+  "usuarioId": "uid-auxiliar-1",
+  "usuarioNombreVisible": "Auxiliar ficticio uno",
+  "rolEfectivo": "AUXILIAR",
+  "dispositivoId": "DISPOSITIVO-EMULADOR-001",
+  "claveIdempotencia": "reservar-etapa-08-0001",
+  "tokenReservaHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "reservadaEn": "2026-07-15T14:00:00.000Z",
+  "estadoReserva": "LIBERADA",
+  "liberacionId": "liberacion-ficticia-etapa-08-001",
+  "liberadaEn": "2026-07-15T15:00:00.000Z",
+  "liberadaPorUsuarioId": "uid-supervisor",
+  "motivoLiberacion": "El titular informó que no puede continuar.",
+  "politicaLiberacion": "MANUAL_SUPERVISOR_MVP"
+}

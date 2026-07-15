@@ -141,6 +141,7 @@ export class SendCountService {
       if (!safeHashEquals(reservation.tokenReservaHash, request.tokenReserva)) {
         throw domainErrors.invalidReservationToken();
       }
+      if (reservation.estadoReserva === "LIBERADA") throw domainErrors.reservationReleased();
       if (reservation.estadoReserva !== "ACTIVA") throw domainErrors.reservationNotActive();
       if (typeof reservation.jornadaId !== "string" || typeof reservation.jornadaLineaId !== "string") {
         throw domainErrors.internal();
@@ -256,7 +257,11 @@ export class SendCountService {
         ubicacion: line.ubicacion,
         inmutable: true
       });
-      transaction.update(reservationRef, {estadoReserva: "CONSUMIDA", consumidaEn: receivedAt});
+      transaction.update(reservationRef, {
+        estadoReserva: "CONSUMIDA",
+        conteoId: countId,
+        consumidaEn: receivedAt
+      });
       transaction.update(lineRef, {
         estadoCentral: "PENDIENTE_REVISION",
         conteoVigenteId: countId,

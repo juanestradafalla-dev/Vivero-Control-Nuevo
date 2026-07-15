@@ -105,6 +105,11 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /liberacionesReserva/{liberacionId} {
+      allow read: if activeUser() && canSupervise(resource.data.jornadaId);
+      allow create, update, delete: if false;
+    }
+
     match /inventarioOficialLineas/{inventarioId} {
       allow read: if canSupervise(resource.data.jornadaId);
       allow create, update, delete: if false;

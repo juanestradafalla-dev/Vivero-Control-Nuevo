@@ -1,0 +1,10 @@
+{
+  "liberacionId": "liberacion-ficticia-etapa-08-001",
+  "reservaId": "reserva-ficticia-etapa-08-001",
+  "jornadaLineaId": "JORNADA-PRUEBA-ETAPA-3__LINEA-PRUEBA-1",
+  "tipoReserva": "INICIAL",
+  "estadoReserva": "LIBERADA",
+  "estadoCentral": "DISPONIBLE",
+  "versionLinea": 2,
+  "liberadaEn": "2026-07-15T15:00:00.000Z"
+}

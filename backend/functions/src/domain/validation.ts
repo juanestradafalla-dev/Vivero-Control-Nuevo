@@ -2,6 +2,7 @@ import type {
   ApproveCountRequest,
   InitiateCountCorrectionRequest,
   ReassignCountCorrectionRequest,
+  ReleaseReservationRequest,
   ReserveLineRequest,
   ReturnCountRequest,
   SendCountRequest
@@ -28,6 +29,7 @@ const approveCountFields = new Set(["conteoId", "claveIdempotencia", "motivoExce
 const returnCountFields = new Set(["conteoId", "motivo", "claveIdempotencia"]);
 const initiateCorrectionFields = new Set(["conteoId", "dispositivoId", "claveIdempotencia"]);
 const reassignCorrectionFields = new Set(["conteoId", "nuevoUsuarioId", "motivo", "claveIdempotencia"]);
+const releaseReservationFields = new Set(["reservaId", "motivo", "claveIdempotencia"]);
 const REVIEW_REASON_LIMIT = 2000;
 
 function parseReviewBase(
@@ -119,6 +121,30 @@ export function parseReassignCountCorrectionRequest(value: unknown): ReassignCou
     nuevoUsuarioId: record.nuevoUsuarioId,
     motivo: (record.motivo as string).trim(),
     claveIdempotencia: record.claveIdempotencia as string
+  };
+}
+
+export function parseReleaseReservationRequest(value: unknown): ReleaseReservationRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw domainErrors.invalidArgument();
+  }
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).some((field) => !releaseReservationFields.has(field))) {
+    throw domainErrors.invalidArgument();
+  }
+  if (
+    typeof record.reservaId !== "string" ||
+    typeof record.claveIdempotencia !== "string" ||
+    !safeIdPattern.test(record.reservaId) ||
+    !idempotencyPattern.test(record.claveIdempotencia)
+  ) {
+    throw domainErrors.invalidArgument();
+  }
+  if (!validReason(record.motivo)) throw domainErrors.reservationReleaseReasonRequired();
+  return {
+    reservaId: record.reservaId,
+    motivo: (record.motivo as string).trim(),
+    claveIdempotencia: record.claveIdempotencia
   };
 }
 

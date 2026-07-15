@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/draft-participant.schema.json",
+  "title": "Participante central de una jornada en borrador",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["usuarioId", "nombreVisible", "rol", "puedeContar"],
+  "properties": {
+    "usuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "nombreVisible": {"type": "string", "minLength": 1, "maxLength": 200},
+    "rol": {"$ref": "../enums/roles.json"},
+    "puedeContar": {"type": "boolean"}
+  }
+}

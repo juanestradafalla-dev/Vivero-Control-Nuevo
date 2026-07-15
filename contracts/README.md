@@ -2,6 +2,8 @@
 
 Los JSON Schema Draft 2020-12 son el lenguaje común de Campo, Maestro y backend.
 
+La Etapa 11 agrega contratos para listar el catálogo central activo y actualizar participantes de un borrador. Las solicitudes solo aceptan `usuarioId`, `puedeContar` y la clave idempotente; nombre y rol aparecen únicamente en resultados centrales. La selección preparatoria permanece separada de las autorizaciones operativas. Los ejemplos están en `examples/etapa-11/`.
+
 La Etapa 10 agrega contratos estrictos para crear borradores, actualizar su selección separada y listar jornadas administrables con el catálogo validado. `BORRADOR` es un estado administrativo: no crea `jornadaLineas`, estados `DISPONIBLE` ni inventario. Los ejemplos están en `examples/etapa-10/`.
 
 La Etapa 9 agrega una solicitud vacía para `listarJornadasActivas`: la identidad procede de Auth y el resultado solo contiene jornadas activas autorizadas. Los ejemplos están en `examples/etapa-09/`.
@@ -30,6 +32,9 @@ Reglas de frontera:
 - actualizar la selección solo recibe jornada, IDs únicos y clave; las líneas se validan contra el catálogo y las jornadas activas;
 - listar borradores usa una solicitud vacía y nunca acepta identidad o rol del cliente;
 - una selección de preparación no equivale a una línea operativa y no modifica inventario.
+- un participante solicitado solo contiene ID y `puedeContar`; nombre y rol nunca proceden del cliente;
+- IDs repetidos y propiedades adicionales son inválidos;
+- la selección preparatoria de participantes no autoriza cuentas ni expone la jornada en Campo.
 
 Los ejemplos ficticios de liberación están en `examples/etapa-08/`.
 

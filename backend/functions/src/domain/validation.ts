@@ -2,12 +2,14 @@ import type {
   ApproveCountRequest,
   CreateDraftJourneyRequest,
   InitiateCountCorrectionRequest,
+  ListDraftJourneyParticipantsRequest,
   ReassignCountCorrectionRequest,
   ReleaseReservationRequest,
   ReserveLineRequest,
   ReturnCountRequest,
   SendCountRequest,
-  UpdateDraftJourneyLinesRequest
+  UpdateDraftJourneyLinesRequest,
+  UpdateDraftJourneyParticipantsRequest
 } from "./contracts.js";
 import {domainErrors} from "./errors.js";
 
@@ -34,9 +36,13 @@ const reassignCorrectionFields = new Set(["conteoId", "nuevoUsuarioId", "motivo"
 const releaseReservationFields = new Set(["reservaId", "motivo", "claveIdempotencia"]);
 const createDraftJourneyFields = new Set(["nombreVisible", "claveIdempotencia"]);
 const updateDraftJourneyLinesFields = new Set(["jornadaId", "lineaIds", "claveIdempotencia"]);
+const listDraftJourneyParticipantsFields = new Set(["jornadaId"]);
+const updateDraftJourneyParticipantsFields = new Set(["jornadaId", "participantes", "claveIdempotencia"]);
+const draftParticipantFields = new Set(["usuarioId", "puedeContar"]);
 const REVIEW_REASON_LIMIT = 2000;
 const JOURNEY_NAME_LIMIT = 200;
 const DRAFT_LINE_LIMIT = 400;
+const DRAFT_PARTICIPANT_LIMIT = 200;
 
 export function parseListActiveJourneysRequest(value: unknown): void {
   if (value === undefined || value === null) return;
@@ -95,6 +101,64 @@ export function parseUpdateDraftJourneyLinesRequest(value: unknown): UpdateDraft
   return {
     jornadaId: record.jornadaId,
     lineaIds: [...lineIds].sort((left, right) => left.localeCompare(right)),
+    claveIdempotencia: record.claveIdempotencia
+  };
+}
+
+export function parseListDraftJourneyParticipantsRequest(value: unknown): ListDraftJourneyParticipantsRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw domainErrors.invalidArgument();
+  }
+  const record = value as Record<string, unknown>;
+  if (
+    Object.keys(record).some((field) => !listDraftJourneyParticipantsFields.has(field)) ||
+    typeof record.jornadaId !== "string" ||
+    !safeIdPattern.test(record.jornadaId)
+  ) {
+    throw domainErrors.invalidArgument();
+  }
+  return {jornadaId: record.jornadaId};
+}
+
+export function parseUpdateDraftJourneyParticipantsRequest(
+  value: unknown
+): UpdateDraftJourneyParticipantsRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw domainErrors.invalidArgument();
+  }
+  const record = value as Record<string, unknown>;
+  if (
+    Object.keys(record).some((field) => !updateDraftJourneyParticipantsFields.has(field)) ||
+    typeof record.jornadaId !== "string" ||
+    !safeIdPattern.test(record.jornadaId) ||
+    !Array.isArray(record.participantes) ||
+    record.participantes.length > DRAFT_PARTICIPANT_LIMIT ||
+    typeof record.claveIdempotencia !== "string" ||
+    !idempotencyPattern.test(record.claveIdempotencia)
+  ) {
+    throw domainErrors.invalidArgument();
+  }
+  const participants = record.participantes.map((value) => {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      throw domainErrors.invalidArgument();
+    }
+    const participant = value as Record<string, unknown>;
+    if (
+      Object.keys(participant).some((field) => !draftParticipantFields.has(field)) ||
+      typeof participant.usuarioId !== "string" ||
+      !safeIdPattern.test(participant.usuarioId) ||
+      typeof participant.puedeContar !== "boolean"
+    ) {
+      throw domainErrors.invalidArgument();
+    }
+    return {usuarioId: participant.usuarioId, puedeContar: participant.puedeContar};
+  });
+  if (new Set(participants.map((participant) => participant.usuarioId)).size !== participants.length) {
+    throw domainErrors.duplicateParticipantIds();
+  }
+  return {
+    jornadaId: record.jornadaId,
+    participantes: participants.sort((left, right) => left.usuarioId.localeCompare(right.usuarioId)),
     claveIdempotencia: record.claveIdempotencia
   };
 }

@@ -1,10 +1,12 @@
 # Backend local de Vivero Control
 
-Backend de la Etapa 10 para Firebase Emulator Suite. Exporta las operaciones existentes y agrega `crearJornadaBorrador`, `actualizarLineasJornadaBorrador` y `listarJornadasAdministrables`. No contiene proyecto real, credenciales ni despliegue.
+Backend de la Etapa 11 para Firebase Emulator Suite. Exporta las operaciones existentes y agrega `listarParticipantesJornadaBorrador` y `actualizarParticipantesJornadaBorrador`. No contiene proyecto real, credenciales ni despliegue.
 
 `listarJornadasActivas` acepta una solicitud vacía, toma la identidad de Auth y devuelve solo jornadas activas autorizadas, ordenadas por fecha central y nombre visible. No escribe documentos ni expone autorizaciones ajenas.
 
 `crearJornadaBorrador` crea una jornada global `BORRADOR`, con identidad y hora centrales, auditoría e idempotencia. `actualizarLineasJornadaBorrador` valida propiedad o administración, líneas activas y ausencia de uso en jornadas activas; guarda la preparación en `seleccionesLineasJornada`, separada de las `jornadaLineas` operativas. `listarJornadasAdministrables` devuelve al supervisor solo sus borradores y al administrador todos, junto con el catálogo central validado; auxiliares son rechazados.
+
+`listarParticipantesJornadaBorrador` entrega exclusivamente usuarios centrales activos con nombre y rol validados. `actualizarParticipantesJornadaBorrador` acepta únicamente IDs y `puedeContar`, rechaza duplicados y campos adicionales, vuelve a obtener los perfiles centrales y guarda la preparación en `seleccionesParticipantesJornada` mediante una transacción auditada e idempotente. No crea documentos bajo `autorizaciones`.
 
 `aprobarConteo` crea una decisión, reemplaza el inventario oficial, registra un movimiento, cambia la línea a `APROBADA`, audita y persiste el resultado idempotente en una sola transacción. `devolverConteo` crea decisión y auditoría, cambia la línea a `DEVUELTA` y no toca inventario.
 

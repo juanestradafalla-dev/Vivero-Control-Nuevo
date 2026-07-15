@@ -1,0 +1,23 @@
+{
+  "id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "actorUsuarioId": "uid-supervisor",
+  "operacion": "ACTUALIZAR_PARTICIPANTES_JORNADA_BORRADOR",
+  "claveHash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "payloadHash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+  "resultado": {
+    "jornadaId": "JORNADA-BORRADOR-SUPERVISOR",
+    "estado": "BORRADOR",
+    "version": 2,
+    "cantidadParticipantes": 1,
+    "participantes": [
+      {
+        "usuarioId": "uid-auxiliar-1",
+        "nombreVisible": "Auxiliar ficticio 1",
+        "rol": "AUXILIAR",
+        "puedeContar": true
+      }
+    ],
+    "actualizadaEn": "2026-07-15T18:00:00.000Z"
+  },
+  "creadoEn": "2026-07-15T18:00:00.000Z"
+}

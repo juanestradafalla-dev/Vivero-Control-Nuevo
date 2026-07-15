@@ -9,6 +9,10 @@ import {
   ListManageableJourneysService,
   UpdateDraftJourneyLinesService
 } from "./domain/draftJourneys.js";
+import {
+  ListDraftJourneyParticipantsService,
+  UpdateDraftJourneyParticipantsService
+} from "./domain/draftParticipants.js";
 import {ListActiveJourneysService} from "./domain/listActiveJourneys.js";
 import {ReassignCountCorrectionService} from "./domain/reassignCorrection.js";
 import {ReleaseReservationService} from "./domain/releaseReservation.js";
@@ -20,13 +24,15 @@ import {
   parseCreateDraftJourneyRequest,
   parseInitiateCountCorrectionRequest,
   parseListActiveJourneysRequest,
+  parseListDraftJourneyParticipantsRequest,
   parseListManageableJourneysRequest,
   parseReassignCountCorrectionRequest,
   parseReleaseReservationRequest,
   parseReserveLineRequest,
   parseReturnCountRequest,
   parseSendCountRequest,
-  parseUpdateDraftJourneyLinesRequest
+  parseUpdateDraftJourneyLinesRequest,
+  parseUpdateDraftJourneyParticipantsRequest
 } from "./domain/validation.js";
 import {firestore} from "./firebase.js";
 
@@ -46,7 +52,9 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
     "JOURNEY_NAME_REQUIRED",
     "LINE_INACTIVE",
     "LINE_ALREADY_IN_ACTIVE_JOURNEY",
-    "DUPLICATE_LINE_IDS"
+    "DUPLICATE_LINE_IDS",
+    "PARTICIPANT_INACTIVE",
+    "DUPLICATE_PARTICIPANT_IDS"
   ].includes(code)) return "failed-precondition";
   if (["RESERVATION_NOT_ACTIVE", "LINE_RESERVATION_MISMATCH", "LINE_NOT_IN_COUNT"].includes(code)) {
     return "failed-precondition";
@@ -72,6 +80,7 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
     "JOURNEY_NOT_FOUND",
     "JOURNEY_LINE_NOT_FOUND",
     "LINE_NOT_FOUND",
+    "PARTICIPANT_NOT_FOUND",
     "RESERVATION_NOT_FOUND",
     "COUNT_NOT_FOUND"
   ].includes(code)) {
@@ -95,6 +104,38 @@ const listActiveJourneysService = new ListActiveJourneysService(firestore);
 const createDraftJourneyService = new CreateDraftJourneyService(firestore);
 const updateDraftJourneyLinesService = new UpdateDraftJourneyLinesService(firestore);
 const listManageableJourneysService = new ListManageableJourneysService(firestore);
+const listDraftJourneyParticipantsService = new ListDraftJourneyParticipantsService(firestore);
+const updateDraftJourneyParticipantsService = new UpdateDraftJourneyParticipantsService(firestore);
+
+export const listarParticipantesJornadaBorrador = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    const payload = parseListDraftJourneyParticipantsRequest(request.data);
+    return await listDraftJourneyParticipantsService.execute(payload, {actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en listarParticipantesJornadaBorrador", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const actualizarParticipantesJornadaBorrador = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    const payload = parseUpdateDraftJourneyParticipantsRequest(request.data);
+    return await updateDraftJourneyParticipantsService.execute(payload, {actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en actualizarParticipantesJornadaBorrador", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
 
 export const crearJornadaBorrador = onCall({region: "us-central1"}, async (request) => {
   try {

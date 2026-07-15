@@ -2,6 +2,8 @@ import {act, cleanup, fireEvent, render, screen, waitFor} from "@testing-library
 import {afterEach, describe, expect, it} from "vitest";
 
 import type {
+  DraftParticipantInput,
+  DraftParticipantsData,
   ManageableDraftJourney,
   ManageableJourneysData,
   MonitorJourney,
@@ -90,6 +92,29 @@ class FakeMonitorRepository implements MonitorRepository {
   manageableListCalls = 0;
   createdDrafts: Array<{name: string; key: string}> = [];
   updatedDrafts: Array<{journeyId: string; lineIds: readonly string[]; key: string}> = [];
+  participantListCalls: string[] = [];
+  updatedParticipants: Array<{
+    journeyId: string;
+    participants: readonly DraftParticipantInput[];
+    key: string;
+  }> = [];
+  participantsData: DraftParticipantsData = {
+    journeyId: "JORNADA-BORRADOR-1",
+    state: "BORRADOR",
+    version: 1,
+    participants: [{
+      id: "uid-auxiliar-1",
+      displayName: "Auxiliar Uno",
+      role: "AUXILIAR",
+      canCount: true,
+    }],
+    activeUsers: [
+      {id: "uid-auxiliar-1", displayName: "Auxiliar Uno", role: "AUXILIAR"},
+      {id: "uid-auxiliar-2", displayName: "Auxiliar Dos", role: "AUXILIAR"},
+      {id: "uid-supervisor", displayName: "Supervisor Pruebas", role: "SUPERVISOR"},
+      {id: "uid-administrador", displayName: "Administrador Pruebas", role: "ADMINISTRADOR"},
+    ],
+  };
   manageableData: ManageableJourneysData = {
     journeys: [{
       id: "JORNADA-BORRADOR-1",
@@ -176,6 +201,27 @@ class FakeMonitorRepository implements MonitorRepository {
       journeys: this.manageableData.journeys.map((journey) => journey.id === journeyId
         ? {...journey, lineIds, version: journey.version + 1}
         : journey),
+    };
+  }
+  async listDraftJourneyParticipants(journeyId: string): Promise<DraftParticipantsData> {
+    this.participantListCalls.push(journeyId);
+    return {...this.participantsData, journeyId};
+  }
+  async updateDraftJourneyParticipants(
+    journeyId: string,
+    participants: readonly DraftParticipantInput[],
+    key: string,
+  ): Promise<void> {
+    this.updatedParticipants.push({journeyId, participants, key});
+    const candidates = new Map(this.participantsData.activeUsers.map((user) => [user.id, user]));
+    this.participantsData = {
+      ...this.participantsData,
+      journeyId,
+      version: this.participantsData.version + 1,
+      participants: participants.flatMap((participant) => {
+        const user = candidates.get(participant.userId);
+        return user ? [{...user, canCount: participant.canCount}] : [];
+      }),
     };
   }
   async approveCount(countId: string, key: string, reason?: string): Promise<void> {
@@ -567,5 +613,46 @@ describe("jornadas en borrador de Vivero Maestro", () => {
     await signIn(repository);
     expect(screen.queryByRole("button", {name: "Jornadas"})).not.toBeInTheDocument();
     expect(repository.manageableListCalls).toBe(0);
+    expect(repository.participantListCalls).toHaveLength(0);
+  });
+
+  it("muestra usuarios activos con nombre y rol dentro del borrador", async () => {
+    const repository = new FakeMonitorRepository();
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Jornadas"}));
+    fireEvent.click(await screen.findByRole("button", {name: /Borrador semanal/}));
+    expect(await screen.findByRole("heading", {name: "Participantes"})).toBeInTheDocument();
+    expect(screen.getByText("BORRADOR — LOS PARTICIPANTES AÚN NO TIENEN AUTORIZACIÓN OPERATIVA")).toBeInTheDocument();
+    expect(screen.getByText("Auxiliar Uno")).toBeInTheDocument();
+    expect(screen.getByText("Supervisor Pruebas")).toBeInTheDocument();
+    expect(repository.participantListCalls).toEqual(["JORNADA-BORRADOR-1"]);
+  });
+
+  it("busca, filtra y confirma participantes sin duplicados", async () => {
+    const repository = new FakeMonitorRepository();
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Jornadas"}));
+    fireEvent.click(await screen.findByRole("button", {name: /Borrador semanal/}));
+    await screen.findByRole("heading", {name: "Participantes"});
+    fireEvent.change(screen.getByLabelText("Filtrar participantes por rol"), {target: {value: "AUXILIAR"}});
+    expect(screen.queryByText("Supervisor Pruebas")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Buscar participante"), {target: {value: "Dos"}});
+    fireEvent.click(screen.getByRole("checkbox", {name: "Seleccionar Auxiliar Dos"}));
+    const canCount = screen.getByRole("checkbox", {name: "Puede contar Auxiliar Dos"});
+    expect(canCount).toBeChecked();
+    fireEvent.click(canCount);
+    fireEvent.click(screen.getByRole("button", {name: "Revisar participantes"}));
+    expect(screen.getByLabelText("Resumen de participantes")).toHaveTextContent("Participantes: 2");
+    expect(screen.getByLabelText("Resumen de participantes")).toHaveTextContent("Con permiso para contar: 1");
+    fireEvent.click(screen.getByRole("button", {name: "Confirmar participantes"}));
+    await waitFor(() => expect(repository.updatedParticipants).toHaveLength(1));
+    expect(repository.updatedParticipants[0]).toMatchObject({
+      journeyId: "JORNADA-BORRADOR-1",
+      participants: [
+        {userId: "uid-auxiliar-1", canCount: true},
+        {userId: "uid-auxiliar-2", canCount: false},
+      ],
+    });
+    expect(new Set(repository.updatedParticipants[0]?.participants.map((participant) => participant.userId)).size).toBe(2);
   });
 });

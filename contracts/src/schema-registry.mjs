@@ -46,7 +46,15 @@ export const expectedSchemas = [
   "list-manageable-journeys-request.schema.json",
   "list-manageable-journeys-result.schema.json",
   "draft-journey-line-selection.schema.json",
-  "draft-catalog-line.schema.json"
+  "draft-catalog-line.schema.json",
+  "draft-participant-input.schema.json",
+  "draft-participant.schema.json",
+  "draft-participant-catalog-entry.schema.json",
+  "draft-journey-participant-selection.schema.json",
+  "list-draft-journey-participants-request.schema.json",
+  "list-draft-journey-participants-result.schema.json",
+  "update-draft-journey-participants-request.schema.json",
+  "update-draft-journey-participants-result.schema.json"
 ];
 
 export const expectedEnums = new Map([

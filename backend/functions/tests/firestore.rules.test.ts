@@ -291,6 +291,11 @@ describe("lecturas mínimas y escrituras críticas cerradas en la ETAPA 5", () =
       await assertFails(setDoc(doc(database, `seleccionesLineasJornada/${DRAFT_JOURNEY_ID}`), {
         lineaIds: ["LINEA-CATALOGO-LIBRE-1"]
       }));
+      await assertFails(getDoc(doc(database, `seleccionesParticipantesJornada/${DRAFT_JOURNEY_ID}`)));
+      await assertFails(setDoc(doc(database, `seleccionesParticipantesJornada/${DRAFT_JOURNEY_ID}`), {
+        jornadaId: DRAFT_JOURNEY_ID,
+        participantes: [{usuarioId: "uid-auxiliar-1", puedeContar: true}]
+      }));
     }
   });
 });

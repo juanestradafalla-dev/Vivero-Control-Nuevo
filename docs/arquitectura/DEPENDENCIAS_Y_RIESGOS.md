@@ -119,3 +119,9 @@ Persisten los riesgos de señal y dispositivos reales, retención local, pérdid
 No se agregan dependencias externas, migraciones Room ni índices de producción. La gestión de borradores reutiliza Auth, Functions, transacciones, auditoría e idempotencia. La selección se conserva en una colección de preparación separada y no materializa líneas operativas ni inventario.
 
 Persisten como decisiones futuras la activación, el cierre, la cancelación, la eliminación y la autorización de usuarios. Una línea puede dejar de ser seleccionable entre la lectura del catálogo y la confirmación; el backend vuelve a validar todo dentro de la operación y rechaza la escritura completa. También continúan pendientes la estructura real del vivero, los datos reales, la señal y dispositivos reales, la retención local y las alertas moderadas transitivas del backend. Firebase real sigue sin configurarse ni desplegarse.
+
+## Actualización de la ETAPA 11
+
+No se agregan dependencias externas, migraciones Room ni índices de producción. La preparación de participantes reutiliza Auth, Functions, transacciones, auditoría e idempotencia y permanece en una colección separada de las autorizaciones operativas.
+
+Un perfil seleccionado puede quedar inactivo o cambiar de rol antes de una futura activación; esta etapa valida el estado al guardar, pero la operación de activación deberá volver a validar todos los perfiles y definir el rol efectivo definitivo. Activación, creación de cuentas y edición de roles o perfiles continúan fuera de alcance. Persisten además los riesgos de datos, señal y dispositivos reales, retención local y alertas moderadas transitivas del backend. Firebase real sigue sin configurarse ni desplegarse.

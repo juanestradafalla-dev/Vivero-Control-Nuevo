@@ -7,6 +7,7 @@ import type {
   MonitorRepository,
   MonitorUser,
 } from "../domain/MonitorModels";
+import {DraftParticipantsEditor} from "./DraftParticipantsEditor";
 
 interface DraftJourneysSectionProps {
   readonly repository: MonitorRepository;
@@ -272,6 +273,7 @@ export function DraftJourneysSection({repository, user}: DraftJourneysSectionPro
                   );
                 })}
               </div>
+              <DraftParticipantsEditor repository={repository} journey={selectedDraft} />
             </>
           )}
         </div>

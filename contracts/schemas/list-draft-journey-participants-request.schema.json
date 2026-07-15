@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/list-draft-journey-participants-request.schema.json",
+  "title": "Solicitud listarParticipantesJornadaBorrador",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["jornadaId"],
+  "properties": {
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idRutaSegura"}
+  }
+}

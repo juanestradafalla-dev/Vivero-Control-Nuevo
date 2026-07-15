@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/update-draft-journey-participants-request.schema.json",
+  "title": "Solicitud actualizarParticipantesJornadaBorrador",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["jornadaId", "participantes", "claveIdempotencia"],
+  "properties": {
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+    "participantes": {
+      "type": "array",
+      "maxItems": 200,
+      "uniqueItems": true,
+      "items": {"$ref": "draft-participant-input.schema.json"}
+    },
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}
+  }
+}

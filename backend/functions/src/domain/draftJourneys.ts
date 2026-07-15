@@ -134,6 +134,7 @@ export class CreateDraftJourneyService {
       };
       const journeyRef = this.firestore.collection("jornadas").doc(journeyId);
       const selectionRef = this.firestore.collection("seleccionesLineasJornada").doc(journeyId);
+      const participantSelectionRef = this.firestore.collection("seleccionesParticipantesJornada").doc(journeyId);
       const auditRef = this.firestore.collection("auditoria").doc(auditId);
 
       transaction.create(journeyRef, {
@@ -145,6 +146,7 @@ export class CreateDraftJourneyService {
         rolCreador: role,
         version: 1,
         cantidadLineasSeleccionadas: 0,
+        cantidadParticipantesSeleccionados: 0,
         entorno: "FICTICIO_EMULADOR",
         creadaEn: now,
         actualizadaEn: now
@@ -154,6 +156,15 @@ export class CreateDraftJourneyService {
         jornadaId: journeyId,
         lineaIds: [],
         cantidadLineas: 0,
+        versionJornada: 1,
+        actualizadaPorUsuarioId: context.actorId,
+        actualizadaEn: now
+      });
+      transaction.create(participantSelectionRef, {
+        id: journeyId,
+        jornadaId: journeyId,
+        participantes: [],
+        cantidadParticipantes: 0,
         versionJornada: 1,
         actualizadaPorUsuarioId: context.actorId,
         actualizadaEn: now

@@ -1,0 +1,21 @@
+{
+  "id": "idempotencia-aprobar-etapa-05-001",
+  "actorUsuarioId": "usuario-supervisor-etapa-05-001",
+  "operacion": "APROBAR_CONTEO",
+  "claveHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "payloadHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "resultado": {
+    "conteoId": "conteo-etapa-05-001",
+    "jornadaLineaId": "jornada-linea-etapa-05-001",
+    "decisionId": "decision-etapa-05-001",
+    "movimientoId": "movimiento-etapa-05-001",
+    "estadoCentral": "APROBADA",
+    "inventarioAnterior": {"hembras": 500, "machos": 300, "patrones": 200, "total": 1000},
+    "inventarioNuevo": {"hembras": 450, "machos": 320, "patrones": 210, "total": 980},
+    "diferencias": {"hembras": -50, "machos": 20, "patrones": 10, "total": -20},
+    "versionInventario": 2,
+    "versionLinea": 3,
+    "aprobadaEn": "2026-07-14T12:00:00.000Z"
+  },
+  "creadoEn": "2026-07-14T12:00:00.000Z"
+}

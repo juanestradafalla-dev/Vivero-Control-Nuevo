@@ -74,3 +74,18 @@ npm audit --omit=dev --audit-level=high
 Las alertas moderadas permanecen visibles y documentadas. Cualquier alerta alta
 o crítica hace fallar CI. El umbral no autoriza despliegues y el workflow no
 contiene ninguno.
+
+## Actualización de la ETAPA 5
+
+La revisión agrega dos Callables y lecturas de inventario en Maestro sin incorporar dependencias nuevas. Se mantienen las versiones bloqueadas y el mismo perfil de auditoría.
+
+Riesgos vigentes:
+
+- las 9 alertas moderadas transitivas del backend continúan sin altas ni críticas;
+- ningún control local equivale a autorización para producción;
+- la calidad de red, compatibilidad con dispositivos reales y tolerancia del reloj siguen sin validación de campo;
+- el seed de inventario es completamente ficticio y no puede interpretarse como dato migrable;
+- la corrección de una línea `DEVUELTA` todavía no existe y pertenece a la Etapa 6;
+- una aprobación requiere inventario inicial; la ausencia produce rollback y necesita intervención operativa futura, no un cero automático.
+
+Las operaciones de revisión conservan el bloqueo `FUNCTIONS_EMULATOR=true` más proyecto `demo-*`. CI continúa sin pasos de despliegue.

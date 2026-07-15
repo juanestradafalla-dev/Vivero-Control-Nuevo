@@ -5,17 +5,24 @@
   "description": "Las condiciones estructurales del motivo se validan aquí; la autorización administrativa real siempre se comprueba en el backend.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "conteoId", "revisorUsuarioId", "decision", "autorrevisionAdministrativa", "claveIdempotencia", "decididaEn", "eventoAuditoriaId"],
+  "required": ["id", "conteoId", "jornadaId", "jornadaLineaId", "lineaId", "autorUsuarioId", "revisorUsuarioId", "revisorNombreVisible", "rolEfectivoRevisor", "decision", "autorrevisionAdministrativa", "claveIdempotencia", "decididaEn", "eventoAuditoriaId"],
   "properties": {
     "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "conteoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaLineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "lineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "autorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "revisorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "revisorNombreVisible": {"type": "string", "minLength": 1, "maxLength": 240},
+    "rolEfectivoRevisor": {"type": "string", "enum": ["SUPERVISOR", "ADMINISTRADOR"]},
     "decision": {"type": "string", "enum": ["APROBAR", "DEVOLVER"]},
     "autorrevisionAdministrativa": {"type": "boolean"},
     "motivo": {"type": "string", "minLength": 1, "maxLength": 2000},
     "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"},
     "decididaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
-    "eventoAuditoriaId": {"$ref": "comun.schema.json#/$defs/idGlobal"}
+    "eventoAuditoriaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "movimientoId": {"$ref": "comun.schema.json#/$defs/idGlobal"}
   },
   "allOf": [
     {
@@ -25,6 +32,10 @@
     {
       "if": {"properties": {"autorrevisionAdministrativa": {"const": true}}},
       "then": {"properties": {"motivo": {}}, "required": ["motivo"]}
+    },
+    {
+      "if": {"properties": {"decision": {"const": "APROBAR"}}},
+      "then": {"properties": {"movimientoId": {}}, "required": ["movimientoId"]}
     }
   ]
 }

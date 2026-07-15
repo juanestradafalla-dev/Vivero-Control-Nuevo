@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/return-count-request.schema.json",
+  "title": "Solicitud de devolverConteo",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["conteoId", "motivo", "claveIdempotencia"],
+  "properties": {
+    "conteoId": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+    "motivo": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}
+  }
+}

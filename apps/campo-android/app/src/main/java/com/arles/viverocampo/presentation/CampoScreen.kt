@@ -68,6 +68,7 @@ fun CampoRoute(viewModel: CampoViewModel) {
         onCancelCountConfirmation = viewModel::cancelCountConfirmation,
         onConfirmCountSubmission = viewModel::confirmCountSubmission,
         onRetry = viewModel::retryCountSubmission,
+        onFinishAndTakeAnotherLine = viewModel::finishAndTakeAnotherLine,
     )
 }
 
@@ -89,6 +90,7 @@ private fun CampoScreen(
     onCancelCountConfirmation: () -> Unit,
     onConfirmCountSubmission: () -> Unit,
     onRetry: () -> Unit,
+    onFinishAndTakeAnotherLine: () -> Unit,
 ) {
     Surface(modifier = Modifier.fillMaxSize(), color = ViveroBackground) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -109,6 +111,7 @@ private fun CampoScreen(
                     onObservationsChange,
                     onRequestCountConfirmation,
                     onRetry,
+                    onFinishAndTakeAnotherLine,
                 )
                 else -> JourneyContent(state, onSignOut, onSelectLine)
             }
@@ -217,6 +220,7 @@ private fun CountContent(
     onObservationsChange: (String) -> Unit,
     onRequestCountConfirmation: () -> Unit,
     onRetry: () -> Unit,
+    onFinishAndTakeAnotherLine: () -> Unit,
 ) {
     val reservation = requireNotNull(state.confirmedReservation)
     val syncState = state.countDraft?.syncState ?: SyncState.PENDIENTE
@@ -280,7 +284,16 @@ private fun CountContent(
         state.message?.let { item { Text(it, color = if (syncState == SyncState.ENVIADA) ViveroGreen else MaterialTheme.colorScheme.error) } }
         item {
             when (syncState) {
-                SyncState.ENVIADA -> Text("Conteo confirmado por el servidor y pendiente de revisión.", color = ViveroGreen, fontWeight = FontWeight.Bold)
+                SyncState.ENVIADA -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "Conteo confirmado por el servidor y pendiente de revisión.",
+                        color = ViveroGreen,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Button(onClick = onFinishAndTakeAnotherLine, modifier = Modifier.fillMaxWidth()) {
+                        Text("Finalizar y tomar otra línea")
+                    }
+                }
                 SyncState.ERROR -> Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) { Text("Reintentar mismo envío") }
                 SyncState.SINCRONIZANDO -> Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("Sincronizando…") }
                 SyncState.PENDIENTE -> Button(

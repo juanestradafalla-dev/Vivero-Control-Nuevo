@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/approve-count-result.schema.json",
+  "title": "Resultado de aprobarConteo",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["conteoId", "jornadaLineaId", "decisionId", "movimientoId", "estadoCentral", "inventarioAnterior", "inventarioNuevo", "diferencias", "versionInventario", "versionLinea", "aprobadaEn"],
+  "properties": {
+    "conteoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaLineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "decisionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "movimientoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "estadoCentral": {"const": "APROBADA"},
+    "inventarioAnterior": {"$ref": "movimiento-historico.schema.json#/$defs/valoresNoNegativos"},
+    "inventarioNuevo": {"$ref": "movimiento-historico.schema.json#/$defs/valoresNoNegativos"},
+    "diferencias": {"$ref": "movimiento-historico.schema.json#/$defs/diferencias"},
+    "versionInventario": {"type": "integer", "minimum": 2},
+    "versionLinea": {"type": "integer", "minimum": 1},
+    "aprobadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

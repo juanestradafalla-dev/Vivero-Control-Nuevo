@@ -24,8 +24,8 @@ async function assertInvalid(schemaFilename, exampleFilename) {
 }
 
 test("compila todos los esquemas Draft 2020-12 y resuelve sus referencias", () => {
-  assert.equal(registry.entityCount, 18);
-  assert.equal(registry.schemaCount, 19);
+  assert.equal(registry.entityCount, 22);
+  assert.equal(registry.schemaCount, 23);
   assert.equal(registry.enumCount, 5);
 });
 
@@ -137,4 +137,32 @@ test("acepta el resultado idempotente de ENVIAR_CONTEO", async () => {
 
 test("acepta reserva CONSUMIDA con hora central", async () => {
   await assertValid("reserva.schema.json", "etapa-04/reserva-consumida.json");
+});
+
+test("acepta solicitudes mínimas de aprobación y devolución", async () => {
+  await assertValid("approve-count-request.schema.json", "etapa-05/approve-count-request.json");
+  await assertValid("approve-count-request.schema.json", "etapa-05/approve-own-count-request.json");
+  await assertValid("return-count-request.schema.json", "etapa-05/return-count-request.json");
+});
+
+test("rechaza una solicitud de devolución sin motivo", async () => {
+  await assertInvalid("return-count-request.schema.json", "etapa-05/return-count-request-without-reason.json");
+});
+
+test("acepta el resultado de aprobación con diferencias coherentes", async () => {
+  await assertValid("approve-count-result.schema.json", "etapa-05/approve-count-result.json");
+});
+
+test("acepta el resultado de devolución sin datos de inventario", async () => {
+  await assertValid("return-count-result.schema.json", "etapa-05/return-count-result.json");
+});
+
+test("acepta decisiones separadas de aprobación y devolución", async () => {
+  await assertValid("decision-revision.schema.json", "etapa-05/decision-approval.json");
+  await assertValid("decision-revision.schema.json", "etapa-05/decision-return.json");
+});
+
+test("acepta resultados idempotentes de aprobación y devolución", async () => {
+  await assertValid("resultado-idempotente.schema.json", "etapa-05/idempotent-approval-result.json");
+  await assertValid("resultado-idempotente.schema.json", "etapa-05/idempotent-return-result.json");
 });

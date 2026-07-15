@@ -70,6 +70,7 @@ export async function seedEmulator() {
     "conteos",
     "inventarioOficialLineas",
     "movimientosInventario",
+    "decisionesRevision",
     "reservas",
     "idempotencia",
     "auditoria",
@@ -142,6 +143,7 @@ export async function seedEmulator() {
       rolEfectivo: account.rol,
       activa: true,
       puedeContar: true,
+      puedeRevisar: account.rol === "SUPERVISOR" || account.rol === "ADMINISTRADOR",
       creadaEn: now
     });
   }
@@ -152,6 +154,7 @@ export async function seedEmulator() {
     rolEfectivo: "AUXILIAR",
     activa: true,
     puedeContar: true,
+    puedeRevisar: false,
     creadaEn: now
   });
 
@@ -168,6 +171,30 @@ export async function seedEmulator() {
       version: number === 3 ? 1 : 0,
       ubicacion: location,
       actualizadaEn: now
+    });
+  });
+  const initialInventories = [
+    {hembras: 500, machos: 300, patrones: 200},
+    {hembras: 380, machos: 220, patrones: 150},
+    {hembras: 270, machos: 180, patrones: 90}
+  ];
+  initialInventories.forEach((values, index) => {
+    const number = index + 1;
+    const lineId = `LINEA-PRUEBA-${number}`;
+    batch.set(database.collection("inventarioOficialLineas").doc(lineId), {
+      id: lineId,
+      jornadaId: ACTIVE_JOURNEY_ID,
+      jornadaLineaId: journeyLineId(number),
+      lineaId: lineId,
+      hembras: values.hembras,
+      machos: values.machos,
+      patrones: values.patrones,
+      total: values.hembras + values.machos + values.patrones,
+      conteoAprobadoId: null,
+      version: 1,
+      origen: "SEED_FICTICIO_ETAPA_5",
+      actualizadoPorUsuarioId: "uid-administrador",
+      actualizadoEn: now
     });
   });
   batch.set(database.collection("jornadaLineas").doc("JORNADA-PRUEBA-INEXISTENTE__LINEA-PRUEBA-ERROR"), {
@@ -208,10 +235,18 @@ export async function seedEmulator() {
   });
 
   await batch.commit();
-  return {projectId, users: demoAccounts.length, journeyId: ACTIVE_JOURNEY_ID, lines: visibleLocations.length};
+  return {
+    projectId,
+    users: demoAccounts.length,
+    journeyId: ACTIVE_JOURNEY_ID,
+    lines: visibleLocations.length,
+    inventories: initialInventories.length
+  };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const summary = await seedEmulator();
-  console.log(`Datos ficticios cargados en ${summary.projectId}: ${summary.users} cuentas técnicas y ${summary.lines} líneas.`);
+  console.log(
+    `Datos ficticios cargados en ${summary.projectId}: ${summary.users} cuentas técnicas, ${summary.lines} líneas y ${summary.inventories} inventarios.`
+  );
 }

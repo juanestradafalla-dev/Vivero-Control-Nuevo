@@ -188,6 +188,18 @@ input:focus { outline: 3px solid #9ccca8; border-color: #1b6f3b; }
 .empty-state { padding: 60px; border: 1px dashed #adc7b3; border-radius: 18px; color: #617269; text-align: center; }
 .read-only-note { margin-top: 28px; color: #607168; font-size: .9rem; text-align: center; }
 
+.notice { border: 1px solid #7cb986; border-radius: 10px; background: #e8f5e9; color: #174c20; padding: 12px 14px; }
+.warning { border-left: 4px solid #e0a000; background: #fff8df; color: #5b4300; padding: 10px 12px; }
+.review-actions, .dialog-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.review-actions .button { flex: 1; }
+.dialog-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 24px; background: rgb(8 31 13 / 58%); }
+.review-dialog { width: min(620px, 100%); max-height: calc(100vh - 48px); overflow: auto; border-radius: 18px; background: white; box-shadow: 0 22px 70px rgb(0 0 0 / 30%); padding: 24px; }
+.review-dialog label { display: grid; gap: 7px; margin: 16px 0; font-weight: 700; }
+.review-dialog textarea { resize: vertical; border: 1px solid #a9baa9; border-radius: 9px; padding: 10px; font: inherit; }
+.inventory-summary { display: grid; gap: 7px; border-radius: 12px; background: #eef7ef; padding: 15px; }
+.state--aprobada { background: #d8f1dc; color: #145a20; }
+.state--devuelta { background: #ffe0dc; color: #8a2618; }
+
 @media (max-width: 720px) {
   .topbar, .monitor-heading { align-items: flex-start; flex-direction: column; }
   .session { width: 100%; justify-content: space-between; }

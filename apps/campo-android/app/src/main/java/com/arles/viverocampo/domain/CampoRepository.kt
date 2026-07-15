@@ -16,7 +16,7 @@ interface CampoRepository {
         userId: String,
     ): ConfirmedReservation
 
-    suspend fun latestConfirmedReservation(userId: String): ConfirmedReservation?
+    suspend fun latestActiveReservation(userId: String, deviceId: String): ConfirmedReservation?
 
     fun observeCountDraft(reservationId: String, userId: String, deviceId: String): Flow<LocalCountDraft?>
 

@@ -5,6 +5,7 @@ export interface MonitorUser {
   readonly displayName: string;
   readonly role: MonitorRole;
   readonly canViewReservationDetails: boolean;
+  readonly canReview: boolean;
 }
 
 export interface MonitorLocation {
@@ -22,6 +23,8 @@ export interface MonitorReservation {
 }
 
 export interface MonitorCount {
+  readonly id: string;
+  readonly authorUserId: string;
   readonly authorDisplayName: string;
   readonly effectiveRole: MonitorRole;
   readonly deviceId: string;
@@ -35,12 +38,22 @@ export interface MonitorCount {
   readonly version: number;
 }
 
+export interface MonitorInventory {
+  readonly females: number;
+  readonly males: number;
+  readonly rootstocks: number;
+  readonly total: number;
+  readonly version: number;
+}
+
 export interface MonitorLine {
   readonly id: string;
-  readonly state: "DISPONIBLE" | "EN_CONTEO" | "PENDIENTE_REVISION";
+  readonly lineId: string;
+  readonly state: "DISPONIBLE" | "EN_CONTEO" | "PENDIENTE_REVISION" | "DEVUELTA" | "APROBADA";
   readonly location: MonitorLocation;
   readonly reservation?: MonitorReservation;
   readonly count?: MonitorCount;
+  readonly inventory?: MonitorInventory;
 }
 
 export interface MonitorSnapshot {
@@ -55,6 +68,8 @@ export interface MonitorRepository {
   readonly emulatorEnabled: boolean;
   signIn(email: string, password: string): Promise<MonitorUser>;
   signOut(): Promise<void>;
+  approveCount(countId: string, idempotencyKey: string, exceptionReason?: string): Promise<void>;
+  returnCount(countId: string, reason: string, idempotencyKey: string): Promise<void>;
   observeMonitor(
     user: MonitorUser,
     onSnapshot: (snapshot: MonitorSnapshot) => void,

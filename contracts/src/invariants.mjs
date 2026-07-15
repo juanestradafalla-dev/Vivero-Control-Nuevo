@@ -44,6 +44,14 @@ export function movementInvariantErrors(value) {
     }
   }
 
+  if (
+    Number.isInteger(value.versionInventarioAnterior) &&
+    Number.isInteger(value.versionInventarioNueva) &&
+    value.versionInventarioNueva !== value.versionInventarioAnterior + 1
+  ) {
+    errors.push("versionInventarioNueva debe incrementar exactamente una vez la versión anterior");
+  }
+
   return errors;
 }
 
@@ -56,6 +64,13 @@ export function invariantErrorsFor(schemaFilename, value) {
   }
   if (schemaFilename === "movimiento-historico.schema.json") {
     return movementInvariantErrors(value);
+  }
+  if (schemaFilename === "approve-count-result.schema.json") {
+    return movementInvariantErrors({
+      valoresAnteriores: value?.inventarioAnterior,
+      valoresNuevos: value?.inventarioNuevo,
+      diferencias: value?.diferencias
+    });
   }
   return [];
 }

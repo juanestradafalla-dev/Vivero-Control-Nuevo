@@ -89,7 +89,7 @@ class CampoViewModel(
             mutableState.value = mutableState.value.copy(signingIn = true, message = null)
             try {
                 val user = repository.signIn(state.email, state.password)
-                val reservation = repository.latestConfirmedReservation(user.id)
+                val reservation = repository.latestActiveReservation(user.id, deviceId)
                 mutableState.value = mutableState.value.copy(
                     signingIn = false,
                     password = "",
@@ -256,6 +256,25 @@ class CampoViewModel(
     fun retryCountSubmission() {
         val frozen = mutableState.value.countDraft?.frozenPayload ?: return
         syncScheduler.schedule(frozen.reservationId, frozen.idempotencyKey)
+    }
+
+    fun finishAndTakeAnotherLine() {
+        val state = mutableState.value
+        if (state.countDraft?.syncState != SyncState.ENVIADA) return
+        draftJob?.cancel()
+        countSaveJob?.cancel()
+        mutableState.value = state.copy(
+            selectedLine = null,
+            confirmedReservation = null,
+            countInput = CountInput(),
+            countErrors = CountFieldErrors(),
+            countTotal = null,
+            zeroWarning = false,
+            countDraft = null,
+            showCountSummary = false,
+            confirmingCount = false,
+            message = "Conteo enviado y conservado en el historial local. Ya puedes tomar otra línea.",
+        )
     }
 
     private fun observeDraft(user: UserProfile, reservation: ConfirmedReservation) {

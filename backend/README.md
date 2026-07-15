@@ -1,24 +1,14 @@
 # Backend local de Vivero Control
 
-Backend de la ETAPA 4 para Firebase Emulator Suite. Exporta `reservarLinea` y `enviarConteo`, reglas de acceso mínimo y un seed enteramente ficticio. No contiene proyecto real, credenciales ni despliegue.
+Backend de la Etapa 5 para Firebase Emulator Suite. Exporta `reservarLinea`, `enviarConteo`, `aprobarConteo` y `devolverConteo`. No contiene proyecto real, credenciales ni despliegue.
 
-`enviarConteo` valida identidad y autorización centrales, token por hash, reserva, dispositivo, línea y cantidades. Una transacción crea el conteo inmutable, consume la reserva, cambia la línea a `PENDIENTE_REVISION`, audita y persiste el resultado idempotente. No escribe inventario oficial.
+`aprobarConteo` crea una decisión, reemplaza el inventario oficial, registra un movimiento, cambia la línea a `APROBADA`, audita y persiste el resultado idempotente en una sola transacción. `devolverConteo` crea decisión y auditoría, cambia la línea a `DEVUELTA` y no toca inventario.
 
-## Requisitos y ejecución
-
-Desde `backend/functions`:
+El seed repetible crea tres inventarios ficticios y se niega a ejecutar si el proyecto no comienza por `demo-`. Las Functions exigen además `FUNCTIONS_EMULATOR=true`.
 
 ```powershell
+Set-Location backend/functions
 npm ci
-npm run build
-npm run emulators:start
-```
-
-Con los emuladores activos, `npm run emulator:seed` restablece datos ficticios. El proyecto permitido es `demo-vivero-control-etapa3`; seed y Functions se niegan a operar fuera de un `demo-*` local.
-
-## Verificación
-
-```powershell
 npm run lint
 npm run typecheck
 npm test
@@ -27,4 +17,4 @@ npm run test:emulators
 npm audit --omit=dev --audit-level=high
 ```
 
-La prueba integrada reserva antes de enviar y cubre autorización, atomicidad, idempotencia, concurrencia, reglas y ausencia de inventario. Las alertas moderadas transitivas están registradas en [Dependencias y riesgos](../docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md).
+La prueba integrada reserva y envía antes de revisar. Cubre atomicidad, autorrevisión, idempotencia, concurrencia, rollback y reglas. Los riesgos de dependencias están en [Dependencias y riesgos](../docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md).

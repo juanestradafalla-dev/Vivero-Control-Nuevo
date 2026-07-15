@@ -1,7 +1,10 @@
 {
   "id": "movimiento-ejemplo-002",
+  "jornadaId": "jornada-ejemplo-001",
+  "jornadaLineaId": "jornada-linea-ejemplo-001",
   "lineaId": "linea-ejemplo-001",
   "conteoAprobadoId": "conteo-ejemplo-aprobado-002",
+  "decisionId": "decision-ejemplo-002",
   "valoresAnteriores": {
     "hembras": 700,
     "machos": 200,
@@ -20,6 +23,8 @@
     "patrones": -5,
     "total": -20
   },
+  "versionInventarioAnterior": 1,
+  "versionInventarioNueva": 2,
   "claveIdempotencia": "movimiento-ejemplo-clave-002",
   "creadoEn": "2026-07-13T12:00:00.000Z"
 }

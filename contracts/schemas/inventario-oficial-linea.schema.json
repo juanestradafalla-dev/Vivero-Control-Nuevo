@@ -7,6 +7,8 @@
   "additionalProperties": false,
   "required": [
     "id",
+    "jornadaId",
+    "jornadaLineaId",
     "lineaId",
     "hembras",
     "machos",
@@ -14,11 +16,14 @@
     "total",
     "conteoAprobadoId",
     "version",
+    "origen",
     "actualizadoPorUsuarioId",
     "actualizadoEn"
   ],
   "properties": {
     "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaLineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "lineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "hembras": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
     "machos": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
@@ -28,8 +33,14 @@
       "readOnly": true,
       "description": "Calculado centralmente: hembras + machos + patrones."
     },
-    "conteoAprobadoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "conteoAprobadoId": {
+      "oneOf": [
+        {"$ref": "comun.schema.json#/$defs/idGlobal"},
+        {"type": "null"}
+      ]
+    },
     "version": {"type": "integer", "minimum": 1},
+    "origen": {"type": "string", "enum": ["SEED_FICTICIO_ETAPA_5", "CONTEO_APROBADO"]},
     "actualizadoPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "actualizadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
   }

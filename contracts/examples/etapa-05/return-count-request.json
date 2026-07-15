@@ -1,0 +1,5 @@
+{
+  "conteoId": "conteo-etapa-05-003",
+  "motivo": "Repetir el conteo ficticio de patrones.",
+  "claveIdempotencia": "devolver-conteo-etapa-05-001"
+}

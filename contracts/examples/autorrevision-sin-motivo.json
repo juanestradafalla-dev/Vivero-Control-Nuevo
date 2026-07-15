@@ -1,10 +1,17 @@
 {
   "id": "decision-ejemplo-002",
   "conteoId": "conteo-ejemplo-002",
+  "jornadaId": "jornada-ejemplo-001",
+  "jornadaLineaId": "jornada-linea-ejemplo-002",
+  "lineaId": "linea-ejemplo-002",
+  "autorUsuarioId": "usuario-administrador-ejemplo-001",
   "revisorUsuarioId": "usuario-administrador-ejemplo-001",
+  "revisorNombreVisible": "Administrador ficticio",
+  "rolEfectivoRevisor": "ADMINISTRADOR",
   "decision": "APROBAR",
   "autorrevisionAdministrativa": true,
   "claveIdempotencia": "decision-ejemplo-clave-002",
   "decididaEn": "2026-07-13T12:00:00.000Z",
-  "eventoAuditoriaId": "auditoria-ejemplo-002"
+  "eventoAuditoriaId": "auditoria-ejemplo-002",
+  "movimientoId": "movimiento-ejemplo-002"
 }

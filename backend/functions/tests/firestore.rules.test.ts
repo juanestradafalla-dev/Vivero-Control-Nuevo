@@ -35,6 +35,30 @@ beforeAll(async () => {
       autorUsuarioId: "uid-auxiliar-2",
       total: 1000
     });
+    await setDoc(doc(database, "decisionesRevision/DECISION-AUXILIAR-1"), {
+      id: "DECISION-AUXILIAR-1",
+      jornadaId: ACTIVE_JOURNEY_ID,
+      autorUsuarioId: "uid-auxiliar-1",
+      decision: "APROBAR"
+    });
+    await setDoc(doc(database, "decisionesRevision/DECISION-AUXILIAR-2"), {
+      id: "DECISION-AUXILIAR-2",
+      jornadaId: ACTIVE_JOURNEY_ID,
+      autorUsuarioId: "uid-auxiliar-2",
+      decision: "DEVOLVER"
+    });
+    await setDoc(doc(database, "inventarioOficialLineas/LINEA-PRUEBA-1"), {
+      id: "LINEA-PRUEBA-1",
+      jornadaId: ACTIVE_JOURNEY_ID,
+      lineaId: "LINEA-PRUEBA-1",
+      total: 1000
+    });
+    await setDoc(doc(database, "movimientosInventario/MOVIMIENTO-PRUEBA-1"), {
+      id: "MOVIMIENTO-PRUEBA-1",
+      jornadaId: ACTIVE_JOURNEY_ID,
+      lineaId: "LINEA-PRUEBA-1",
+      conteoAprobadoId: "CONTEO-AUXILIAR-1"
+    });
   });
 });
 
@@ -42,7 +66,7 @@ afterAll(async () => {
   await testEnvironment.cleanup();
 });
 
-describe("lecturas mínimas y escrituras cerradas hasta la ETAPA 4", () => {
+describe("lecturas mínimas y escrituras críticas cerradas en la ETAPA 5", () => {
   it("permite al auxiliar leer su perfil, jornada y líneas autorizadas", async () => {
     const database = testEnvironment.authenticatedContext("uid-auxiliar-1").firestore();
     await assertSucceeds(getDoc(doc(database, "usuarios/uid-auxiliar-1")));
@@ -114,6 +138,35 @@ describe("lecturas mínimas y escrituras cerradas hasta la ETAPA 4", () => {
     await assertFails(setDoc(doc(database, "conteos/CONTEO-DIRECTO"), {jornadaId: ACTIVE_JOURNEY_ID}));
     await assertFails(updateDoc(doc(database, "conteos/CONTEO-AUXILIAR-1"), {total: 1}));
     await assertFails(deleteDoc(doc(database, "conteos/CONTEO-AUXILIAR-1")));
+  });
+
+  it("permite al auxiliar leer únicamente las decisiones de sus conteos", async () => {
+    const database = testEnvironment.authenticatedContext("uid-auxiliar-1").firestore();
+    await assertSucceeds(getDoc(doc(database, "decisionesRevision/DECISION-AUXILIAR-1")));
+    await assertFails(getDoc(doc(database, "decisionesRevision/DECISION-AUXILIAR-2")));
+    await assertSucceeds(getDocs(query(
+      collection(database, "decisionesRevision"),
+      where("autorUsuarioId", "==", "uid-auxiliar-1")
+    )));
+    await assertFails(getDoc(doc(database, "inventarioOficialLineas/LINEA-PRUEBA-1")));
+    await assertFails(getDoc(doc(database, "movimientosInventario/MOVIMIENTO-PRUEBA-1")));
+  });
+
+  it("permite a supervisor y administrador autorizados leer decisiones e inventario", async () => {
+    for (const uid of ["uid-supervisor", "uid-administrador"]) {
+      const database = testEnvironment.authenticatedContext(uid).firestore();
+      await assertSucceeds(getDoc(doc(database, "decisionesRevision/DECISION-AUXILIAR-1")));
+      await assertSucceeds(getDoc(doc(database, "inventarioOficialLineas/LINEA-PRUEBA-1")));
+      await assertSucceeds(getDoc(doc(database, "movimientosInventario/MOVIMIENTO-PRUEBA-1")));
+    }
+  });
+
+  it("rechaza escrituras directas de decisiones, inventario y movimientos", async () => {
+    const database = testEnvironment.authenticatedContext("uid-administrador").firestore();
+    await assertFails(setDoc(doc(database, "decisionesRevision/DECISION-DIRECTA"), {decision: "APROBAR"}));
+    await assertFails(updateDoc(doc(database, "inventarioOficialLineas/LINEA-PRUEBA-1"), {total: 1}));
+    await assertFails(setDoc(doc(database, "movimientosInventario/MOVIMIENTO-DIRECTO"), {total: 1}));
+    await assertFails(deleteDoc(doc(database, "decisionesRevision/DECISION-AUXILIAR-1")));
   });
 
   it("rechaza todas las escrituras directas de estado, reserva, auditoría e idempotencia", async () => {

@@ -44,8 +44,8 @@ service cloud.firestore {
     }
 
     match /usuarios/{usuarioId} {
-      allow get: if activeUser() && (request.auth.uid == usuarioId || isAdmin());
-      allow list: if isAdmin();
+      allow get: if signedIn() && request.auth.uid == usuarioId;
+      allow list: if false;
       allow create, update, delete: if false;
     }
 

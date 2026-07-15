@@ -1,4 +1,4 @@
-import {act, cleanup, fireEvent, render, screen, waitFor} from "@testing-library/react";
+import {act, cleanup, fireEvent, render, screen, waitFor, within} from "@testing-library/react";
 import {afterEach, describe, expect, it} from "vitest";
 
 import type {
@@ -8,6 +8,7 @@ import type {
   DraftParticipantsData,
   ManageableDraftJourney,
   ManageableJourneysData,
+  ManageableUser,
   MonitorJourney,
   MonitorRepository,
   MonitorSnapshot,
@@ -26,6 +27,7 @@ const supervisor: MonitorUser = {
   canReview: true,
   canRelease: true,
   canManageDraftJourneys: true,
+  canManageUsers: false,
 };
 
 const pendingLine = {
@@ -83,6 +85,7 @@ const journeyOne: MonitorJourney = {
 class FakeMonitorRepository implements MonitorRepository {
   readonly emulatorEnabled = true;
   private onSnapshot?: (snapshot: MonitorSnapshot) => void;
+  private onAccountActiveChanged?: (active: boolean) => void;
   user: MonitorUser = supervisor;
   currentSnapshot: MonitorSnapshot = snapshot;
   journeys: readonly MonitorJourney[] = [journeyOne];
@@ -112,6 +115,55 @@ class FakeMonitorRepository implements MonitorRepository {
   reopenedDrafts: Array<{journeyId: string; expectedVersion: number; key: string}> = [];
   closedJourneys: Array<{journeyId: string; expectedVersion: number; key: string}> = [];
   activationErrors: string[] = [];
+  statusUpdates: Array<{userId: string; version: number; active: boolean; reason: string; key: string}> = [];
+  roleUpdates: Array<{userId: string; version: number; role: string; reason: string; key: string}> = [];
+  manageableUsers: ManageableUser[] = [
+    {
+      id: "uid-administrador",
+      displayName: "Administrador Pruebas",
+      role: "ADMINISTRADOR",
+      active: true,
+      version: 1,
+      canChangeRole: true,
+      activeWork: {
+        activeJourneys: 0,
+        activeReservations: 0,
+        pendingCorrections: 0,
+        hasActiveWork: false,
+        roleChangeBlockers: [],
+      },
+    },
+    {
+      id: "uid-auxiliar-1",
+      displayName: "Auxiliar Uno",
+      role: "AUXILIAR",
+      active: true,
+      version: 1,
+      canChangeRole: false,
+      activeWork: {
+        activeJourneys: 1,
+        activeReservations: 1,
+        pendingCorrections: 0,
+        hasActiveWork: true,
+        roleChangeBlockers: ["JORNADA_ACTIVA", "RESERVA_ACTIVA"],
+      },
+    },
+    {
+      id: "uid-inactivo-prueba",
+      displayName: "Usuario Inactivo",
+      role: "AUXILIAR",
+      active: false,
+      version: 2,
+      canChangeRole: true,
+      activeWork: {
+        activeJourneys: 0,
+        activeReservations: 0,
+        pendingCorrections: 0,
+        hasActiveWork: false,
+        roleChangeBlockers: [],
+      },
+    },
+  ];
   participantsData: DraftParticipantsData = {
     journeyId: "JORNADA-BORRADOR-1",
     state: "BORRADOR",
@@ -190,6 +242,49 @@ class FakeMonitorRepository implements MonitorRepository {
 
   async signIn(): Promise<MonitorUser> { return this.user; }
   async signOut(): Promise<void> {}
+  observeAccountStatus(
+    _userId: string,
+    onActiveChanged: (active: boolean) => void,
+  ): MonitorUnsubscribe {
+    this.onAccountActiveChanged = onActiveChanged;
+    return () => {
+      this.onAccountActiveChanged = undefined;
+    };
+  }
+  emitAccountActive(active: boolean) {
+    this.onAccountActiveChanged?.(active);
+  }
+  async listManageableUsers(): Promise<readonly ManageableUser[]> {
+    return this.manageableUsers;
+  }
+  async updateUserStatus(
+    userId: string,
+    version: number,
+    active: boolean,
+    reason: string,
+    key: string,
+  ): Promise<ManageableUser> {
+    this.statusUpdates.push({userId, version, active, reason, key});
+    const current = this.manageableUsers.find((candidate) => candidate.id === userId);
+    if (!current) throw new Error("Perfil inexistente");
+    const updated = {...current, active, version: version + 1};
+    this.manageableUsers = this.manageableUsers.map((candidate) => candidate.id === userId ? updated : candidate);
+    return updated;
+  }
+  async updateUserRole(
+    userId: string,
+    version: number,
+    role: MonitorUser["role"],
+    reason: string,
+    key: string,
+  ): Promise<ManageableUser> {
+    this.roleUpdates.push({userId, version, role, reason, key});
+    const current = this.manageableUsers.find((candidate) => candidate.id === userId);
+    if (!current) throw new Error("Perfil inexistente");
+    const updated = {...current, role, version: version + 1};
+    this.manageableUsers = this.manageableUsers.map((candidate) => candidate.id === userId ? updated : candidate);
+    return updated;
+  }
   async listActiveJourneys(): Promise<readonly MonitorJourney[]> {
     this.activeJourneyListCalls += 1;
     return this.journeys;
@@ -551,7 +646,12 @@ describe("bandeja de revisión de Vivero Maestro", () => {
 
   it("advierte y exige motivo al administrador que aprueba su propio conteo", async () => {
     const repository = new FakeMonitorRepository();
-    repository.user = {...supervisor, id: "uid-administrador", role: "ADMINISTRADOR"};
+    repository.user = {
+      ...supervisor,
+      id: "uid-administrador",
+      role: "ADMINISTRADOR",
+      canManageUsers: true,
+    };
     repository.currentSnapshot = {
       ...snapshot,
       lines: [{...pendingLine, count: {...pendingLine.count, authorUserId: "uid-administrador"}}],
@@ -576,6 +676,7 @@ describe("bandeja de revisión de Vivero Maestro", () => {
       canReview: false,
       canRelease: false,
       canManageDraftJourneys: false,
+      canManageUsers: false,
     };
     await signIn(repository);
     expect(screen.getByText(/detalle restringido/)).toBeInTheDocument();
@@ -638,6 +739,7 @@ describe("bandeja de revisión de Vivero Maestro", () => {
       canReview: false,
       canRelease: false,
       canManageDraftJourneys: false,
+      canManageUsers: false,
     };
     repository.currentSnapshot = {
       ...snapshot,
@@ -772,6 +874,7 @@ describe("jornadas en borrador de Vivero Maestro", () => {
       canReview: false,
       canRelease: false,
       canManageDraftJourneys: false,
+      canManageUsers: false,
     };
     await signIn(repository);
     expect(screen.queryByRole("button", {name: "Jornadas"})).not.toBeInTheDocument();
@@ -949,5 +1052,107 @@ describe("jornadas en borrador de Vivero Maestro", () => {
     });
     expect(await screen.findByText(/Borrador reabierto/)).toBeInTheDocument();
     expect(screen.getByRole("button", {name: "Activar jornada"})).toBeInTheDocument();
+  });
+
+  it("muestra la seccion Usuarios solo a administradores y permite filtrar perfiles", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.user = {
+      ...supervisor,
+      id: "uid-administrador",
+      displayName: "Administrador Pruebas",
+      role: "ADMINISTRADOR",
+      canManageUsers: true,
+    };
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Usuarios"}));
+    await screen.findByRole("heading", {name: "Usuarios"});
+    expect(screen.getByText("Auxiliar Uno")).toBeInTheDocument();
+    expect(screen.getByText(/1 jornada.*1 reserva/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Estado"), {target: {value: "INACTIVO"}});
+    expect(screen.getByText("Usuario Inactivo")).toBeInTheDocument();
+    expect(screen.queryByText("Auxiliar Uno")).not.toBeInTheDocument();
+  });
+
+  it("desactiva con advertencia, motivo, confirmacion y version refrescada", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.user = {
+      ...supervisor,
+      id: "uid-administrador",
+      displayName: "Administrador Pruebas",
+      role: "ADMINISTRADOR",
+      canManageUsers: true,
+    };
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Usuarios"}));
+    const card = (await screen.findByText("Auxiliar Uno")).closest("article");
+    expect(card).not.toBeNull();
+    fireEvent.click(within(card as HTMLElement).getByRole("button", {name: "Desactivar"}));
+    expect(screen.getByRole("dialog")).toHaveTextContent("No se liberará");
+    fireEvent.change(screen.getByLabelText("Motivo obligatorio"), {target: {value: "Ausencia temporal"}});
+    fireEvent.click(screen.getByLabelText(/Confirmo el cambio central/));
+    fireEvent.click(screen.getByRole("button", {name: "Confirmar cambio"}));
+    await waitFor(() => expect(repository.statusUpdates).toHaveLength(1));
+    expect(repository.statusUpdates[0]).toMatchObject({
+      userId: "uid-auxiliar-1",
+      version: 1,
+      active: false,
+      reason: "Ausencia temporal",
+    });
+    expect(await screen.findByText(/actualizado a INACTIVO/)).toBeInTheDocument();
+  });
+
+  it("bloquea cambios de rol con trabajo activo y actualiza un perfil seguro", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.user = {
+      ...supervisor,
+      id: "uid-administrador",
+      displayName: "Administrador Pruebas",
+      role: "ADMINISTRADOR",
+      canManageUsers: true,
+    };
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Usuarios"}));
+    const activeCard = (await screen.findByText("Auxiliar Uno")).closest("article") as HTMLElement;
+    expect(within(activeCard).getByRole("button", {name: "Cambiar rol"})).toBeDisabled();
+    const safeCard = screen.getByText("Usuario Inactivo").closest("article") as HTMLElement;
+    fireEvent.click(within(safeCard).getByRole("button", {name: "Cambiar rol"}));
+    fireEvent.change(screen.getByLabelText("Nuevo rol"), {target: {value: "SUPERVISOR"}});
+    fireEvent.change(screen.getByLabelText("Motivo obligatorio"), {target: {value: "Nuevo alcance de prueba"}});
+    fireEvent.click(screen.getByLabelText(/Confirmo el cambio central/));
+    fireEvent.click(screen.getByRole("button", {name: "Confirmar cambio"}));
+    await waitFor(() => expect(repository.roleUpdates).toHaveLength(1));
+    expect(repository.roleUpdates[0]).toMatchObject({
+      userId: "uid-inactivo-prueba",
+      version: 2,
+      role: "SUPERVISOR",
+    });
+  });
+
+  it("oculta Usuarios a supervisores y auxiliares", async () => {
+    const supervisorRepository = new FakeMonitorRepository();
+    await signIn(supervisorRepository);
+    expect(screen.queryByRole("button", {name: "Usuarios"})).not.toBeInTheDocument();
+    cleanup();
+    const auxiliaryRepository = new FakeMonitorRepository();
+    auxiliaryRepository.user = {
+      id: "uid-auxiliar-1",
+      displayName: "Auxiliar",
+      role: "AUXILIAR",
+      canViewReservationDetails: false,
+      canReview: false,
+      canRelease: false,
+      canManageDraftJourneys: false,
+      canManageUsers: false,
+    };
+    await signIn(auxiliaryRepository);
+    expect(screen.queryByRole("button", {name: "Usuarios"})).not.toBeInTheDocument();
+  });
+
+  it("invalida de forma segura una sesion desactivada desde otra sesion", async () => {
+    const repository = new FakeMonitorRepository();
+    await signIn(repository);
+    act(() => repository.emitAccountActive(false));
+    await screen.findByRole("heading", {name: "Acceso a revisión"});
+    expect(screen.getByRole("alert")).toHaveTextContent("Cuenta desactivada");
   });
 });

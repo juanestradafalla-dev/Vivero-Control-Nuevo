@@ -79,6 +79,7 @@ class CampoViewModel(
     private var draftJob: Job? = null
     private var reservationStateJob: Job? = null
     private var countSaveJob: Job? = null
+    private var accountStatusJob: Job? = null
 
     fun updateEmail(value: String) {
         mutableState.value = mutableState.value.copy(email = value, message = null)
@@ -113,6 +114,7 @@ class CampoViewModel(
                     connectionStatus = if (selectedJourneyId == null) "CONECTADO" else "CONECTANDO",
                     message = if (journeys.isEmpty()) "No hay jornadas activas autorizadas para esta cuenta." else null,
                 )
+                observeAccountStatus(user)
                 if (selectedJourneyId != null) {
                     observeJourney(selectedJourneyId)
                     observeReturnedCounts(user, selectedJourneyId)
@@ -140,9 +142,41 @@ class CampoViewModel(
             draftJob?.cancel()
             reservationStateJob?.cancel()
             countSaveJob?.cancel()
+            accountStatusJob?.cancel()
             pendingReservationKeys.clear()
             pendingCorrectionKeys.clear()
             mutableState.value = CampoUiState(emulatorEnabled = repository.emulatorEnabled)
+        }
+    }
+
+    private fun observeAccountStatus(user: UserProfile) {
+        accountStatusJob?.cancel()
+        accountStatusJob = viewModelScope.launch {
+            repository.observeAccountActive(user.id)
+                .catch { error ->
+                    mutableState.value = mutableState.value.copy(
+                        message = error.message ?: "No fue posible comprobar el estado de la cuenta.",
+                    )
+                }
+                .collect { active ->
+                    if (active) return@collect
+                    val current = mutableState.value
+                    current.countDraft?.frozenPayload?.let { payload ->
+                        syncScheduler.cancel(payload.reservationId, payload.idempotencyKey)
+                    }
+                    repository.signOut()
+                    journeyJob?.cancel()
+                    returnedCountsJob?.cancel()
+                    draftJob?.cancel()
+                    reservationStateJob?.cancel()
+                    countSaveJob?.cancel()
+                    pendingReservationKeys.clear()
+                    pendingCorrectionKeys.clear()
+                    mutableState.value = CampoUiState(
+                        emulatorEnabled = repository.emulatorEnabled,
+                        message = "Cuenta desactivada",
+                    )
+                }
         }
     }
 

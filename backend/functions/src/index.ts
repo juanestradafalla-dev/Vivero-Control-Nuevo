@@ -3,6 +3,11 @@ import {HttpsError, onCall} from "firebase-functions/v2/https";
 
 import type {ControlledErrorCode} from "./domain/contracts.js";
 import {ActivateJourneyService} from "./domain/activateJourney.js";
+import {
+  ListManageableUsersService,
+  UpdateUserRoleService,
+  UpdateUserStatusService
+} from "./domain/adminUsers.js";
 import {CloseJourneyService} from "./domain/closeJourney.js";
 import {
   CancelDraftJourneyService,
@@ -35,6 +40,7 @@ import {
   parseListActiveJourneysRequest,
   parseListDraftJourneyParticipantsRequest,
   parseListManageableJourneysRequest,
+  parseListManageableUsersRequest,
   parseReassignCountCorrectionRequest,
   parseReopenCancelledJourneyRequest,
   parseReleaseReservationRequest,
@@ -42,7 +48,9 @@ import {
   parseReturnCountRequest,
   parseSendCountRequest,
   parseUpdateDraftJourneyLinesRequest,
-  parseUpdateDraftJourneyParticipantsRequest
+  parseUpdateDraftJourneyParticipantsRequest,
+  parseUpdateUserRoleRequest,
+  parseUpdateUserStatusRequest
 } from "./domain/validation.js";
 import {firestore} from "./firebase.js";
 
@@ -88,7 +96,13 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
     "DRAFT_CANCELLATION_OPERATIONAL_DATA_EXISTS",
     "DRAFT_REOPEN_STALE_VERSION",
     "DRAFT_REOPEN_INVALID_STATE",
-    "DRAFT_REOPEN_NOT_ALLOWED"
+    "DRAFT_REOPEN_NOT_ALLOWED",
+    "USER_PROFILE_STALE_VERSION",
+    "SELF_DEACTIVATION_FORBIDDEN",
+    "SELF_ADMIN_ROLE_REMOVAL_FORBIDDEN",
+    "LAST_ACTIVE_ADMIN_REQUIRED",
+    "USER_ROLE_CHANGE_BLOCKED_ACTIVE_WORK",
+    "USER_PROFILE_NO_CHANGE"
   ].includes(code)) return "failed-precondition";
   if (["RESERVATION_NOT_ACTIVE", "LINE_RESERVATION_MISMATCH", "LINE_NOT_IN_COUNT"].includes(code)) {
     return "failed-precondition";
@@ -146,6 +160,54 @@ const activateJourneyService = new ActivateJourneyService(firestore);
 const closeJourneyService = new CloseJourneyService(firestore);
 const cancelDraftJourneyService = new CancelDraftJourneyService(firestore);
 const reopenCancelledJourneyService = new ReopenCancelledJourneyService(firestore);
+const listManageableUsersService = new ListManageableUsersService(firestore);
+const updateUserStatusService = new UpdateUserStatusService(firestore);
+const updateUserRoleService = new UpdateUserRoleService(firestore);
+
+export const listarUsuariosAdministrables = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    parseListManageableUsersRequest(request.data);
+    return await listManageableUsersService.execute({actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en listarUsuariosAdministrables", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const actualizarEstadoUsuario = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    const payload = parseUpdateUserStatusRequest(request.data);
+    return await updateUserStatusService.execute(payload, {actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en actualizarEstadoUsuario", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const actualizarRolUsuario = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    const payload = parseUpdateUserRoleRequest(request.data);
+    return await updateUserRoleService.execute(payload, {actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en actualizarRolUsuario", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
 
 export const cancelarJornadaBorrador = onCall({region: "us-central1"}, async (request) => {
   try {

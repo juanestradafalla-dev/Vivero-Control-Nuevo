@@ -115,6 +115,7 @@ export async function seedEmulator() {
       nombreVisible: account.nombreVisible,
       roles: [account.rol],
       activo: account.activo,
+      version: 1,
       entorno: "FICTICIO_EMULADOR",
       creadoEn: now,
       actualizadoEn: now

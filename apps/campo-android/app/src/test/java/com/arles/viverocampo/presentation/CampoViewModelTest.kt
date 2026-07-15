@@ -263,6 +263,27 @@ class CampoViewModelTest {
     }
 
     @Test
+    fun `cuenta desactivada invalida sesion y conserva borrador cifrado pendiente`() = runTest {
+        loginWithReservation()
+        enterValidCount()
+        viewModel.requestCountConfirmation()
+        viewModel.confirmCountSubmission()
+        advanceUntilIdle()
+        val draftBefore = repository.draftFor(confirmedReservation.reservationId, "uid-auxiliar-1", DEVICE_ID)
+
+        repository.accountActive.value = false
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.user)
+        assertEquals("Cuenta desactivada", viewModel.uiState.value.message)
+        assertEquals(draftBefore, repository.draftFor(confirmedReservation.reservationId, "uid-auxiliar-1", DEVICE_ID))
+        assertTrue(scheduler.cancelled.contains(
+            confirmedReservation.reservationId to requireNotNull(draftBefore?.frozenPayload?.idempotencyKey),
+        ))
+        assertEquals(1, repository.signOutCalls)
+    }
+
+    @Test
     fun `payload de reserva mantiene exactamente su contrato compartido`() {
         val payload = ReserveLinePayload("jornada-linea-prueba", "dispositivo-prueba", "clave-prueba-0001")
         assertEquals(setOf("jornadaLineaId", "dispositivoId", "claveIdempotencia"), payload.toWireMap().keys)
@@ -383,6 +404,8 @@ class CampoViewModelTest {
         var closeJourneyAfterSnapshot = false
         private var activeJourneyListCalls = 0
         val returnedCounts = MutableStateFlow<List<ReturnedCount>>(emptyList())
+        val accountActive = MutableStateFlow(true)
+        var signOutCalls = 0
         private val drafts = mutableMapOf<Triple<String, String, String>, MutableStateFlow<LocalCountDraft?>>()
         private val reservationStates = mutableMapOf<String, MutableStateFlow<String>>()
         val reservePayloads = mutableListOf<ReserveLinePayload>()
@@ -392,7 +415,10 @@ class CampoViewModelTest {
         private val consumedReservations = mutableSetOf<String>()
 
         override suspend fun signIn(email: String, password: String) = UserProfile("uid-auxiliar-1", "Auxiliar ficticio", "AUXILIAR")
-        override suspend fun signOut() = Unit
+        override suspend fun signOut() {
+            signOutCalls += 1
+        }
+        override fun observeAccountActive(userId: String): Flow<Boolean> = accountActive
         override suspend fun listActiveJourneys(): List<ActiveJourney> {
             activeJourneyListCalls += 1
             return if (closeJourneyAfterSnapshot && activeJourneyListCalls > 1) emptyList() else activeJourneys

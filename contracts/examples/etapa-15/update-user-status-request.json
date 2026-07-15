@@ -1,0 +1,7 @@
+{
+  "usuarioId": "uid-auxiliar-1",
+  "versionEsperada": 1,
+  "nuevoEstado": "INACTIVO",
+  "motivo": "Ausencia temporal para la prueba del emulador.",
+  "claveIdempotencia": "estado-usuario-etapa-15-0001"
+}

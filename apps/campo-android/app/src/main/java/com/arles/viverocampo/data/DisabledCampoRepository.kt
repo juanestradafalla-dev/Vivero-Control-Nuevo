@@ -22,6 +22,8 @@ class DisabledCampoRepository : CampoRepository {
 
     override suspend fun signOut() = Unit
 
+    override fun observeAccountActive(userId: String): Flow<Boolean> = emptyFlow()
+
     override suspend fun listActiveJourneys(): List<ActiveJourney> = unavailable()
 
     override fun observeJourney(journeyId: String): Flow<JourneySnapshot> = emptyFlow()

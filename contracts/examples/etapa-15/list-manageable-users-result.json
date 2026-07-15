@@ -1,0 +1,19 @@
+{
+  "usuarios": [
+    {
+      "usuarioId": "uid-auxiliar-1",
+      "nombreVisible": "Auxiliar ficticio 1",
+      "rol": "AUXILIAR",
+      "activo": true,
+      "version": 1,
+      "puedeCambiarRol": false,
+      "resumenTrabajoActivo": {
+        "jornadasActivas": 1,
+        "reservasActivas": 1,
+        "correccionesPendientes": 0,
+        "tieneTrabajoActivo": true,
+        "bloqueosCambioRol": ["JORNADA_ACTIVA", "RESERVA_ACTIVA"]
+      }
+    }
+  ]
+}

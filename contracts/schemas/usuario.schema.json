@@ -4,7 +4,7 @@
   "title": "Usuario",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "roles", "activo", "creadoEn"],
+  "required": ["id", "roles", "activo", "version", "creadoEn"],
   "properties": {
     "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "nombreVisible": {"type": "string", "minLength": 1, "maxLength": 160},
@@ -15,6 +15,7 @@
       "items": {"$ref": "../enums/roles.json"}
     },
     "activo": {"type": "boolean"},
+    "version": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
     "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
     "actualizadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
   }

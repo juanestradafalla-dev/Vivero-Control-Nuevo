@@ -1,0 +1,7 @@
+{
+  "usuarioId": "uid-sin-acceso-prueba",
+  "versionEsperada": 1,
+  "nuevoRol": "OPERADOR",
+  "motivo": "Rol inexistente.",
+  "claveIdempotencia": "rol-usuario-etapa-15-0002"
+}

@@ -10,6 +10,7 @@ import type {
 } from "../domain/MonitorModels";
 import {sortMonitorLines} from "../domain/MonitorModels";
 import {DraftJourneysSection} from "./DraftJourneysSection";
+import {UsersSection} from "./UsersSection";
 import "./app.css";
 
 interface AppProps {
@@ -65,7 +66,7 @@ export function App({repository}: AppProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [user, setUser] = useState<MonitorUser>();
-  const [activeSection, setActiveSection] = useState<"MONITOR" | "JOURNEYS">("MONITOR");
+  const [activeSection, setActiveSection] = useState<"MONITOR" | "JOURNEYS" | "USERS">("MONITOR");
   const [journeys, setJourneys] = useState<readonly MonitorJourney[]>([]);
   const [selectedJourneyId, setSelectedJourneyId] = useState<string>();
   const [snapshot, setSnapshot] = useState<MonitorSnapshot>();
@@ -147,6 +148,32 @@ export function App({repository}: AppProps) {
     setReleaseDialog(undefined);
     setCloseDialog(undefined);
   };
+
+  useEffect(() => {
+    if (!user) return undefined;
+    return repository.observeAccountStatus(
+      user.id,
+      (active) => {
+        if (active) return;
+        unsubscribeRef.current?.();
+        unsubscribeRef.current = undefined;
+        void repository.signOut().finally(() => {
+          setUser(undefined);
+          setActiveSection("MONITOR");
+          setJourneys([]);
+          setSelectedJourneyId(undefined);
+          setSnapshot(undefined);
+          setReviewDialog(undefined);
+          setReassignmentDialog(undefined);
+          setReleaseDialog(undefined);
+          setCloseDialog(undefined);
+          setNotice(undefined);
+          setError("Cuenta desactivada");
+        });
+      },
+      setError,
+    );
+  }, [repository, user]);
 
   const openReview = (kind: ReviewDialog["kind"], line: MonitorLine) => {
     setError(undefined);
@@ -399,7 +426,7 @@ export function App({repository}: AppProps) {
         {repository.emulatorEnabled ? "MODO DE PRUEBA — EMULADOR" : "FIREBASE DESHABILITADO — SIN PRODUCCIÓN"}
       </div>
 
-      {user?.canManageDraftJourneys && (
+      {(user?.canManageDraftJourneys || user?.canManageUsers) && (
         <nav className="workspace-nav" aria-label="Secciones de Maestro">
           <button
             className={activeSection === "MONITOR" ? "workspace-tab workspace-tab--active" : "workspace-tab"}
@@ -420,12 +447,26 @@ export function App({repository}: AppProps) {
           >
             Jornadas
           </button>
+          {user.canManageUsers && (
+            <button
+              className={activeSection === "USERS" ? "workspace-tab workspace-tab--active" : "workspace-tab"}
+              type="button"
+              onClick={() => {
+                setReviewDialog(undefined);
+                setReassignmentDialog(undefined);
+                setReleaseDialog(undefined);
+                setActiveSection("USERS");
+              }}
+            >
+              Usuarios
+            </button>
+          )}
         </nav>
       )}
 
       {!user ? (
         <section className="login-panel" aria-labelledby="login-title">
-          <p className="eyebrow">ETAPA 12</p>
+          <p className="eyebrow">ETAPA 15</p>
           <h1 id="login-title">Acceso a revisión</h1>
           <p>Use únicamente una cuenta ficticia cargada en Firebase Emulator Suite.</p>
           <form onSubmit={handleSignIn}>
@@ -443,6 +484,8 @@ export function App({repository}: AppProps) {
             </button>
           </form>
         </section>
+      ) : activeSection === "USERS" && user.canManageUsers ? (
+        <UsersSection repository={repository} currentUser={user} />
       ) : activeSection === "JOURNEYS" ? (
         <DraftJourneysSection
           key={draftRefreshVersion}

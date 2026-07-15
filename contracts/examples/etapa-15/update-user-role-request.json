@@ -1,0 +1,7 @@
+{
+  "usuarioId": "uid-sin-acceso-prueba",
+  "versionEsperada": 1,
+  "nuevoRol": "SUPERVISOR",
+  "motivo": "Cambio ficticio aprobado para pruebas.",
+  "claveIdempotencia": "rol-usuario-etapa-15-0001"
+}

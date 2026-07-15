@@ -65,7 +65,15 @@ export const expectedSchemas = [
   "reopen-cancelled-journey-request.schema.json",
   "reopen-cancelled-journey-result.schema.json",
   "cancelled-draft-journey-summary.schema.json",
-  "draft-journey-cancellation.schema.json"
+  "draft-journey-cancellation.schema.json",
+  "list-manageable-users-request.schema.json",
+  "list-manageable-users-result.schema.json",
+  "manageable-user-summary.schema.json",
+  "user-active-work-summary.schema.json",
+  "update-user-status-request.schema.json",
+  "update-user-status-result.schema.json",
+  "update-user-role-request.schema.json",
+  "update-user-role-result.schema.json"
 ];
 
 export const expectedEnums = new Map([

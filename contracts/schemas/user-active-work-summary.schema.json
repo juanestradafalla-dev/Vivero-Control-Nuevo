@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/user-active-work-summary.schema.json",
+  "title": "Resumen de trabajo activo que puede verse afectado",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["jornadasActivas", "reservasActivas", "correccionesPendientes", "tieneTrabajoActivo", "bloqueosCambioRol"],
+  "properties": {
+    "jornadasActivas": {"type": "integer", "minimum": 0},
+    "reservasActivas": {"type": "integer", "minimum": 0},
+    "correccionesPendientes": {"type": "integer", "minimum": 0},
+    "tieneTrabajoActivo": {"type": "boolean"},
+    "bloqueosCambioRol": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"enum": ["JORNADA_ACTIVA", "RESERVA_ACTIVA", "CORRECCION_PENDIENTE"]}
+    }
+  }
+}

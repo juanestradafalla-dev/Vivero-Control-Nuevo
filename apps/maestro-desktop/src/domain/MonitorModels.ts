@@ -8,6 +8,7 @@ export interface MonitorUser {
   readonly canReview: boolean;
   readonly canRelease: boolean;
   readonly canManageDraftJourneys: boolean;
+  readonly canManageUsers: boolean;
 }
 
 export interface MonitorJourney {
@@ -189,12 +190,37 @@ export interface DraftActivationResult {
   readonly activatedAt: string;
 }
 
+export type UserRoleChangeBlocker = "JORNADA_ACTIVA" | "RESERVA_ACTIVA" | "CORRECCION_PENDIENTE";
+
+export interface UserActiveWorkSummary {
+  readonly activeJourneys: number;
+  readonly activeReservations: number;
+  readonly pendingCorrections: number;
+  readonly hasActiveWork: boolean;
+  readonly roleChangeBlockers: readonly UserRoleChangeBlocker[];
+}
+
+export interface ManageableUser {
+  readonly id: string;
+  readonly displayName: string;
+  readonly role: MonitorRole;
+  readonly active: boolean;
+  readonly version: number;
+  readonly canChangeRole: boolean;
+  readonly activeWork: UserActiveWorkSummary;
+}
+
 export type MonitorUnsubscribe = () => void;
 
 export interface MonitorRepository {
   readonly emulatorEnabled: boolean;
   signIn(email: string, password: string): Promise<MonitorUser>;
   signOut(): Promise<void>;
+  observeAccountStatus(
+    userId: string,
+    onActiveChanged: (active: boolean) => void,
+    onError: (message: string) => void,
+  ): MonitorUnsubscribe;
   listActiveJourneys(): Promise<readonly MonitorJourney[]>;
   listManageableJourneys(): Promise<ManageableJourneysData>;
   createDraftJourney(displayName: string, idempotencyKey: string): Promise<ManageableDraftJourney>;
@@ -221,6 +247,21 @@ export interface MonitorRepository {
     idempotencyKey: string,
   ): Promise<void>;
   reopenCancelledJourney(journeyId: string, expectedVersion: number, idempotencyKey: string): Promise<void>;
+  listManageableUsers(): Promise<readonly ManageableUser[]>;
+  updateUserStatus(
+    userId: string,
+    expectedVersion: number,
+    active: boolean,
+    reason: string,
+    idempotencyKey: string,
+  ): Promise<ManageableUser>;
+  updateUserRole(
+    userId: string,
+    expectedVersion: number,
+    role: MonitorRole,
+    reason: string,
+    idempotencyKey: string,
+  ): Promise<ManageableUser>;
   closeJourney(journeyId: string, expectedVersion: number, idempotencyKey: string): Promise<void>;
   approveCount(countId: string, idempotencyKey: string, exceptionReason?: string): Promise<void>;
   returnCount(countId: string, reason: string, idempotencyKey: string): Promise<void>;

@@ -24,8 +24,8 @@ async function assertInvalid(schemaFilename, exampleFilename) {
 }
 
 test("compila todos los esquemas Draft 2020-12 y resuelve sus referencias", () => {
-  assert.equal(registry.entityCount, 60);
-  assert.equal(registry.schemaCount, 61);
+  assert.equal(registry.entityCount, 68);
+  assert.equal(registry.schemaCount, 69);
   assert.equal(registry.enumCount, 5);
 });
 
@@ -354,5 +354,35 @@ test("rechaza identidad o campos adicionales al cancelar un borrador", async () 
   await assertInvalid(
     "cancel-draft-journey-request.schema.json",
     "etapa-14/cancel-draft-journey-request-extra-field.json"
+  );
+});
+
+test("acepta listado y actualizaciones administrativas de perfiles", async () => {
+  await assertValid(
+    "list-manageable-users-request.schema.json",
+    "etapa-15/list-manageable-users-request.json"
+  );
+  await assertValid(
+    "list-manageable-users-result.schema.json",
+    "etapa-15/list-manageable-users-result.json"
+  );
+  await assertValid("update-user-status-request.schema.json", "etapa-15/update-user-status-request.json");
+  await assertValid("update-user-status-result.schema.json", "etapa-15/update-user-status-result.json");
+  await assertValid("update-user-role-request.schema.json", "etapa-15/update-user-role-request.json");
+  await assertValid("update-user-role-result.schema.json", "etapa-15/update-user-role-result.json");
+  await assertValid(
+    "resultado-idempotente.schema.json",
+    "etapa-15/idempotent-update-user-status-result.json"
+  );
+});
+
+test("rechaza campos adicionales y roles administrativos inexistentes", async () => {
+  await assertInvalid(
+    "update-user-status-request.schema.json",
+    "etapa-15/update-user-status-request-extra-field.json"
+  );
+  await assertInvalid(
+    "update-user-role-request.schema.json",
+    "etapa-15/update-user-role-request-invalid-role.json"
   );
 });

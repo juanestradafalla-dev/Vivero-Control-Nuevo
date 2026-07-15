@@ -246,6 +246,19 @@ describe("lecturas mínimas y escrituras críticas cerradas en la ETAPA 5", () =
     await assertFails(getDocs(collection(auxiliary, `jornadas/${ACTIVE_JOURNEY_ID}/autorizaciones`)));
   });
 
+  it("obliga a consultar y actualizar perfiles administrativos mediante Callables", async () => {
+    const administrator = testEnvironment.authenticatedContext("uid-administrador").firestore();
+    await assertSucceeds(getDoc(doc(administrator, "usuarios/uid-administrador")));
+    await assertFails(getDoc(doc(administrator, "usuarios/uid-auxiliar-1")));
+    await assertFails(getDocs(collection(administrator, "usuarios")));
+    await assertFails(updateDoc(doc(administrator, "usuarios/uid-auxiliar-1"), {activo: false}));
+    await assertFails(setDoc(doc(administrator, "usuarios/uid-nuevo"), {activo: true}));
+    await assertFails(deleteDoc(doc(administrator, "usuarios/uid-auxiliar-1")));
+    const inactive = testEnvironment.authenticatedContext("uid-inactivo-prueba").firestore();
+    await assertSucceeds(getDoc(doc(inactive, "usuarios/uid-inactivo-prueba")));
+    await assertFails(getDocs(collection(inactive, "usuarios")));
+  });
+
   it("rechaza crear, editar o eliminar reasignaciones desde clientes", async () => {
     const database = testEnvironment.authenticatedContext("uid-administrador").firestore();
     await assertFails(setDoc(doc(database, "reasignacionesCorreccion/DIRECTA"), {conteoId: "CONTEO-AUXILIAR-1"}));

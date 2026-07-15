@@ -1,6 +1,10 @@
 # Vivero Campo
 
-Aplicación Android `debug` de la Etapa 8. Auxiliares, supervisores y administradores usan el mismo flujo: autenticar, reservar, capturar, confirmar y sincronizar.
+Aplicación Android `debug` de la Etapa 9. Auxiliares, supervisores y administradores usan el mismo flujo: autenticar, seleccionar una jornada activa autorizada, reservar, capturar, confirmar y sincronizar.
+
+- Una sola jornada se selecciona automáticamente; varias muestran una pantalla de selección.
+- Líneas y correcciones se observan exclusivamente para la jornada elegida.
+- El cambio queda bloqueado mientras exista reserva, borrador, sincronización o corrección activa.
 
 - Room conserva reserva, borrador e historial por usuario, dispositivo y reserva.
 - Android Keystore cifra el token con AES-GCM; nunca se persiste en texto plano.

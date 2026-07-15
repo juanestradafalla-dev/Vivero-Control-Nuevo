@@ -1,6 +1,9 @@
 # Vivero Maestro
 
-Aplicación Electron/React de la Etapa 8 para revisar conteos y liberar reservas en Firebase Emulator Suite.
+Aplicación Electron/React de la Etapa 9 para revisar conteos y liberar reservas en Firebase Emulator Suite.
+
+- Consulta jornadas activas autorizadas y permite seleccionar una.
+- Al cambiar cancela todas las suscripciones anteriores y limpia el snapshot para no mezclar jornadas.
 
 - Observa líneas, conteos e inventarios ficticios mediante snapshots.
 - Presenta ubicación, autor, rol, dispositivo, cantidades, observaciones, horas, versión, inventario actual y diferencia.

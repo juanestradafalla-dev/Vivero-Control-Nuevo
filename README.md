@@ -2,7 +2,7 @@
 
 Sistema nuevo para operar inventario por línea mediante Vivero Campo (Android), Vivero Maestro (Windows) y un backend transaccional. Este repositorio no consulta, modifica ni reutiliza el proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 8
+## Estado: ETAPA 9
 
 La vertical disponible funciona exclusivamente con Firebase Emulator Suite y datos ficticios:
 
@@ -24,6 +24,11 @@ La vertical disponible funciona exclusivamente con Firebase Emulator Suite y dat
 14. Una reserva inicial vuelve de `EN_CONTEO` a `DISPONIBLE`; una reserva `CORRECCION` vuelve a `DEVUELTA` y restaura su reasignación vigente.
 15. Campo conserva el borrador local, cancela reintentos y muestra el rechazo supervisado sin borrar el token cifrado.
 16. La liberación es inmutable, auditada e idempotente; competir con `enviarConteo` produce exactamente un ganador.
+
+17. `listarJornadasActivas` devuelve solo jornadas `ACTIVA` autorizadas para la cuenta autenticada.
+18. Campo selecciona automáticamente una única jornada o muestra selector cuando existen varias y bloquea el cambio con trabajo pendiente.
+19. Maestro cambia todas sus suscripciones al seleccionar otra jornada y nunca mezcla líneas, reservas, conteos o inventario.
+20. El ID histórico `JORNADA-PRUEBA-ETAPA-3` permanece solo como fixture del seed; ya no dirige consultas funcionales.
 
 > **MODO DE PRUEBA — EMULADOR.** No existe Firebase real configurado, no hay credenciales de producción y ningún comando despliega recursos.
 
@@ -85,7 +90,7 @@ Set-Location backend/functions
 npm run emulator:seed
 ```
 
-Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las siete Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
+Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las ocho Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
 
 | Correo ficticio | Rol |
 |---|---|
@@ -131,6 +136,13 @@ npm run test:emulators
 npm audit --omit=dev --audit-level=high
 ```
 
+## Documentación de la ETAPA 9
+
+- [Jornadas activas dinámicas](docs/arquitectura/JORNADAS_DINAMICAS_ETAPA_09.md)
+- [Pruebas](docs/pruebas/PRUEBAS_ETAPA_09.md)
+- [Criterios de aceptación](docs/ETAPA_09_CRITERIOS_DE_ACEPTACION.md)
+- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
+
 ## Documentación de la ETAPA 8
 
 - [Liberación manual supervisada](docs/arquitectura/LIBERACION_RESERVAS_ETAPA_08.md)
@@ -149,4 +161,4 @@ npm audit --omit=dev --audit-level=high
 
 ## Exclusiones vigentes
 
-No están implementados: vencimiento automático, temporizadores de abandono, eliminación o recuperación administrativa de borradores, corrección simultánea por varios usuarios, gestión completa de jornadas, administración de usuarios, datos reales, migración, Firebase de producción, despliegues, APK de producción, instalador Windows definitivo, descartes, despachos, químicos, aplicaciones ni reingresos.
+No están implementados: creación, edición, activación o cierre de jornadas, autorización de usuarios desde interfaces, vencimiento automático, temporizadores de abandono, eliminación o recuperación administrativa de borradores, corrección simultánea por varios usuarios, administración de usuarios, datos reales, migración, Firebase de producción, despliegues, APK de producción, instalador Windows definitivo, descartes, despachos, químicos, aplicaciones ni reingresos.

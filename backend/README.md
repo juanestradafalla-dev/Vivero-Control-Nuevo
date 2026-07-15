@@ -1,6 +1,8 @@
 # Backend local de Vivero Control
 
-Backend de la Etapa 8 para Firebase Emulator Suite. Exporta `reservarLinea`, `enviarConteo`, `iniciarCorreccionConteo`, `reasignarCorreccionConteo`, `liberarReservaLinea`, `aprobarConteo` y `devolverConteo`. No contiene proyecto real, credenciales ni despliegue.
+Backend de la Etapa 9 para Firebase Emulator Suite. Exporta `listarJornadasActivas`, `reservarLinea`, `enviarConteo`, `iniciarCorreccionConteo`, `reasignarCorreccionConteo`, `liberarReservaLinea`, `aprobarConteo` y `devolverConteo`. No contiene proyecto real, credenciales ni despliegue.
+
+`listarJornadasActivas` acepta una solicitud vacía, toma la identidad de Auth y devuelve solo jornadas activas autorizadas, ordenadas por fecha central y nombre visible. No escribe documentos ni expone autorizaciones ajenas.
 
 `aprobarConteo` crea una decisión, reemplaza el inventario oficial, registra un movimiento, cambia la línea a `APROBADA`, audita y persiste el resultado idempotente en una sola transacción. `devolverConteo` crea decisión y auditoría, cambia la línea a `DEVUELTA` y no toca inventario.
 

@@ -2,7 +2,7 @@
 
 Sistema nuevo para operar inventario por línea mediante Vivero Campo (Android), Vivero Maestro (Windows) y un backend transaccional. Este repositorio no consulta, modifica ni reutiliza el proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 11
+## Estado: ETAPA 12
 
 La vertical disponible funciona exclusivamente con Firebase Emulator Suite y datos ficticios:
 
@@ -38,7 +38,14 @@ La vertical disponible funciona exclusivamente con Firebase Emulator Suite y dat
 25. Supervisor y administrador pueden preparar participantes de una jornada `BORRADOR` mediante `listarParticipantesJornadaBorrador` y `actualizarParticipantesJornadaBorrador`.
 26. El backend obtiene nombre y rol desde perfiles centrales activos; el cliente solo selecciona la cuenta e indica si puede contar.
 27. La preparación se guarda en `seleccionesParticipantesJornada`, separada de las autorizaciones operativas, con auditoría e idempotencia.
-28. Maestro permite buscar, filtrar, seleccionar y confirmar participantes sin activar la jornada ni exponer borradores en Campo.
+28. Maestro permite buscar, filtrar, seleccionar y confirmar participantes mientras la jornada continúa en `BORRADOR` y no se expone en Campo.
+
+29. Supervisor activa exclusivamente sus borradores preparados y administrador puede activar cualquier borrador mediante `activarJornada`.
+30. La activación revalida perfiles, roles, líneas y tres versiones observadas; luego materializa autorizaciones y `jornadaLineas` `DISPONIBLE` en una única transacción.
+31. `ocupacionesLineasActivas/{lineaId}` garantiza un único ganador si dos borradores compiten por la misma línea física.
+32. Maestro muestra el resumen completo, exige confirmación y refresca tanto borradores como jornadas activas después del éxito.
+33. Campo ve la nueva jornada únicamente para los participantes seleccionados; las selecciones preparatorias permanecen como trazabilidad.
+34. Activar no inicializa ni reemplaza inventario oficial y no crea movimientos de inventario.
 
 > **MODO DE PRUEBA — EMULADOR.** No existe Firebase real configurado, no hay credenciales de producción y ningún comando despliega recursos.
 
@@ -100,7 +107,7 @@ Set-Location backend/functions
 npm run emulator:seed
 ```
 
-Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las trece Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
+Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las catorce Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
 
 | Correo ficticio | Rol |
 |---|---|
@@ -146,6 +153,14 @@ npm run test:emulators
 npm audit --omit=dev --audit-level=high
 ```
 
+## Documentación de la ETAPA 12
+
+- [Activación transaccional de jornadas](docs/arquitectura/ACTIVACION_JORNADA_ETAPA_12.md)
+- [Pruebas y concurrencia](docs/pruebas/PRUEBAS_ETAPA_12.md)
+- [Criterios de aceptación](docs/ETAPA_12_CRITERIOS_DE_ACEPTACION.md)
+- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
+- [Contratos compartidos](contracts/README.md)
+
 ## Documentación de la ETAPA 11
 
 - [Participantes de jornadas en borrador](docs/arquitectura/PARTICIPANTES_JORNADA_BORRADOR_ETAPA_11.md)
@@ -185,4 +200,4 @@ npm audit --omit=dev --audit-level=high
 
 ## Exclusiones vigentes
 
-No están implementados: activación, cierre, cancelación, reapertura o eliminación de jornadas; materialización de autorizaciones operativas desde la selección; creación de cuentas; cambio de roles o perfiles; creación de ubicaciones o líneas; vencimiento automático; temporizadores de abandono; eliminación o recuperación administrativa de borradores locales; corrección simultánea por varios usuarios; datos reales; migración; Firebase de producción; despliegues; APK de producción; instalador Windows definitivo; descartes, despachos, químicos, aplicaciones ni reingresos.
+No están implementados: cierre, cancelación, reapertura o eliminación de jornadas; modificación de jornadas activas; creación de cuentas; cambio de roles o perfiles; creación de ubicaciones o líneas; inicialización o migración de inventario; vencimiento automático; temporizadores de abandono; eliminación o recuperación administrativa de borradores locales; corrección simultánea por varios usuarios; datos reales; Firebase de producción; despliegues; APK de producción; instalador Windows definitivo; descartes, despachos, químicos, aplicaciones ni reingresos.

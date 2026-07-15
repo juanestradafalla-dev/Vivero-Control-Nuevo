@@ -300,6 +300,16 @@ export function App({repository}: AppProps) {
     }
   };
 
+  const refreshActiveJourneys = async () => {
+    try {
+      setJourneys(await repository.listActiveJourneys());
+    } catch (refreshError) {
+      setError(refreshError instanceof Error
+        ? refreshError.message
+        : "La jornada fue activada, pero no fue posible refrescar la lista activa.");
+    }
+  };
+
   const visibleLines = sortMonitorLines(snapshot?.lines ?? []).filter((line) => {
     const haystack = Object.values(line.location).join(" ").toLocaleLowerCase("es");
     return (stateFilter === "TODOS" || line.state === stateFilter) &&
@@ -356,7 +366,7 @@ export function App({repository}: AppProps) {
 
       {!user ? (
         <section className="login-panel" aria-labelledby="login-title">
-          <p className="eyebrow">ETAPA 10</p>
+          <p className="eyebrow">ETAPA 12</p>
           <h1 id="login-title">Acceso a revisión</h1>
           <p>Use únicamente una cuenta ficticia cargada en Firebase Emulator Suite.</p>
           <form onSubmit={handleSignIn}>
@@ -375,7 +385,11 @@ export function App({repository}: AppProps) {
           </form>
         </section>
       ) : activeSection === "JOURNEYS" ? (
-        <DraftJourneysSection repository={repository} user={user} />
+        <DraftJourneysSection
+          repository={repository}
+          user={user}
+          onActiveJourneysChanged={refreshActiveJourneys}
+        />
       ) : (
         <section className="monitor" aria-labelledby="monitor-title">
           <div className="monitor-filters">

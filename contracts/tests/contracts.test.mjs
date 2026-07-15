@@ -24,8 +24,8 @@ async function assertInvalid(schemaFilename, exampleFilename) {
 }
 
 test("compila todos los esquemas Draft 2020-12 y resuelve sus referencias", () => {
-  assert.equal(registry.entityCount, 49);
-  assert.equal(registry.schemaCount, 50);
+  assert.equal(registry.entityCount, 52);
+  assert.equal(registry.schemaCount, 53);
   assert.equal(registry.enumCount, 5);
 });
 
@@ -309,5 +309,22 @@ test("acepta seleccion preparatoria e idempotencia de participantes", async () =
   await assertValid(
     "resultado-idempotente.schema.json",
     "etapa-11/idempotent-draft-participants-result.json"
+  );
+});
+
+test("acepta activar una jornada con versiones observadas y resultado central", async () => {
+  await assertValid("activate-journey-request.schema.json", "etapa-12/activate-journey-request.json");
+  await assertValid("activate-journey-result.schema.json", "etapa-12/activate-journey-result.json");
+  await assertValid("active-line-occupation.schema.json", "etapa-12/active-line-occupation.json");
+  await assertValid(
+    "resultado-idempotente.schema.json",
+    "etapa-12/idempotent-activate-journey-result.json"
+  );
+});
+
+test("rechaza identidad o campos adicionales al activar", async () => {
+  await assertInvalid(
+    "activate-journey-request.schema.json",
+    "etapa-12/activate-journey-request-extra-field.json"
   );
 });

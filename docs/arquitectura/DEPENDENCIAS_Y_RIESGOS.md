@@ -125,3 +125,11 @@ Persisten como decisiones futuras la activación, el cierre, la cancelación, la
 No se agregan dependencias externas, migraciones Room ni índices de producción. La preparación de participantes reutiliza Auth, Functions, transacciones, auditoría e idempotencia y permanece en una colección separada de las autorizaciones operativas.
 
 Un perfil seleccionado puede quedar inactivo o cambiar de rol antes de una futura activación; esta etapa valida el estado al guardar, pero la operación de activación deberá volver a validar todos los perfiles y definir el rol efectivo definitivo. Activación, creación de cuentas y edición de roles o perfiles continúan fuera de alcance. Persisten además los riesgos de datos, señal y dispositivos reales, retención local y alertas moderadas transitivas del backend. Firebase real sigue sin configurarse ni desplegarse.
+
+## Actualización de la ETAPA 12
+
+No se agregan dependencias externas, migraciones Room ni índices de producción. La activación reutiliza Auth, Functions, transacciones, auditoría e idempotencia. La revalidación central resuelve el riesgo de perfiles o líneas que cambian después de preparar el borrador; las tres versiones esperadas evitan confirmar un resumen obsoleto.
+
+El bloqueo determinista por `lineaId` evita dos jornadas activas simultáneas. Su ciclo de liberación queda pendiente porque cierre, cancelación y reapertura no existen aún. El límite combinado de 200 mantiene el peor caso en 402 escrituras dentro de una única transacción, pero deberá revisarse con la estructura real del vivero antes de producción.
+
+Persisten los riesgos de estructura y datos reales, calidad de señal, dispositivos Android reales, retención local, pérdida de claves Keystore y 8 alertas moderadas transitivas del backend, sin alertas altas ni críticas en la auditoría actual. No se inicializa inventario: una jornada activa puede tener líneas sin fotografía oficial y una aprobación futura continuará rechazándose hasta contar con inventario inicial válido. Firebase real sigue sin configurarse ni desplegarse.

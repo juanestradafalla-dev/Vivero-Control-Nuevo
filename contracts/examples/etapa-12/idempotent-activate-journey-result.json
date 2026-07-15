@@ -1,0 +1,18 @@
+{
+  "id": "1123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "actorUsuarioId": "uid-supervisor",
+  "operacion": "ACTIVAR_JORNADA",
+  "claveHash": "1123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "payloadHash": "abcdef1123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+  "resultado": {
+    "jornadaId": "JORNADA-BORRADOR-SUPERVISOR",
+    "estado": "ACTIVA",
+    "version": 3,
+    "cantidadLineas": 1,
+    "cantidadParticipantes": 2,
+    "jornadaLineaIds": ["JORNADA-BORRADOR-SUPERVISOR__LINEA-CATALOGO-LIBRE-1"],
+    "participanteIds": ["uid-auxiliar-1", "uid-supervisor"],
+    "activadaEn": "2026-07-15T19:00:00.000Z"
+  },
+  "creadoEn": "2026-07-15T19:00:00.000Z"
+}

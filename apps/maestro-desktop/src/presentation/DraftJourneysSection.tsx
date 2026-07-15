@@ -1,6 +1,7 @@
 import {type FormEvent, useEffect, useMemo, useRef, useState} from "react";
 
 import type {
+  DraftActivationResult,
   DraftCatalogLine,
   ManageableDraftJourney,
   ManageableJourneysData,
@@ -12,6 +13,7 @@ import {DraftParticipantsEditor} from "./DraftParticipantsEditor";
 interface DraftJourneysSectionProps {
   readonly repository: MonitorRepository;
   readonly user: MonitorUser;
+  readonly onActiveJourneysChanged: () => void | Promise<void>;
 }
 
 function formatTime(value: string): string {
@@ -29,7 +31,7 @@ function groupKey(line: DraftCatalogLine): string {
   return `${line.location.nursery}\u0000${line.location.module}\u0000${line.location.bed}`;
 }
 
-export function DraftJourneysSection({repository, user}: DraftJourneysSectionProps) {
+export function DraftJourneysSection({repository, user, onActiveJourneysChanged}: DraftJourneysSectionProps) {
   const [data, setData] = useState<ManageableJourneysData>({journeys: [], catalogLines: []});
   const [selectedDraftId, setSelectedDraftId] = useState<string>();
   const [selectedLineIds, setSelectedLineIds] = useState<readonly string[]>([]);
@@ -149,11 +151,27 @@ export function DraftJourneysSection({repository, user}: DraftJourneysSectionPro
     }
   };
 
+  const handleActivated = async (result: DraftActivationResult) => {
+    setSelectedDraftId(undefined);
+    setSelectedLineIds([]);
+    setShowSaveSummary(false);
+    saveKey.current = undefined;
+    await load();
+    await onActiveJourneysChanged();
+    setNotice(
+      `Jornada activada correctamente: ${result.lineCount} líneas y ${result.participantCount} participantes. Campo ya puede verla.`,
+    );
+  };
+
+  const lineSelectionDirty = selectedDraft
+    ? [...selectedLineIds].sort().join("|") !== [...selectedDraft.lineIds].sort().join("|")
+    : false;
+
   return (
     <section className="monitor draft-journeys" aria-labelledby="journeys-title">
       <div className="monitor-heading">
         <div>
-          <p className="eyebrow">ETAPA 10</p>
+          <p className="eyebrow">ETAPA 12</p>
           <h1 id="journeys-title">Jornadas</h1>
           <p className="draft-warning">BORRADOR — AÚN NO DISPONIBLE EN CAMPO</p>
         </div>
@@ -273,7 +291,13 @@ export function DraftJourneysSection({repository, user}: DraftJourneysSectionPro
                   );
                 })}
               </div>
-              <DraftParticipantsEditor repository={repository} journey={selectedDraft} />
+              <DraftParticipantsEditor
+                repository={repository}
+                journey={selectedDraft}
+                catalogLines={data.catalogLines}
+                lineSelectionDirty={lineSelectionDirty}
+                onActivated={handleActivated}
+              />
             </>
           )}
         </div>

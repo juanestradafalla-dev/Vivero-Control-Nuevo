@@ -2,6 +2,7 @@ import {logger} from "firebase-functions";
 import {HttpsError, onCall} from "firebase-functions/v2/https";
 
 import type {ControlledErrorCode} from "./domain/contracts.js";
+import {ActivateJourneyService} from "./domain/activateJourney.js";
 import {DomainError, domainErrors} from "./domain/errors.js";
 import {InitiateCountCorrectionService} from "./domain/correctCount.js";
 import {
@@ -21,6 +22,7 @@ import {ApproveCountService, ReturnCountService} from "./domain/reviewCount.js";
 import {SendCountService} from "./domain/sendCount.js";
 import {
   parseApproveCountRequest,
+  parseActivateJourneyRequest,
   parseCreateDraftJourneyRequest,
   parseInitiateCountCorrectionRequest,
   parseListActiveJourneysRequest,
@@ -54,7 +56,17 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
     "LINE_ALREADY_IN_ACTIVE_JOURNEY",
     "DUPLICATE_LINE_IDS",
     "PARTICIPANT_INACTIVE",
-    "DUPLICATE_PARTICIPANT_IDS"
+    "DUPLICATE_PARTICIPANT_IDS",
+    "ACTIVATION_STALE_SUMMARY",
+    "ACTIVATION_SELECTIONS_INCOMPLETE",
+    "ACTIVATION_LINES_REQUIRED",
+    "ACTIVATION_COUNTER_REQUIRED",
+    "ACTIVATION_REVIEWER_REQUIRED",
+    "ACTIVATION_LIMIT_EXCEEDED",
+    "ACTIVATION_PARTICIPANT_INACTIVE",
+    "ACTIVATION_PARTICIPANT_ROLE_CHANGED",
+    "ACTIVATION_LINE_INACTIVE",
+    "ACTIVATION_LINE_OCCUPIED"
   ].includes(code)) return "failed-precondition";
   if (["RESERVATION_NOT_ACTIVE", "LINE_RESERVATION_MISMATCH", "LINE_NOT_IN_COUNT"].includes(code)) {
     return "failed-precondition";
@@ -81,6 +93,8 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
     "JOURNEY_LINE_NOT_FOUND",
     "LINE_NOT_FOUND",
     "PARTICIPANT_NOT_FOUND",
+    "ACTIVATION_PARTICIPANT_NOT_FOUND",
+    "ACTIVATION_LINE_NOT_FOUND",
     "RESERVATION_NOT_FOUND",
     "COUNT_NOT_FOUND"
   ].includes(code)) {
@@ -106,6 +120,22 @@ const updateDraftJourneyLinesService = new UpdateDraftJourneyLinesService(firest
 const listManageableJourneysService = new ListManageableJourneysService(firestore);
 const listDraftJourneyParticipantsService = new ListDraftJourneyParticipantsService(firestore);
 const updateDraftJourneyParticipantsService = new UpdateDraftJourneyParticipantsService(firestore);
+const activateJourneyService = new ActivateJourneyService(firestore);
+
+export const activarJornada = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    const payload = parseActivateJourneyRequest(request.data);
+    return await activateJourneyService.execute(payload, {actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en activarJornada", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
 
 export const listarParticipantesJornadaBorrador = onCall({region: "us-central1"}, async (request) => {
   try {

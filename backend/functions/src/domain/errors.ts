@@ -36,6 +36,54 @@ export const domainErrors = {
     "DUPLICATE_PARTICIPANT_IDS",
     "La seleccion contiene participantes repetidos."
   ),
+  activationStaleSummary: () => new DomainError(
+    "ACTIVATION_STALE_SUMMARY",
+    "El resumen del borrador cambio. Actualiza la informacion antes de activar."
+  ),
+  activationSelectionsIncomplete: () => new DomainError(
+    "ACTIVATION_SELECTIONS_INCOMPLETE",
+    "El borrador no conserva todas sus selecciones preparatorias."
+  ),
+  activationLinesRequired: () => new DomainError(
+    "ACTIVATION_LINES_REQUIRED",
+    "Selecciona al menos una linea antes de activar."
+  ),
+  activationCounterRequired: () => new DomainError(
+    "ACTIVATION_COUNTER_REQUIRED",
+    "Selecciona al menos un participante con permiso para contar."
+  ),
+  activationReviewerRequired: () => new DomainError(
+    "ACTIVATION_REVIEWER_REQUIRED",
+    "Selecciona al menos un supervisor o administrador activo para revision."
+  ),
+  activationLimitExceeded: () => new DomainError(
+    "ACTIVATION_LIMIT_EXCEEDED",
+    "La preparacion supera el maximo tecnico combinado de 200 lineas y participantes."
+  ),
+  activationParticipantNotFound: () => new DomainError(
+    "ACTIVATION_PARTICIPANT_NOT_FOUND",
+    "Un participante seleccionado ya no existe."
+  ),
+  activationParticipantInactive: () => new DomainError(
+    "ACTIVATION_PARTICIPANT_INACTIVE",
+    "Un participante seleccionado ya no esta activo."
+  ),
+  activationParticipantRoleChanged: () => new DomainError(
+    "ACTIVATION_PARTICIPANT_ROLE_CHANGED",
+    "El rol de un participante cambio. Actualiza la seleccion antes de activar."
+  ),
+  activationLineNotFound: () => new DomainError(
+    "ACTIVATION_LINE_NOT_FOUND",
+    "Una linea seleccionada ya no existe."
+  ),
+  activationLineInactive: () => new DomainError(
+    "ACTIVATION_LINE_INACTIVE",
+    "Una linea seleccionada ya no esta activa en el catalogo."
+  ),
+  activationLineOccupied: () => new DomainError(
+    "ACTIVATION_LINE_OCCUPIED",
+    "Una linea seleccionada ya pertenece a otra jornada activa."
+  ),
   unauthenticated: () => new DomainError("UNAUTHENTICATED", "Debes iniciar sesión."),
   invalidArgument: () => new DomainError("INVALID_ARGUMENT", "La solicitud no tiene un formato válido."),
   userNotFound: () => new DomainError("USER_NOT_FOUND", "La cuenta no tiene un perfil operativo."),

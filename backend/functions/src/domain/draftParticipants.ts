@@ -33,6 +33,11 @@ interface StoredParticipant {
 
 interface ParticipantSelectionDocument {
   readonly participantes?: unknown;
+  readonly versionJornada?: unknown;
+}
+
+interface LineSelectionDocument {
+  readonly versionJornada?: unknown;
 }
 
 interface IdempotencyDocument<Result> {
@@ -103,6 +108,11 @@ function storedParticipants(selection: ParticipantSelectionDocument | undefined)
   return selection.participantes as StoredParticipant[];
 }
 
+function selectionVersion(value: unknown): number {
+  if (!Number.isSafeInteger(value) || (value as number) < 1) throw domainErrors.internal();
+  return value as number;
+}
+
 export class ListDraftJourneyParticipantsService {
   constructor(private readonly firestore: Firestore) {}
 
@@ -113,12 +123,16 @@ export class ListDraftJourneyParticipantsService {
     const actorRef = this.firestore.collection("usuarios").doc(context.actorId);
     const journeyRef = this.firestore.collection("jornadas").doc(request.jornadaId);
     const selectionRef = this.firestore.collection("seleccionesParticipantesJornada").doc(request.jornadaId);
-    const [actorSnapshot, journeySnapshot, selectionSnapshot] = await this.firestore.getAll(
+    const lineSelectionRef = this.firestore.collection("seleccionesLineasJornada").doc(request.jornadaId);
+    const [actorSnapshot, journeySnapshot, selectionSnapshot, lineSelectionSnapshot] = await this.firestore.getAll(
       actorRef,
       journeyRef,
-      selectionRef
+      selectionRef,
+      lineSelectionRef
     );
-    if (!actorSnapshot || !journeySnapshot || !selectionSnapshot) throw domainErrors.internal();
+    if (!actorSnapshot || !journeySnapshot || !selectionSnapshot || !lineSelectionSnapshot) {
+      throw domainErrors.internal();
+    }
     const role = administrativeRole(assertActiveUser(actorSnapshot));
     const journey = assertManageableDraft(journeySnapshot, context.actorId, role);
     const usersSnapshot = await this.firestore.collection("usuarios").where("activo", "==", true).get();
@@ -136,11 +150,18 @@ export class ListDraftJourneyParticipantsService {
       if (!user) throw domainErrors.internal();
       return {...user, puedeContar: stored.puedeContar};
     }).sort((left, right) => left.usuarioId.localeCompare(right.usuarioId));
+    if (!selectionSnapshot.exists || !lineSelectionSnapshot.exists) {
+      throw domainErrors.activationSelectionsIncomplete();
+    }
+    const participantSelection = selectionSnapshot.data() as ParticipantSelectionDocument;
+    const lineSelection = lineSelectionSnapshot.data() as LineSelectionDocument;
 
     return {
       jornadaId: request.jornadaId,
       estado: "BORRADOR",
       version: journey.version as number,
+      versionSeleccionLineas: selectionVersion(lineSelection.versionJornada),
+      versionSeleccionParticipantes: selectionVersion(participantSelection.versionJornada),
       participantes: participants,
       usuariosActivos: users
     };

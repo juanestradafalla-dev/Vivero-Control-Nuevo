@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/active-line-occupation.schema.json",
+  "title": "Bloqueo determinista de línea física en jornada activa",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "lineaId", "jornadaId", "activadaPorUsuarioId", "activadaEn"],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+    "lineaId": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "activadaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "activadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

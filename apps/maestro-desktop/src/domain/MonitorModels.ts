@@ -141,6 +141,8 @@ export interface DraftParticipantsData {
   readonly journeyId: string;
   readonly state: "BORRADOR";
   readonly version: number;
+  readonly lineSelectionVersion: number;
+  readonly participantSelectionVersion: number;
   readonly participants: readonly DraftParticipant[];
   readonly activeUsers: readonly DraftParticipantCandidate[];
 }
@@ -148,6 +150,21 @@ export interface DraftParticipantsData {
 export interface DraftParticipantInput {
   readonly userId: string;
   readonly canCount: boolean;
+}
+
+export interface DraftActivationVersions {
+  readonly journey: number;
+  readonly lineSelection: number;
+  readonly participantSelection: number;
+}
+
+export interface DraftActivationResult {
+  readonly journeyId: string;
+  readonly state: "ACTIVA";
+  readonly version: number;
+  readonly lineCount: number;
+  readonly participantCount: number;
+  readonly activatedAt: string;
 }
 
 export type MonitorUnsubscribe = () => void;
@@ -170,6 +187,11 @@ export interface MonitorRepository {
     participants: readonly DraftParticipantInput[],
     idempotencyKey: string,
   ): Promise<void>;
+  activateDraftJourney(
+    journeyId: string,
+    versions: DraftActivationVersions,
+    idempotencyKey: string,
+  ): Promise<DraftActivationResult>;
   approveCount(countId: string, idempotencyKey: string, exceptionReason?: string): Promise<void>;
   returnCount(countId: string, reason: string, idempotencyKey: string): Promise<void>;
   reassignCountCorrection(countId: string, newUserId: string, reason: string, idempotencyKey: string): Promise<void>;

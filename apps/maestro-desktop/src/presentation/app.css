@@ -257,6 +257,7 @@ input:focus { outline: 3px solid #9ccca8; border-color: #1b6f3b; }
 .draft-card--selected { border-color: #1b6f3b; background: #e8f5e9; box-shadow: 0 0 0 2px #b9d9c0; }
 .draft-editor { min-height: 440px; }
 .draft-editor-heading { display: flex; align-items: start; justify-content: space-between; gap: 20px; margin-bottom: 22px; }
+.draft-heading-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
 .draft-editor-heading h2 { margin-top: 10px; }
 .state--draft { color: #725514; background: #fff0b8; }
 .catalog-groups { display: grid; gap: 15px; }
@@ -297,6 +298,8 @@ input:focus { outline: 3px solid #9ccca8; border-color: #1b6f3b; }
   .workspace-nav { width: min(100% - 28px, 1120px); }
   .draft-create-form, .draft-layout { grid-template-columns: 1fr; }
   .draft-editor-heading { align-items: stretch; flex-direction: column; }
+  .draft-heading-actions { justify-content: stretch; }
+  .draft-heading-actions .button { flex: 1; }
   .catalog-line { grid-template-columns: auto minmax(0, 1fr); }
   .catalog-line em { grid-column: 2; }
   .participant-row { grid-template-columns: 1fr; }

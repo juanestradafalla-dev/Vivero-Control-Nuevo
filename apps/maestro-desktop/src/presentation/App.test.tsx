@@ -2,6 +2,8 @@ import {act, cleanup, fireEvent, render, screen, waitFor} from "@testing-library
 import {afterEach, describe, expect, it} from "vitest";
 
 import type {
+  DraftActivationResult,
+  DraftActivationVersions,
   DraftParticipantInput,
   DraftParticipantsData,
   ManageableDraftJourney,
@@ -82,6 +84,7 @@ class FakeMonitorRepository implements MonitorRepository {
   user: MonitorUser = supervisor;
   currentSnapshot: MonitorSnapshot = snapshot;
   journeys: readonly MonitorJourney[] = [journeyOne];
+  activeJourneyListCalls = 0;
   snapshots = new Map<string, MonitorSnapshot>();
   observedJourneyIds: string[] = [];
   unsubscribeCount = 0;
@@ -98,10 +101,18 @@ class FakeMonitorRepository implements MonitorRepository {
     participants: readonly DraftParticipantInput[];
     key: string;
   }> = [];
+  activatedDrafts: Array<{
+    journeyId: string;
+    versions: DraftActivationVersions;
+    key: string;
+  }> = [];
+  activationErrors: string[] = [];
   participantsData: DraftParticipantsData = {
     journeyId: "JORNADA-BORRADOR-1",
     state: "BORRADOR",
     version: 1,
+    lineSelectionVersion: 1,
+    participantSelectionVersion: 1,
     participants: [{
       id: "uid-auxiliar-1",
       displayName: "Auxiliar Uno",
@@ -173,7 +184,10 @@ class FakeMonitorRepository implements MonitorRepository {
 
   async signIn(): Promise<MonitorUser> { return this.user; }
   async signOut(): Promise<void> {}
-  async listActiveJourneys(): Promise<readonly MonitorJourney[]> { return this.journeys; }
+  async listActiveJourneys(): Promise<readonly MonitorJourney[]> {
+    this.activeJourneyListCalls += 1;
+    return this.journeys;
+  }
   async listManageableJourneys(): Promise<ManageableJourneysData> {
     this.manageableListCalls += 1;
     return this.manageableData;
@@ -202,6 +216,11 @@ class FakeMonitorRepository implements MonitorRepository {
         ? {...journey, lineIds, version: journey.version + 1}
         : journey),
     };
+    this.participantsData = {
+      ...this.participantsData,
+      version: this.participantsData.version + 1,
+      lineSelectionVersion: this.participantsData.lineSelectionVersion + 1,
+    };
   }
   async listDraftJourneyParticipants(journeyId: string): Promise<DraftParticipantsData> {
     this.participantListCalls.push(journeyId);
@@ -218,11 +237,44 @@ class FakeMonitorRepository implements MonitorRepository {
       ...this.participantsData,
       journeyId,
       version: this.participantsData.version + 1,
+      participantSelectionVersion: this.participantsData.participantSelectionVersion + 1,
       participants: participants.flatMap((participant) => {
         const user = candidates.get(participant.userId);
         return user ? [{...user, canCount: participant.canCount}] : [];
       }),
     };
+  }
+  async activateDraftJourney(
+    journeyId: string,
+    versions: DraftActivationVersions,
+    key: string,
+  ): Promise<DraftActivationResult> {
+    this.activatedDrafts.push({journeyId, versions, key});
+    const activationError = this.activationErrors.shift();
+    if (activationError) throw new Error(activationError);
+    const draft = this.manageableData.journeys.find((journey) => journey.id === journeyId);
+    if (!draft) throw new Error("El borrador ya no existe.");
+    const result: DraftActivationResult = {
+      journeyId,
+      state: "ACTIVA",
+      version: versions.journey + 1,
+      lineCount: draft.lineIds.length,
+      participantCount: this.participantsData.participants.length,
+      activatedAt: "2026-07-15T19:00:00.000Z",
+    };
+    this.manageableData = {
+      ...this.manageableData,
+      journeys: this.manageableData.journeys.filter((journey) => journey.id !== journeyId),
+    };
+    this.journeys = [...this.journeys, {
+      id: journeyId,
+      displayName: draft.displayName,
+      state: "ACTIVA",
+      effectiveRole: this.user.role,
+      canCount: this.participantsData.participants.some((participant) => participant.canCount),
+      lineCount: draft.lineIds.length,
+    }];
+    return result;
   }
   async approveCount(countId: string, key: string, reason?: string): Promise<void> {
     this.approved.push({countId, key, ...(reason === undefined ? {} : {reason})});
@@ -562,7 +614,7 @@ describe("jornadas en borrador de Vivero Maestro", () => {
     }
   });
 
-  it("crea una jornada en borrador sin ofrecer activacion", async () => {
+  it("crea una jornada incompleta y mantiene la activacion bloqueada", async () => {
     const repository = new FakeMonitorRepository();
     await signIn(repository);
     fireEvent.click(screen.getByRole("button", {name: "Jornadas"}));
@@ -574,7 +626,7 @@ describe("jornadas en borrador de Vivero Maestro", () => {
     await waitFor(() => expect(repository.createdDrafts).toHaveLength(1));
     expect(repository.createdDrafts[0]?.name).toBe("Borrador creado desde Maestro");
     expect((await screen.findAllByText("Borrador creado desde Maestro")).length).toBeGreaterThanOrEqual(1);
-    expect(screen.queryByRole("button", {name: /Activar/i})).not.toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Activar jornada"})).toBeDisabled();
   });
 
   it("agrupa, filtra y guarda una seleccion sin duplicados mediante confirmacion", async () => {
@@ -654,5 +706,84 @@ describe("jornadas en borrador de Vivero Maestro", () => {
       ],
     });
     expect(new Set(repository.updatedParticipants[0]?.participants.map((participant) => participant.userId)).size).toBe(2);
+  });
+
+  it("resume y activa una jornada preparada con las tres versiones observadas", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.participantsData = {
+      ...repository.participantsData,
+      participants: [
+        ...repository.participantsData.participants,
+        {
+          id: "uid-supervisor",
+          displayName: "Supervisor Pruebas",
+          role: "SUPERVISOR",
+          canCount: false,
+        },
+      ],
+    };
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Jornadas"}));
+    fireEvent.click(await screen.findByRole("button", {name: /Borrador semanal/}));
+    const activateButton = await screen.findByRole("button", {name: "Activar jornada"});
+    expect(activateButton).toBeEnabled();
+    fireEvent.click(activateButton);
+    const summary = screen.getByLabelText("Resumen de activación de jornada");
+    expect(summary).toHaveTextContent("Borrador semanal");
+    expect(summary).toHaveTextContent("Líneas: 1");
+    expect(summary).toHaveTextContent("Auxiliar Uno · Auxiliar · Puede contar");
+    expect(summary).toHaveTextContent("Supervisor Pruebas · Supervisor · No cuenta");
+    expect(screen.getByText(/Campo podrá ver esta jornada/)).toBeInTheDocument();
+    expect(screen.getByText(/no podrá editarse/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "Confirmar activación"}));
+    await waitFor(() => expect(repository.activatedDrafts).toHaveLength(1));
+    expect(repository.activatedDrafts[0]).toMatchObject({
+      journeyId: "JORNADA-BORRADOR-1",
+      versions: {journey: 1, lineSelection: 1, participantSelection: 1},
+    });
+    expect(await screen.findByText(/Jornada activada correctamente/)).toHaveTextContent("Campo ya puede verla");
+    expect(screen.queryByRole("button", {name: /Borrador semanal/})).not.toBeInTheDocument();
+    expect(repository.activeJourneyListCalls).toBe(2);
+  });
+
+  it("conserva la clave al recuperar una respuesta fallida y muestra conflictos centrales", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.participantsData = {
+      ...repository.participantsData,
+      participants: [
+        ...repository.participantsData.participants,
+        {id: "uid-supervisor", displayName: "Supervisor Pruebas", role: "SUPERVISOR", canCount: false},
+      ],
+    };
+    repository.activationErrors.push("No fue posible recibir la confirmación central.");
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Jornadas"}));
+    fireEvent.click(await screen.findByRole("button", {name: /Borrador semanal/}));
+    fireEvent.click(await screen.findByRole("button", {name: "Activar jornada"}));
+    fireEvent.click(screen.getByRole("button", {name: "Confirmar activación"}));
+    expect(await screen.findByRole("alert")).toHaveTextContent("confirmación central");
+    fireEvent.click(screen.getByRole("button", {name: "Confirmar activación"}));
+    await waitFor(() => expect(repository.activatedDrafts).toHaveLength(2));
+    expect(repository.activatedDrafts[1]?.key).toBe(repository.activatedDrafts[0]?.key);
+    expect(await screen.findByText(/Jornada activada correctamente/)).toBeInTheDocument();
+  });
+
+  it("mantiene el borrador cuando el backend informa una linea ocupada", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.participantsData = {
+      ...repository.participantsData,
+      participants: [
+        ...repository.participantsData.participants,
+        {id: "uid-supervisor", displayName: "Supervisor Pruebas", role: "SUPERVISOR", canCount: false},
+      ],
+    };
+    repository.activationErrors.push("Una línea seleccionada ya pertenece a otra jornada ACTIVA.");
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Jornadas"}));
+    fireEvent.click(await screen.findByRole("button", {name: /Borrador semanal/}));
+    fireEvent.click(await screen.findByRole("button", {name: "Activar jornada"}));
+    fireEvent.click(screen.getByRole("button", {name: "Confirmar activación"}));
+    expect(await screen.findByRole("alert")).toHaveTextContent("otra jornada ACTIVA");
+    expect(screen.getByRole("button", {name: /Borrador semanal/})).toBeInTheDocument();
   });
 });

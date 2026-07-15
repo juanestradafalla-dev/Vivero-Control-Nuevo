@@ -66,6 +66,16 @@ async function clearCollection(database, collectionName) {
   }
 }
 
+async function clearJourneyAuthorizations(database) {
+  while (true) {
+    const snapshot = await database.collectionGroup("autorizaciones").limit(400).get();
+    if (snapshot.empty) return;
+    const batch = database.batch();
+    snapshot.docs.forEach((document) => batch.delete(document.ref));
+    await batch.commit();
+  }
+}
+
 export async function seedEmulator() {
   const projectId = configureEmulatorEnvironment();
   const app = getApps().find((candidate) => candidate.name === "etapa-3-seed") ??
@@ -76,6 +86,7 @@ export async function seedEmulator() {
   const secondJourneyCreatedAt = Timestamp.fromDate(new Date("2026-07-14T12:00:00.000Z"));
 
   for (const account of demoAccounts) await upsertAuthUser(auth, account);
+  await clearJourneyAuthorizations(database);
   for (const collectionName of [
     "conteos",
     "inventarioOficialLineas",
@@ -89,7 +100,8 @@ export async function seedEmulator() {
     "jornadaLineas",
     "jornadas",
     "seleccionesLineasJornada",
-    "seleccionesParticipantesJornada"
+    "seleccionesParticipantesJornada",
+    "ocupacionesLineasActivas"
   ]) {
     await clearCollection(database, collectionName);
   }
@@ -353,6 +365,31 @@ export async function seedEmulator() {
       actualizadaEn: secondJourneyCreatedAt
     });
   });
+  for (const occupation of [
+    ...visibleLocations.map((_, index) => ({
+      lineaId: `LINEA-PRUEBA-${index + 1}`,
+      jornadaId: ACTIVE_JOURNEY_ID,
+      activadaEn: now
+    })),
+    ...secondJourneyLocations.map((_, index) => ({
+      lineaId: `LINEA-PRUEBA-B-${index + 1}`,
+      jornadaId: SECOND_ACTIVE_JOURNEY_ID,
+      activadaEn: secondJourneyCreatedAt
+    })),
+    {
+      lineaId: "LINEA-PRUEBA-SIN-ACCESO",
+      jornadaId: UNAUTHORIZED_ACTIVE_JOURNEY_ID,
+      activadaEn: now
+    }
+  ]) {
+    batch.set(database.collection("ocupacionesLineasActivas").doc(occupation.lineaId), {
+      id: occupation.lineaId,
+      lineaId: occupation.lineaId,
+      jornadaId: occupation.jornadaId,
+      activadaPorUsuarioId: "uid-administrador",
+      activadaEn: occupation.activadaEn
+    });
+  }
   const initialInventories = [
     {hembras: 500, machos: 300, patrones: 200},
     {hembras: 380, machos: 220, patrones: 150},

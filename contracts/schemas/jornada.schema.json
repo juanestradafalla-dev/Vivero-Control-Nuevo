@@ -18,6 +18,8 @@
     "cantidadParticipantesSeleccionados": {"type": "integer", "minimum": 0, "maximum": 200},
     "creadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
     "actualizadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "activadaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "activadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
     "entorno": {"type": "string", "minLength": 1, "maxLength": 120},
     "cerradaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
   }

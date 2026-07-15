@@ -16,6 +16,8 @@ import {
 
 import {loadEmulatorConfig} from "../core/emulatorConfig";
 import type {
+  DraftActivationResult,
+  DraftActivationVersions,
   DraftCatalogLine,
   DraftParticipant,
   DraftParticipantCandidate,
@@ -286,6 +288,8 @@ export class FirebaseMonitorRepository implements MonitorRepository {
         data.jornadaId !== journeyId ||
         data.estado !== "BORRADOR" ||
         !Number.isSafeInteger(data.version) ||
+        !Number.isSafeInteger(data.versionSeleccionLineas) ||
+        !Number.isSafeInteger(data.versionSeleccionParticipantes) ||
         !Array.isArray(data.participantes) ||
         !Array.isArray(data.usuariosActivos)
       ) {
@@ -295,6 +299,8 @@ export class FirebaseMonitorRepository implements MonitorRepository {
         journeyId,
         state: "BORRADOR",
         version: data.version as number,
+        lineSelectionVersion: data.versionSeleccionLineas as number,
+        participantSelectionVersion: data.versionSeleccionParticipantes as number,
         participants: data.participantes.map(parseDraftParticipant),
         activeUsers: data.usuariosActivos.map(parseDraftParticipantCandidate),
       };
@@ -320,6 +326,47 @@ export class FirebaseMonitorRepository implements MonitorRepository {
       });
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : "No fue posible guardar participantes.", {cause: error});
+    }
+  }
+
+  async activateDraftJourney(
+    journeyId: string,
+    versions: DraftActivationVersions,
+    idempotencyKey: string,
+  ): Promise<DraftActivationResult> {
+    const callable = httpsCallable(this.functions, "activarJornada");
+    try {
+      const response = await callable({
+        jornadaId: journeyId,
+        versionJornadaEsperada: versions.journey,
+        versionSeleccionLineasEsperada: versions.lineSelection,
+        versionSeleccionParticipantesEsperada: versions.participantSelection,
+        claveIdempotencia: idempotencyKey,
+      });
+      if (typeof response.data !== "object" || response.data === null) {
+        throw new Error("La respuesta de activación no tiene formato válido.");
+      }
+      const data = response.data as Record<string, unknown>;
+      if (
+        data.jornadaId !== journeyId ||
+        data.estado !== "ACTIVA" ||
+        !Number.isSafeInteger(data.version) ||
+        !Number.isSafeInteger(data.cantidadLineas) ||
+        !Number.isSafeInteger(data.cantidadParticipantes) ||
+        typeof data.activadaEn !== "string"
+      ) {
+        throw new Error("La respuesta de activación no tiene formato válido.");
+      }
+      return {
+        journeyId,
+        state: "ACTIVA",
+        version: data.version as number,
+        lineCount: data.cantidadLineas as number,
+        participantCount: data.cantidadParticipantes as number,
+        activatedAt: data.activadaEn,
+      };
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible activar la jornada.", {cause: error});
     }
   }
 
@@ -688,6 +735,10 @@ export class DisabledMonitorRepository implements MonitorRepository {
   }
 
   async updateDraftJourneyParticipants(): Promise<void> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
+  }
+
+  async activateDraftJourney(): Promise<DraftActivationResult> {
     throw new Error("Firebase de produccion permanece deshabilitado.");
   }
 

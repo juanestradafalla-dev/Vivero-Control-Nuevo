@@ -1,6 +1,8 @@
 export const DEMO_PROJECT_ID: string;
 export const DEMO_PASSWORD: string;
 export const ACTIVE_JOURNEY_ID: string;
+export const SECOND_ACTIVE_JOURNEY_ID: string;
+export const UNAUTHORIZED_ACTIVE_JOURNEY_ID: string;
 export const demoAccounts: ReadonlyArray<{
   uid: string;
   email: string;
@@ -18,4 +20,6 @@ export const visibleLocations: ReadonlyArray<{
   nombreVisible: string;
   orden: number;
 }>;
+export const secondJourneyLocations: typeof visibleLocations;
 export function journeyLineId(lineNumber: number): string;
+export function secondJourneyLineId(lineNumber: number): string;

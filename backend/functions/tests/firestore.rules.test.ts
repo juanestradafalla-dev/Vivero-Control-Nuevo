@@ -10,7 +10,13 @@ import {
 import {collection, doc, getDoc, getDocs, query, setDoc, updateDoc, deleteDoc, where} from "firebase/firestore";
 import {afterAll, beforeAll, describe, it} from "vitest";
 
-import {ACTIVE_JOURNEY_ID, journeyLineId} from "../scripts/demoData.mjs";
+import {
+  ACTIVE_JOURNEY_ID,
+  SECOND_ACTIVE_JOURNEY_ID,
+  UNAUTHORIZED_ACTIVE_JOURNEY_ID,
+  journeyLineId,
+  secondJourneyLineId
+} from "../scripts/demoData.mjs";
 
 let testEnvironment: RulesTestEnvironment;
 
@@ -110,6 +116,21 @@ describe("lecturas mínimas y escrituras críticas cerradas en la ETAPA 5", () =
     await assertSucceeds(
       getDocs(query(collection(database, "jornadaLineas"), where("jornadaId", "==", ACTIVE_JOURNEY_ID)))
     );
+  });
+
+  it("aísla lecturas entre jornadas dinámicas según la autorización central", async () => {
+    const authorized = testEnvironment.authenticatedContext("uid-auxiliar-1").firestore();
+    await assertSucceeds(getDoc(doc(authorized, `jornadas/${SECOND_ACTIVE_JOURNEY_ID}`)));
+    await assertSucceeds(getDoc(doc(authorized, `jornadaLineas/${secondJourneyLineId(1)}`)));
+    await assertSucceeds(getDocs(query(
+      collection(authorized, "jornadaLineas"),
+      where("jornadaId", "==", SECOND_ACTIVE_JOURNEY_ID)
+    )));
+    await assertFails(getDoc(doc(authorized, `jornadas/${UNAUTHORIZED_ACTIVE_JOURNEY_ID}`)));
+
+    const singleJourneyUser = testEnvironment.authenticatedContext("uid-auxiliar-2").firestore();
+    await assertFails(getDoc(doc(singleJourneyUser, `jornadas/${SECOND_ACTIVE_JOURNEY_ID}`)));
+    await assertFails(getDoc(doc(singleJourneyUser, `jornadaLineas/${secondJourneyLineId(1)}`)));
   });
 
   it("rechaza perfil ajeno y autorización ajena para auxiliar", async () => {

@@ -153,6 +153,7 @@ export class ReserveLineService {
       const nextVersion = (journeyLine.version ?? 0) + 1;
       const result: ReserveLineResult = {
         reservaId: reservationId,
+        jornadaId: journeyLine.jornadaId,
         jornadaLineaId: request.jornadaLineaId,
         estadoCentral: "EN_CONTEO",
         tokenReserva: opaqueToken,

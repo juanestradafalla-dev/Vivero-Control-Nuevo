@@ -35,7 +35,9 @@ export const expectedSchemas = [
   "correction-reassignment.schema.json",
   "release-reservation-request.schema.json",
   "release-reservation-result.schema.json",
-  "reservation-release.schema.json"
+  "reservation-release.schema.json",
+  "list-active-journeys-request.schema.json",
+  "list-active-journeys-result.schema.json"
 ];
 
 export const expectedEnums = new Map([

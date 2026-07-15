@@ -1,0 +1,20 @@
+{
+  "jornadas": [
+    {
+      "jornadaId": "JORNADA-PRUEBA-ETAPA-9-B",
+      "nombreVisible": "Jornada ficticia dinámica B",
+      "estado": "ACTIVA",
+      "rolEfectivo": "AUXILIAR",
+      "puedeContar": true,
+      "cantidadLineas": 2
+    },
+    {
+      "jornadaId": "JORNADA-PRUEBA-ETAPA-3",
+      "nombreVisible": "Jornada ficticia de la Etapa 3",
+      "estado": "ACTIVA",
+      "rolEfectivo": "AUXILIAR",
+      "puedeContar": true,
+      "cantidadLineas": 3
+    }
+  ]
+}

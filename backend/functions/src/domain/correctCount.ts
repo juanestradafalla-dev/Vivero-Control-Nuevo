@@ -185,6 +185,7 @@ export class InitiateCountCorrectionService {
       const nextCountVersion = count.versionNumero + 1;
       const result: InitiateCountCorrectionResult = {
         reservaId: reservationId,
+        jornadaId: count.jornadaId,
         jornadaLineaId: count.jornadaLineaId,
         conteoAnteriorId: request.conteoId,
         estadoCentral: "EN_CONTEO",

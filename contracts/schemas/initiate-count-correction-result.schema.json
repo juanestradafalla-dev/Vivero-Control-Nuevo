@@ -6,6 +6,7 @@
   "additionalProperties": false,
   "required": [
     "reservaId",
+    "jornadaId",
     "jornadaLineaId",
     "conteoAnteriorId",
     "estadoCentral",
@@ -18,6 +19,7 @@
   ],
   "properties": {
     "reservaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "jornadaLineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "conteoAnteriorId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "estadoCentral": {"const": "EN_CONTEO"},

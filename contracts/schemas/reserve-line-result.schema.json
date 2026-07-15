@@ -4,9 +4,10 @@
   "title": "ReserveLineResult",
   "type": "object",
   "additionalProperties": false,
-  "required": ["reservaId", "jornadaLineaId", "estadoCentral", "tokenReserva", "reservadaEn", "version", "ubicacion"],
+  "required": ["reservaId", "jornadaId", "jornadaLineaId", "estadoCentral", "tokenReserva", "reservadaEn", "version", "ubicacion"],
   "properties": {
     "reservaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "jornadaLineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "estadoCentral": {"const": "EN_CONTEO"},
     "tokenReserva": {"type": "string", "minLength": 32, "maxLength": 512},

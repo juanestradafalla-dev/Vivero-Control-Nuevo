@@ -2,7 +2,7 @@
 
 Sistema nuevo para operar inventario por línea mediante Vivero Campo (Android), Vivero Maestro (Windows) y un backend transaccional. Este repositorio no consulta, modifica ni reutiliza el proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 5
+## Estado: ETAPA 6
 
 La vertical disponible funciona exclusivamente con Firebase Emulator Suite y datos ficticios:
 
@@ -12,7 +12,9 @@ La vertical disponible funciona exclusivamente con Firebase Emulator Suite y dat
 4. Maestro presenta una bandeja con conteo, inventario oficial actual y diferencias.
 5. Supervisor o administrador autorizado solicita `aprobarConteo` o `devolverConteo`.
 6. La aprobación reemplaza la fotografía oficial y crea un movimiento histórico en una sola transacción.
-7. La devolución conserva el inventario intacto y deja la corrección para la Etapa 6.
+7. La devolución conserva el inventario intacto y permite que el autor inicie una reserva `CORRECCION`.
+8. Campo restaura los valores devueltos como un borrador nuevo; el reenvío crea la versión siguiente y conserva las anteriores.
+9. Maestro muestra el historial, el motivo de devolución y cuál versión es vigente; aprobar y devolver siguen operando solo sobre la vigente.
 
 > **MODO DE PRUEBA — EMULADOR.** No existe Firebase real configurado, no hay credenciales de producción y ningún comando despliega recursos.
 
@@ -74,7 +76,7 @@ Set-Location backend/functions
 npm run emulator:seed
 ```
 
-Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las cuatro Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
+Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las cinco Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
 
 | Correo ficticio | Rol |
 |---|---|
@@ -120,17 +122,14 @@ npm run test:emulators
 npm audit --omit=dev --audit-level=high
 ```
 
-## Documentación de la ETAPA 5
+## Documentación de la ETAPA 6
 
-- [Operación aprobarConteo](docs/arquitectura/OPERACION_APROBAR_CONTEO.md)
-- [Operación devolverConteo](docs/arquitectura/OPERACION_DEVOLVER_CONTEO.md)
-- [Inventario oficial y movimientos](docs/arquitectura/INVENTARIO_OFICIAL_Y_MOVIMIENTOS_ETAPA_05.md)
-- [Reglas de autorrevisión](docs/arquitectura/REGLAS_AUTORREVISION_ETAPA_05.md)
-- [Pruebas y concurrencia](docs/pruebas/PRUEBAS_ETAPA_05.md)
-- [Criterios de aceptación](docs/ETAPA_05_CRITERIOS_DE_ACEPTACION.md)
+- [Corrección versionada](docs/arquitectura/CORRECCION_VERSIONADA_ETAPA_06.md)
+- [Pruebas y concurrencia](docs/pruebas/PRUEBAS_ETAPA_06.md)
+- [Criterios de aceptación](docs/ETAPA_06_CRITERIOS_DE_ACEPTACION.md)
 - [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
 - [Decisiones pendientes](docs/DECISIONES_PENDIENTES.md)
 
 ## Exclusiones vigentes
 
-No están implementados: corrección de conteos devueltos, reasignación, liberación de reservas, gestión completa de jornadas, administración de usuarios, datos reales, migración, Firebase de producción, despliegues, APK de producción, instalador Windows definitivo, descartes, despachos, químicos, aplicaciones ni reingresos.
+No están implementados: reasignación, liberación de reservas, corrección por otro usuario, gestión completa de jornadas, administración de usuarios, datos reales, migración, Firebase de producción, despliegues, APK de producción, instalador Windows definitivo, descartes, despachos, químicos, aplicaciones ni reingresos.

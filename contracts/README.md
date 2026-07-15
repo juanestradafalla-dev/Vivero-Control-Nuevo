@@ -2,6 +2,8 @@
 
 Los JSON Schema Draft 2020-12 son el lenguaje común de Campo, Maestro y backend.
 
+La Etapa 10 agrega contratos estrictos para crear borradores, actualizar su selección separada y listar jornadas administrables con el catálogo validado. `BORRADOR` es un estado administrativo: no crea `jornadaLineas`, estados `DISPONIBLE` ni inventario. Los ejemplos están en `examples/etapa-10/`.
+
 La Etapa 9 agrega una solicitud vacía para `listarJornadasActivas`: la identidad procede de Auth y el resultado solo contiene jornadas activas autorizadas. Los ejemplos están en `examples/etapa-09/`.
 
 La Etapa 8 añade contratos estrictos para `liberarReservaLinea`, la liberación inmutable y su resultado idempotente, manteniendo los de reasignación, reservas `CORRECCION` y versiones.
@@ -24,6 +26,10 @@ Reglas de frontera:
 - liberar solo recibe reserva, motivo y clave; identidad, rol, jornada, línea y hora proceden de fuentes centrales;
 - una reserva `LIBERADA` se conserva, una reserva inicial vuelve a `DISPONIBLE` y una corrección vuelve a `DEVUELTA`;
 - una liberación no borra conteos ni modifica inventario oficial.
+- crear un borrador solo recibe nombre visible y clave; creador, estado, versión y hora proceden del backend;
+- actualizar la selección solo recibe jornada, IDs únicos y clave; las líneas se validan contra el catálogo y las jornadas activas;
+- listar borradores usa una solicitud vacía y nunca acepta identidad o rol del cliente;
+- una selección de preparación no equivale a una línea operativa y no modifica inventario.
 
 Los ejemplos ficticios de liberación están en `examples/etapa-08/`.
 

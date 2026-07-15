@@ -37,11 +37,20 @@ export const expectedSchemas = [
   "release-reservation-result.schema.json",
   "reservation-release.schema.json",
   "list-active-journeys-request.schema.json",
-  "list-active-journeys-result.schema.json"
+  "list-active-journeys-result.schema.json",
+  "create-draft-journey-request.schema.json",
+  "draft-journey-summary.schema.json",
+  "create-draft-journey-result.schema.json",
+  "update-draft-journey-lines-request.schema.json",
+  "update-draft-journey-lines-result.schema.json",
+  "list-manageable-journeys-request.schema.json",
+  "list-manageable-journeys-result.schema.json",
+  "draft-journey-line-selection.schema.json",
+  "draft-catalog-line.schema.json"
 ];
 
 export const expectedEnums = new Map([
-  ["estados-jornada.json", ["ACTIVA", "INACTIVA"]],
+  ["estados-jornada.json", ["BORRADOR", "ACTIVA", "INACTIVA"]],
   ["estados-linea.json", ["DISPONIBLE", "EN_CONTEO", "PENDIENTE_REVISION", "DEVUELTA", "APROBADA"]],
   ["estados-sincronizacion.json", ["PENDIENTE", "SINCRONIZANDO", "ENVIADA", "ERROR"]],
   ["estados-reserva.json", ["ACTIVA", "CONSUMIDA", "LIBERADA"]],

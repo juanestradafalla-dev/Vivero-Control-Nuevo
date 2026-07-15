@@ -11,6 +11,19 @@ export class DomainError extends Error {
 }
 
 export const domainErrors = {
+  journeyNotDraft: () => new DomainError("JOURNEY_NOT_DRAFT", "La jornada ya no esta en borrador."),
+  journeyNameRequired: () => new DomainError("JOURNEY_NAME_REQUIRED", "Escribe un nombre para la jornada."),
+  journeyDraftAccessDenied: () => new DomainError(
+    "JOURNEY_DRAFT_ACCESS_DENIED",
+    "La cuenta no puede gestionar este borrador."
+  ),
+  lineNotFound: () => new DomainError("LINE_NOT_FOUND", "Una de las lineas seleccionadas no existe."),
+  lineInactive: () => new DomainError("LINE_INACTIVE", "Una de las lineas seleccionadas esta inactiva."),
+  lineAlreadyInActiveJourney: () => new DomainError(
+    "LINE_ALREADY_IN_ACTIVE_JOURNEY",
+    "Una de las lineas seleccionadas ya pertenece a una jornada activa."
+  ),
+  duplicateLineIds: () => new DomainError("DUPLICATE_LINE_IDS", "La seleccion contiene lineas repetidas."),
   unauthenticated: () => new DomainError("UNAUTHENTICATED", "Debes iniciar sesión."),
   invalidArgument: () => new DomainError("INVALID_ARGUMENT", "La solicitud no tiene un formato válido."),
   userNotFound: () => new DomainError("USER_NOT_FOUND", "La cuenta no tiene un perfil operativo."),

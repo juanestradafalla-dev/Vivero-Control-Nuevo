@@ -1,0 +1,6 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/create-draft-journey-result.schema.json",
+  "title": "Resultado crearJornadaBorrador",
+  "$ref": "draft-journey-summary.schema.json"
+}

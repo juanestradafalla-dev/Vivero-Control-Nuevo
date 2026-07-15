@@ -3,6 +3,11 @@ export const DEMO_PASSWORD: string;
 export const ACTIVE_JOURNEY_ID: string;
 export const SECOND_ACTIVE_JOURNEY_ID: string;
 export const UNAUTHORIZED_ACTIVE_JOURNEY_ID: string;
+export const DRAFT_JOURNEY_ID: string;
+export const OTHER_SUPERVISOR_DRAFT_JOURNEY_ID: string;
+export const FREE_CATALOG_LINE_ID: string;
+export const SECOND_FREE_CATALOG_LINE_ID: string;
+export const INACTIVE_CATALOG_LINE_ID: string;
 export const demoAccounts: ReadonlyArray<{
   uid: string;
   email: string;

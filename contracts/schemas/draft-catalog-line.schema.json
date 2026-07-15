@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/draft-catalog-line.schema.json",
+  "title": "LÃ­nea de catÃ¡logo para preparar una jornada",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["lineaId", "nombreVisible", "seleccionable", "ubicacion"],
+  "properties": {
+    "lineaId": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+    "nombreVisible": {"type": "string", "minLength": 1, "maxLength": 240},
+    "seleccionable": {"type": "boolean"},
+    "motivoNoSeleccionable": {"const": "JORNADA_ACTIVA"},
+    "ubicacion": {"$ref": "comun.schema.json#/$defs/ubicacionVisible"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"seleccionable": {"const": false}}, "required": ["seleccionable"]},
+      "then": {
+        "properties": {"motivoNoSeleccionable": {"const": "JORNADA_ACTIVA"}},
+        "required": ["motivoNoSeleccionable"]
+      }
+    }
+  ]
+}

@@ -4,6 +4,11 @@ import {HttpsError, onCall} from "firebase-functions/v2/https";
 import type {ControlledErrorCode} from "./domain/contracts.js";
 import {DomainError, domainErrors} from "./domain/errors.js";
 import {InitiateCountCorrectionService} from "./domain/correctCount.js";
+import {
+  CreateDraftJourneyService,
+  ListManageableJourneysService,
+  UpdateDraftJourneyLinesService
+} from "./domain/draftJourneys.js";
 import {ListActiveJourneysService} from "./domain/listActiveJourneys.js";
 import {ReassignCountCorrectionService} from "./domain/reassignCorrection.js";
 import {ReleaseReservationService} from "./domain/releaseReservation.js";
@@ -12,13 +17,16 @@ import {ApproveCountService, ReturnCountService} from "./domain/reviewCount.js";
 import {SendCountService} from "./domain/sendCount.js";
 import {
   parseApproveCountRequest,
+  parseCreateDraftJourneyRequest,
   parseInitiateCountCorrectionRequest,
   parseListActiveJourneysRequest,
+  parseListManageableJourneysRequest,
   parseReassignCountCorrectionRequest,
   parseReleaseReservationRequest,
   parseReserveLineRequest,
   parseReturnCountRequest,
-  parseSendCountRequest
+  parseSendCountRequest,
+  parseUpdateDraftJourneyLinesRequest
 } from "./domain/validation.js";
 import {firestore} from "./firebase.js";
 
@@ -33,6 +41,13 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
   if (code === "UNAUTHENTICATED") return "unauthenticated";
   if (code === "INVALID_ARGUMENT") return "invalid-argument";
   if (code === "LINE_NOT_AVAILABLE") return "failed-precondition";
+  if ([
+    "JOURNEY_NOT_DRAFT",
+    "JOURNEY_NAME_REQUIRED",
+    "LINE_INACTIVE",
+    "LINE_ALREADY_IN_ACTIVE_JOURNEY",
+    "DUPLICATE_LINE_IDS"
+  ].includes(code)) return "failed-precondition";
   if (["RESERVATION_NOT_ACTIVE", "LINE_RESERVATION_MISMATCH", "LINE_NOT_IN_COUNT"].includes(code)) {
     return "failed-precondition";
   }
@@ -52,7 +67,14 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
   if (code === "IDEMPOTENCY_CONFLICT") return "already-exists";
   if (code === "EMULATOR_ONLY") return "failed-precondition";
   if (code === "INTERNAL_ERROR") return "internal";
-  if (["USER_NOT_FOUND", "JOURNEY_NOT_FOUND", "JOURNEY_LINE_NOT_FOUND", "RESERVATION_NOT_FOUND", "COUNT_NOT_FOUND"].includes(code)) {
+  if ([
+    "USER_NOT_FOUND",
+    "JOURNEY_NOT_FOUND",
+    "JOURNEY_LINE_NOT_FOUND",
+    "LINE_NOT_FOUND",
+    "RESERVATION_NOT_FOUND",
+    "COUNT_NOT_FOUND"
+  ].includes(code)) {
     return "not-found";
   }
   return "permission-denied";
@@ -70,6 +92,54 @@ const initiateCountCorrectionService = new InitiateCountCorrectionService(firest
 const reassignCountCorrectionService = new ReassignCountCorrectionService(firestore);
 const releaseReservationService = new ReleaseReservationService(firestore);
 const listActiveJourneysService = new ListActiveJourneysService(firestore);
+const createDraftJourneyService = new CreateDraftJourneyService(firestore);
+const updateDraftJourneyLinesService = new UpdateDraftJourneyLinesService(firestore);
+const listManageableJourneysService = new ListManageableJourneysService(firestore);
+
+export const crearJornadaBorrador = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    const payload = parseCreateDraftJourneyRequest(request.data);
+    return await createDraftJourneyService.execute(payload, {actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en crearJornadaBorrador", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const actualizarLineasJornadaBorrador = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    const payload = parseUpdateDraftJourneyLinesRequest(request.data);
+    return await updateDraftJourneyLinesService.execute(payload, {actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en actualizarLineasJornadaBorrador", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const listarJornadasAdministrables = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    parseListManageableJourneysRequest(request.data);
+    return await listManageableJourneysService.execute({actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en listarJornadasAdministrables", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
 
 export const listarJornadasActivas = onCall({region: "us-central1"}, async (request) => {
   try {

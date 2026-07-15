@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/draft-journey-line-selection.schema.json",
+  "title": "SelecciÃ³n preparatoria de lÃ­neas para una jornada en borrador",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "jornadaId", "lineaIds", "cantidadLineas", "versionJornada", "actualizadaPorUsuarioId", "actualizadaEn"],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "lineaIds": {
+      "type": "array",
+      "maxItems": 400,
+      "uniqueItems": true,
+      "items": {"$ref": "comun.schema.json#/$defs/idRutaSegura"}
+    },
+    "cantidadLineas": {"type": "integer", "minimum": 0, "maximum": 400},
+    "versionJornada": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "actualizadaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "actualizadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

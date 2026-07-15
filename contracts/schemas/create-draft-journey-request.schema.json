@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/create-draft-journey-request.schema.json",
+  "title": "Solicitud crearJornadaBorrador",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["nombreVisible", "claveIdempotencia"],
+  "properties": {
+    "nombreVisible": {"type": "string", "minLength": 1, "maxLength": 200, "pattern": ".*\\S.*"},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}
+  }
+}

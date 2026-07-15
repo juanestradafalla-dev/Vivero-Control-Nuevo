@@ -1,0 +1,5 @@
+{
+  "jornadaId": "JORNADA-BORRADOR-SUPERVISOR",
+  "lineaIds": ["LINEA-CATALOGO-LIBRE-1", "LINEA-CATALOGO-LIBRE-1"],
+  "claveIdempotencia": "actualizar-lineas-etapa-10-0002"
+}

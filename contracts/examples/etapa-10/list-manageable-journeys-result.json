@@ -1,0 +1,31 @@
+{
+  "jornadas": [
+    {
+      "jornadaId": "JORNADA-BORRADOR-SUPERVISOR",
+      "nombreVisible": "Borrador ficticio del supervisor",
+      "estado": "BORRADOR",
+      "creadorUsuarioId": "uid-supervisor",
+      "creadorNombreVisible": "Supervisor ficticio",
+      "version": 1,
+      "cantidadLineas": 1,
+      "lineaIds": ["LINEA-CATALOGO-LIBRE-1"],
+      "creadaEn": "2026-07-15T12:00:00.000Z",
+      "actualizadaEn": "2026-07-15T12:00:00.000Z"
+    }
+  ],
+  "lineasCatalogo": [
+    {
+      "lineaId": "LINEA-CATALOGO-LIBRE-1",
+      "nombreVisible": "Linea libre de catalogo 1",
+      "seleccionable": true,
+      "ubicacion": {
+        "vivero": "Vivero ficticio",
+        "modulo": "Modulo ficticio 2",
+        "cama": "Cama ficticia 2",
+        "linea": "LINEA-CATALOGO-LIBRE-1",
+        "nombreVisible": "Linea libre de catalogo 1",
+        "orden": 92
+      }
+    }
+  ]
+}

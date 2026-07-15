@@ -15,8 +15,15 @@ export type ControlledErrorCode =
   | "PERMISSION_DENIED"
   | "JOURNEY_NOT_FOUND"
   | "JOURNEY_NOT_ACTIVE"
+  | "JOURNEY_NOT_DRAFT"
+  | "JOURNEY_NAME_REQUIRED"
+  | "JOURNEY_DRAFT_ACCESS_DENIED"
   | "JOURNEY_ACCESS_DENIED"
   | "JOURNEY_LINE_NOT_FOUND"
+  | "LINE_NOT_FOUND"
+  | "LINE_INACTIVE"
+  | "LINE_ALREADY_IN_ACTIVE_JOURNEY"
+  | "DUPLICATE_LINE_IDS"
   | "LINE_NOT_AVAILABLE"
   | "RESERVATION_NOT_FOUND"
   | "RESERVATION_NOT_ACTIVE"
@@ -157,6 +164,54 @@ export interface ActiveJourneySummary {
 
 export interface ListActiveJourneysResult {
   readonly jornadas: readonly ActiveJourneySummary[];
+}
+
+export interface CreateDraftJourneyRequest {
+  readonly nombreVisible: string;
+  readonly claveIdempotencia: string;
+}
+
+export interface DraftJourneySummary {
+  readonly jornadaId: string;
+  readonly nombreVisible: string;
+  readonly estado: "BORRADOR";
+  readonly creadorUsuarioId: string;
+  readonly creadorNombreVisible: string;
+  readonly version: number;
+  readonly cantidadLineas: number;
+  readonly lineaIds: readonly string[];
+  readonly creadaEn: string;
+  readonly actualizadaEn: string;
+}
+
+export type CreateDraftJourneyResult = DraftJourneySummary;
+
+export interface UpdateDraftJourneyLinesRequest {
+  readonly jornadaId: string;
+  readonly lineaIds: readonly string[];
+  readonly claveIdempotencia: string;
+}
+
+export interface UpdateDraftJourneyLinesResult {
+  readonly jornadaId: string;
+  readonly estado: "BORRADOR";
+  readonly version: number;
+  readonly cantidadLineas: number;
+  readonly lineaIds: readonly string[];
+  readonly actualizadaEn: string;
+}
+
+export interface DraftCatalogLine {
+  readonly lineaId: string;
+  readonly nombreVisible: string;
+  readonly seleccionable: boolean;
+  readonly motivoNoSeleccionable?: "JORNADA_ACTIVA";
+  readonly ubicacion: VisibleLocation;
+}
+
+export interface ListManageableJourneysResult {
+  readonly jornadas: readonly DraftJourneySummary[];
+  readonly lineasCatalogo: readonly DraftCatalogLine[];
 }
 
 /** Contrato de frontera reservado para una futura operación de revisión; no es enviarConteo. */

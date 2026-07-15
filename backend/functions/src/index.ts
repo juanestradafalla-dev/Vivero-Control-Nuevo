@@ -3,11 +3,13 @@ import {HttpsError, onCall} from "firebase-functions/v2/https";
 
 import type {ControlledErrorCode} from "./domain/contracts.js";
 import {DomainError, domainErrors} from "./domain/errors.js";
+import {InitiateCountCorrectionService} from "./domain/correctCount.js";
 import {ReserveLineService} from "./domain/reserveLine.js";
 import {ApproveCountService, ReturnCountService} from "./domain/reviewCount.js";
 import {SendCountService} from "./domain/sendCount.js";
 import {
   parseApproveCountRequest,
+  parseInitiateCountCorrectionRequest,
   parseReserveLineRequest,
   parseReturnCountRequest,
   parseSendCountRequest
@@ -31,6 +33,7 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
   if (["COUNT_NOT_PENDING_REVIEW", "COUNT_LINE_MISMATCH", "EXCEPTION_REASON_REQUIRED", "INVENTORY_NOT_FOUND"].includes(code)) {
     return "failed-precondition";
   }
+  if (["COUNT_NOT_RETURNED", "ACTIVE_RESERVATION_EXISTS"].includes(code)) return "failed-precondition";
   if (code === "IDEMPOTENCY_CONFLICT") return "already-exists";
   if (code === "EMULATOR_ONLY") return "failed-precondition";
   if (code === "INTERNAL_ERROR") return "internal";
@@ -48,6 +51,7 @@ const reserveLineService = new ReserveLineService(firestore);
 const sendCountService = new SendCountService(firestore);
 const approveCountService = new ApproveCountService(firestore);
 const returnCountService = new ReturnCountService(firestore);
+const initiateCountCorrectionService = new InitiateCountCorrectionService(firestore);
 
 export const reservarLinea = onCall({region: "us-central1"}, async (request) => {
   try {
@@ -73,6 +77,21 @@ export const enviarConteo = onCall({region: "us-central1"}, async (request) => {
   } catch (error) {
     if (error instanceof DomainError) throw toHttpsError(error);
     logger.error("Fallo interno en enviarConteo", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const iniciarCorreccionConteo = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    const payload = parseInitiateCountCorrectionRequest(request.data);
+    return await initiateCountCorrectionService.execute(payload, {actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en iniciarCorreccionConteo", {
       errorName: error instanceof Error ? error.name : "UnknownError"
     });
     throw toHttpsError(domainErrors.internal());

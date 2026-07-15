@@ -3,8 +3,8 @@ import {createHash, randomBytes, randomUUID} from "node:crypto";
 import {Timestamp, type Firestore} from "firebase-admin/firestore";
 
 import type {
-  ReserveLineRequest,
-  ReserveLineResult,
+  InitiateCountCorrectionRequest,
+  InitiateCountCorrectionResult,
   TrustedOperationContext,
   UserRole,
   VisibleLocation
@@ -15,6 +15,15 @@ interface UserDocument {
   readonly activo?: boolean;
   readonly nombreVisible?: string;
   readonly roles?: unknown;
+}
+
+interface CountDocument {
+  readonly jornadaId?: string;
+  readonly jornadaLineaId?: string;
+  readonly lineaId?: string;
+  readonly autorUsuarioId?: string;
+  readonly versionNumero?: number;
+  readonly inmutable?: boolean;
 }
 
 interface JourneyDocument {
@@ -32,6 +41,7 @@ interface JourneyLineDocument {
   readonly lineaId?: string;
   readonly activa?: boolean;
   readonly estadoCentral?: string;
+  readonly conteoVigenteId?: string;
   readonly reservaActivaId?: string | null;
   readonly version?: number;
   readonly ubicacion?: VisibleLocation;
@@ -39,7 +49,7 @@ interface JourneyLineDocument {
 
 interface IdempotencyDocument {
   readonly payloadHash?: string;
-  readonly resultado?: ReserveLineResult;
+  readonly resultado?: InitiateCountCorrectionResult;
 }
 
 const allowedRoles = new Set<UserRole>(["AUXILIAR", "SUPERVISOR", "ADMINISTRADOR"]);
@@ -52,6 +62,10 @@ function isRole(value: unknown): value is UserRole {
   return typeof value === "string" && allowedRoles.has(value as UserRole);
 }
 
+function isSafeVersion(value: unknown): value is number {
+  return Number.isSafeInteger(value) && (value as number) >= 0 && (value as number) < Number.MAX_SAFE_INTEGER;
+}
+
 function isLocation(value: unknown): value is VisibleLocation {
   if (typeof value !== "object" || value === null) return false;
   const location = value as Record<string, unknown>;
@@ -62,45 +76,34 @@ function isLocation(value: unknown): value is VisibleLocation {
   );
 }
 
-export class ReserveLineService {
+export class InitiateCountCorrectionService {
   constructor(private readonly firestore: Firestore) {}
 
   async execute(
-    request: ReserveLineRequest,
+    request: InitiateCountCorrectionRequest,
     context: TrustedOperationContext
-  ): Promise<ReserveLineResult> {
-    const idempotencyId = sha256(`${context.actorId}:RESERVAR_LINEA:${request.claveIdempotencia}`);
-    const payloadHash = sha256(
-      JSON.stringify({
-        dispositivoId: request.dispositivoId,
-        jornadaLineaId: request.jornadaLineaId
-      })
-    );
+  ): Promise<InitiateCountCorrectionResult> {
+    const idempotencyId = sha256(`${context.actorId}:INICIAR_CORRECCION_CONTEO:${request.claveIdempotencia}`);
+    const payloadHash = sha256(JSON.stringify({
+      conteoId: request.conteoId,
+      dispositivoId: request.dispositivoId
+    }));
     const reservationId = randomUUID();
     const auditId = randomUUID();
     const opaqueToken = randomBytes(32).toString("base64url");
     const tokenHash = sha256(opaqueToken);
 
     return this.firestore.runTransaction(async (transaction) => {
-      const journeyLineRef = this.firestore.collection("jornadaLineas").doc(request.jornadaLineaId);
       const userRef = this.firestore.collection("usuarios").doc(context.actorId);
+      const countRef = this.firestore.collection("conteos").doc(request.conteoId);
       const idempotencyRef = this.firestore.collection("idempotencia").doc(idempotencyId);
-      const firstSnapshots = await transaction.getAll(
-        journeyLineRef,
+      const [userSnapshot, countSnapshot, idempotencySnapshot] = await transaction.getAll(
         userRef,
+        countRef,
         idempotencyRef
       );
-      const journeyLineSnapshot = firstSnapshots[0];
-      const userSnapshot = firstSnapshots[1];
-      const idempotencySnapshot = firstSnapshots[2];
-
-      if (!journeyLineSnapshot || !userSnapshot || !idempotencySnapshot) {
-        throw domainErrors.internal();
-      }
-
-      if (!journeyLineSnapshot.exists) throw domainErrors.journeyLineNotFound();
+      if (!userSnapshot || !countSnapshot || !idempotencySnapshot) throw domainErrors.internal();
       if (!userSnapshot.exists) throw domainErrors.userNotFound();
-
       const user = userSnapshot.data() as UserDocument;
       if (user.activo !== true) throw domainErrors.userInactive();
 
@@ -112,62 +115,87 @@ export class ReserveLineService {
         return previous.resultado;
       }
 
-      const journeyLine = journeyLineSnapshot.data() as JourneyLineDocument;
-      if (typeof journeyLine.jornadaId !== "string") throw domainErrors.journeyNotFound();
-      const journeyRef = this.firestore.collection("jornadas").doc(journeyLine.jornadaId);
+      if (!countSnapshot.exists) throw domainErrors.countNotFound();
+      const count = countSnapshot.data() as CountDocument;
+      if (count.autorUsuarioId !== context.actorId) throw domainErrors.countAuthorMismatch();
+      if (
+        typeof count.jornadaId !== "string" ||
+        typeof count.jornadaLineaId !== "string" ||
+        typeof count.lineaId !== "string" ||
+        count.inmutable !== true ||
+        !isSafeVersion(count.versionNumero) ||
+        count.versionNumero < 1
+      ) {
+        throw domainErrors.internal();
+      }
+
+      const journeyRef = this.firestore.collection("jornadas").doc(count.jornadaId);
       const authorizationRef = journeyRef.collection("autorizaciones").doc(context.actorId);
-      const centralSnapshots = await transaction.getAll(
-        journeyRef,
-        authorizationRef
-      );
-      const journeySnapshot = centralSnapshots[0];
-      const authorizationSnapshot = centralSnapshots[1];
-
-      if (!journeySnapshot || !authorizationSnapshot) throw domainErrors.internal();
-
+      const lineRef = this.firestore.collection("jornadaLineas").doc(count.jornadaLineaId);
+      const activeReservationsQuery = this.firestore.collection("reservas")
+        .where("usuarioId", "==", context.actorId);
+      const [journeySnapshot, authorizationSnapshot, lineSnapshot, reservationsSnapshot] = await Promise.all([
+        transaction.get(journeyRef),
+        transaction.get(authorizationRef),
+        transaction.get(lineRef),
+        transaction.get(activeReservationsQuery)
+      ]);
       if (!journeySnapshot.exists) throw domainErrors.journeyNotFound();
-      const journey = journeySnapshot.data() as JourneyDocument;
-      if (journey.estadoAdministrativo !== "ACTIVA") throw domainErrors.journeyNotActive();
+      if ((journeySnapshot.data() as JourneyDocument).estadoAdministrativo !== "ACTIVA") {
+        throw domainErrors.journeyNotActive();
+      }
       if (!authorizationSnapshot.exists) throw domainErrors.journeyAccessDenied();
-
       const authorization = authorizationSnapshot.data() as AuthorizationDocument;
       if (authorization.activa !== true || authorization.puedeContar !== true) {
         throw domainErrors.journeyAccessDenied();
       }
-      if (!isRole(authorization.rolEfectivo)) throw domainErrors.permissionDenied();
-      if (!Array.isArray(user.roles) || !user.roles.includes(authorization.rolEfectivo)) {
+      if (!isRole(authorization.rolEfectivo) || !Array.isArray(user.roles) || !user.roles.includes(authorization.rolEfectivo)) {
         throw domainErrors.permissionDenied();
       }
+      if (!lineSnapshot.exists) throw domainErrors.journeyLineNotFound();
+      const line = lineSnapshot.data() as JourneyLineDocument;
       if (
-        journeyLine.activa !== true ||
-        journeyLine.estadoCentral !== "DISPONIBLE" ||
-        (typeof journeyLine.reservaActivaId === "string" && journeyLine.reservaActivaId !== "")
+        line.jornadaId !== count.jornadaId ||
+        line.lineaId !== count.lineaId ||
+        line.conteoVigenteId !== request.conteoId
       ) {
-        throw domainErrors.lineNotAvailable();
+        throw domainErrors.countLineMismatch();
       }
-      if (!Number.isInteger(journeyLine.version) || !isLocation(journeyLine.ubicacion)) {
-        throw domainErrors.internal();
+      if (line.activa !== true || line.estadoCentral !== "DEVUELTA") {
+        throw domainErrors.countNotReturned();
       }
+      if (typeof line.reservaActivaId === "string" && line.reservaActivaId !== "") {
+        throw domainErrors.activeReservationExists();
+      }
+      if (reservationsSnapshot.docs.some((document) => document.data().estadoReserva === "ACTIVA")) {
+        throw domainErrors.activeReservationExists();
+      }
+      if (!isSafeVersion(line.version) || !isLocation(line.ubicacion)) throw domainErrors.internal();
 
       const reservedAt = Timestamp.now();
-      const nextVersion = (journeyLine.version ?? 0) + 1;
-      const result: ReserveLineResult = {
+      const nextLineVersion = line.version + 1;
+      const nextCountVersion = count.versionNumero + 1;
+      const result: InitiateCountCorrectionResult = {
         reservaId: reservationId,
-        jornadaLineaId: request.jornadaLineaId,
+        jornadaLineaId: count.jornadaLineaId,
+        conteoAnteriorId: request.conteoId,
         estadoCentral: "EN_CONTEO",
+        tipoReserva: "CORRECCION",
         tokenReserva: opaqueToken,
         reservadaEn: reservedAt.toDate().toISOString(),
-        version: nextVersion,
-        ubicacion: journeyLine.ubicacion
+        version: nextLineVersion,
+        versionConteoSiguiente: nextCountVersion,
+        ubicacion: line.ubicacion
       };
       const reservationRef = this.firestore.collection("reservas").doc(reservationId);
       const auditRef = this.firestore.collection("auditoria").doc(auditId);
 
       transaction.create(reservationRef, {
         id: reservationId,
-        tipoReserva: "INICIAL",
-        jornadaId: journeyLine.jornadaId,
-        jornadaLineaId: request.jornadaLineaId,
+        tipoReserva: "CORRECCION",
+        conteoAnteriorId: request.conteoId,
+        jornadaId: count.jornadaId,
+        jornadaLineaId: count.jornadaLineaId,
         usuarioId: context.actorId,
         usuarioNombreVisible: user.nombreVisible ?? "Usuario de prueba",
         rolEfectivo: authorization.rolEfectivo,
@@ -178,38 +206,40 @@ export class ReserveLineService {
         estadoReserva: "ACTIVA",
         politicaLiberacion: "MANUAL_SUPERVISOR_MVP"
       });
-      transaction.update(journeyLineRef, {
+      transaction.update(lineRef, {
         estadoCentral: "EN_CONTEO",
         reservaActivaId: reservationId,
-        version: nextVersion,
+        version: nextLineVersion,
         actualizadaEn: reservedAt
       });
       transaction.create(auditRef, {
         id: auditId,
-        tipo: "LINEA_RESERVADA",
+        tipo: "CORRECCION_CONTEO_INICIADA",
         actorUsuarioId: context.actorId,
-        recursoTipo: "JORNADA_LINEA",
-        recursoId: request.jornadaLineaId,
+        recursoTipo: "CONTEO",
+        recursoId: request.conteoId,
+        jornadaId: count.jornadaId,
         claveIdempotencia: request.claveIdempotencia,
         ocurridoEn: reservedAt,
         metadatos: {
-          estadoAnterior: "DISPONIBLE",
-          estadoNuevo: "EN_CONTEO",
+          jornadaLineaId: count.jornadaLineaId,
           reservaId: reservationId,
-          version: nextVersion,
+          estadoAnterior: "DEVUELTA",
+          estadoNuevo: "EN_CONTEO",
+          versionLinea: nextLineVersion,
+          versionConteoSiguiente: nextCountVersion,
           dispositivoId: request.dispositivoId
         }
       });
       transaction.create(idempotencyRef, {
         id: idempotencyId,
         actorUsuarioId: context.actorId,
-        operacion: "RESERVAR_LINEA",
+        operacion: "INICIAR_CORRECCION_CONTEO",
         claveHash: idempotencyId,
         payloadHash,
         resultado: result,
         creadoEn: reservedAt
       });
-
       return result;
     });
   }

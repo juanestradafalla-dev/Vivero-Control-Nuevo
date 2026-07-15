@@ -18,13 +18,12 @@ altas y 0 críticas.
 
 ## Backend Functions
 
-`npm audit --omit=dev` informó 9 vulnerabilidades moderadas, 0 altas y 0
+`npm audit --omit=dev` informó 8 vulnerabilidades moderadas, 0 altas y 0
 críticas. El aviso raíz es `GHSA-w5hq-g745-h8pq`, una falta de comprobación de
 límites en `uuid` menor que 11.1.1 al usar un búfer con UUID v3, v5 o v6.
 
 | Paquete informado | Relación | Severidad |
 |---|---|---|
-| `firebase-functions` 7.2.5 | Directa, afectada por Admin | Moderada |
 | `firebase-admin` 13.10.0 | Directa | Moderada |
 | `@google-cloud/firestore` | Transitiva | Moderada |
 | `@google-cloud/storage` | Transitiva | Moderada |
@@ -81,11 +80,17 @@ La revisión agrega dos Callables y lecturas de inventario en Maestro sin incorp
 
 Riesgos vigentes:
 
-- las 9 alertas moderadas transitivas del backend continúan sin altas ni críticas;
+- las 8 alertas moderadas transitivas del backend continúan sin altas ni críticas;
 - ningún control local equivale a autorización para producción;
 - la calidad de red, compatibilidad con dispositivos reales y tolerancia del reloj siguen sin validación de campo;
 - el seed de inventario es completamente ficticio y no puede interpretarse como dato migrable;
-- la corrección de una línea `DEVUELTA` todavía no existe y pertenece a la Etapa 6;
+- la corrección versionada existe solo para el autor original y no incluye reasignación ni liberación;
 - una aprobación requiere inventario inicial; la ausencia produce rollback y necesita intervención operativa futura, no un cero automático.
 
 Las operaciones de revisión conservan el bloqueo `FUNCTIONS_EMULATOR=true` más proyecto `demo-*`. CI continúa sin pasos de despliegue.
+
+## Actualización de la ETAPA 6
+
+No se agregan dependencias externas. Room migra de 2 a 3 para conservar metadatos de la reserva de corrección; el token continúa cifrado con Android Keystore y se elimina tras la confirmación central.
+
+Persisten los riesgos de compatibilidad con dispositivos reales, pérdida de claves del Keystore, señal real, retención local y alertas moderadas transitivas del backend. La corrección por un usuario distinto, la reasignación y la liberación permanecen fuera de alcance. Firebase real sigue sin configurarse ni desplegarse.

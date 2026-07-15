@@ -25,6 +25,17 @@ interface ReservationDocument {
   readonly dispositivoId?: string;
   readonly tokenReservaHash?: string;
   readonly estadoReserva?: string;
+  readonly tipoReserva?: string;
+  readonly conteoAnteriorId?: string;
+}
+
+interface CountDocument {
+  readonly jornadaId?: string;
+  readonly jornadaLineaId?: string;
+  readonly lineaId?: string;
+  readonly autorUsuarioId?: string;
+  readonly versionNumero?: number;
+  readonly inmutable?: boolean;
 }
 
 interface JourneyDocument {
@@ -43,6 +54,7 @@ interface JourneyLineDocument {
   readonly activa?: boolean;
   readonly estadoCentral?: string;
   readonly reservaActivaId?: string | null;
+  readonly conteoVigenteId?: string;
   readonly version?: number;
   readonly ubicacion?: VisibleLocation;
 }
@@ -171,6 +183,35 @@ export class SendCountService {
         throw domainErrors.internal();
       }
 
+      const isCorrection = reservation.tipoReserva === "CORRECCION";
+      let previousCountId: string | null = null;
+      let countVersion = 1;
+      if (isCorrection) {
+        if (typeof reservation.conteoAnteriorId !== "string") throw domainErrors.internal();
+        const previousCountSnapshot = await transaction.get(
+          this.firestore.collection("conteos").doc(reservation.conteoAnteriorId)
+        );
+        if (!previousCountSnapshot.exists) throw domainErrors.countNotFound();
+        const previousCount = previousCountSnapshot.data() as CountDocument;
+        if (
+          previousCount.jornadaId !== reservation.jornadaId ||
+          previousCount.jornadaLineaId !== reservation.jornadaLineaId ||
+          previousCount.lineaId !== line.lineaId ||
+          previousCount.autorUsuarioId !== context.actorId ||
+          previousCount.inmutable !== true ||
+          !Number.isSafeInteger(previousCount.versionNumero) ||
+          (previousCount.versionNumero as number) < 1 ||
+          (previousCount.versionNumero as number) >= Number.MAX_SAFE_INTEGER ||
+          line.conteoVigenteId !== reservation.conteoAnteriorId
+        ) {
+          throw domainErrors.countLineMismatch();
+        }
+        previousCountId = reservation.conteoAnteriorId;
+        countVersion = (previousCount.versionNumero as number) + 1;
+      } else if (reservation.tipoReserva !== undefined && reservation.tipoReserva !== "INICIAL") {
+        throw domainErrors.internal();
+      }
+
       const receivedAt = Timestamp.now();
       const total = request.hembras + request.machos + request.patrones;
       const nextLineVersion = (line.version ?? 0) + 1;
@@ -182,7 +223,7 @@ export class SendCountService {
         machos: request.machos,
         patrones: request.patrones,
         total,
-        versionConteo: 1,
+        versionConteo: countVersion,
         versionLinea: nextLineVersion,
         recibidoEn: receivedAt.toDate().toISOString()
       };
@@ -204,8 +245,8 @@ export class SendCountService {
         patrones: request.patrones,
         total,
         ...(request.observaciones === undefined ? {} : {observaciones: request.observaciones}),
-        versionNumero: 1,
-        conteoAnteriorId: null,
+        versionNumero: countVersion,
+        conteoAnteriorId: previousCountId,
         claveIdempotencia: request.claveIdempotencia,
         timestampDispositivo: request.timestampDispositivo,
         recibidoEn: receivedAt,
@@ -234,7 +275,9 @@ export class SendCountService {
           reservaId: request.reservaId,
           estadoAnterior: "EN_CONTEO",
           estadoNuevo: "PENDIENTE_REVISION",
-          versionLinea: nextLineVersion
+          versionLinea: nextLineVersion,
+          versionConteo: countVersion,
+          tipoReserva: isCorrection ? "CORRECCION" : "INICIAL"
         }
       });
       transaction.create(idempotencyRef, {

@@ -35,6 +35,7 @@ ui-debug.log
 captures/
 *.apk
 *.aab
+**/gradle/gradle-daemon-jvm.properties
 
 # Node, Vite, Electron y pruebas
 node_modules/

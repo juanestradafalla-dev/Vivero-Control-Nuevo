@@ -34,7 +34,10 @@ class AppContainer private constructor(
                     context.applicationContext,
                     ViveroCampoDatabase::class.java,
                     "vivero-campo-emulador.db",
-                ).addMigrations(ViveroCampoDatabase.MIGRATION_1_2).build()
+                ).addMigrations(
+                    ViveroCampoDatabase.MIGRATION_1_2,
+                    ViveroCampoDatabase.MIGRATION_2_3,
+                ).build()
                 FirebaseCampoRepository(services, database, AndroidKeystoreReservationTokenVault())
             }
             CountSyncWorkerDependencies.repository = repository

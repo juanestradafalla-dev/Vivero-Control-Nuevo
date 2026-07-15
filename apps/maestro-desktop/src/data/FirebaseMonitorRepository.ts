@@ -144,7 +144,8 @@ export class FirebaseMonitorRepository implements MonitorRepository {
     let journeyDisplayName: string | undefined;
     let lines: MonitorLine[] = [];
     let reservations = new Map<string, MonitorReservation>();
-    let counts = new Map<string, MonitorCount>();
+    let counts = new Map<string, MonitorCount[]>();
+    let returnReasons = new Map<string, string>();
     let inventories = new Map<string, MonitorInventory>();
 
     const publish = () => {
@@ -152,12 +153,18 @@ export class FirebaseMonitorRepository implements MonitorRepository {
       onMonitorSnapshot({
         journeyId: activeJourneyId,
         journeyDisplayName,
-        lines: sortMonitorLines(lines.map((line) => ({
-          ...line,
-          reservation: reservations.get(line.id),
-          count: counts.get(line.id),
-          inventory: inventories.get(line.lineId),
-        }))),
+        lines: sortMonitorLines(lines.map((line) => {
+          const history = (counts.get(line.id) ?? [])
+            .map((count) => ({...count, returnReason: returnReasons.get(count.id)}))
+            .sort((left, right) => left.version - right.version);
+          return {
+            ...line,
+            reservation: reservations.get(line.id),
+            count: history.find((count) => count.id === line.currentCountId) ?? history.at(-1),
+            countHistory: history,
+            inventory: inventories.get(line.lineId),
+          };
+        })),
       });
     };
     const subscriptions = [
@@ -188,7 +195,13 @@ export class FirebaseMonitorRepository implements MonitorRepository {
             ) {
               return [];
             }
-            return [{id: documentSnapshot.id, lineId: data.lineaId, state: data.estadoCentral, location}];
+            return [{
+              id: documentSnapshot.id,
+              lineId: data.lineaId,
+              state: data.estadoCentral,
+              location,
+              ...(typeof data.conteoVigenteId === "string" ? {currentCountId: data.conteoVigenteId} : {}),
+            }];
           });
           publish();
         },
@@ -207,7 +220,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
                 const timestamp = data.reservadaEn;
                 if (
                   typeof data.jornadaLineaId !== "string" ||
-                  typeof data.autorUsuarioId !== "string" ||
+                  typeof data.usuarioId !== "string" ||
                   typeof data.usuarioNombreVisible !== "string" ||
                   !(timestamp instanceof Timestamp)
                 ) {
@@ -228,8 +241,8 @@ export class FirebaseMonitorRepository implements MonitorRepository {
         onSnapshot(
           query(collection(this.firestore, "conteos"), where("jornadaId", "==", activeJourneyId)),
           (snapshot) => {
-            counts = new Map(
-              snapshot.docs.flatMap((documentSnapshot) => {
+            const nextCounts = new Map<string, MonitorCount[]>();
+            snapshot.docs.forEach((documentSnapshot) => {
                 const data = documentSnapshot.data();
                 const receivedAt = data.recibidoEn;
                 if (
@@ -245,7 +258,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
                   !(receivedAt instanceof Timestamp) ||
                   !Number.isSafeInteger(data.versionNumero)
                 ) {
-                  return [];
+                  return;
                 }
                 const count: MonitorCount = {
                   id: documentSnapshot.id,
@@ -263,13 +276,34 @@ export class FirebaseMonitorRepository implements MonitorRepository {
                   deviceTimestamp: data.timestampDispositivo,
                   serverTimestamp: receivedAt.toDate().toISOString(),
                   version: data.versionNumero,
+                  ...(typeof data.conteoAnteriorId === "string"
+                    ? {previousCountId: data.conteoAnteriorId}
+                    : {}),
                 };
-                return [[data.jornadaLineaId, count] as const];
-              }),
-            );
+                const history = nextCounts.get(data.jornadaLineaId) ?? [];
+                history.push(count);
+                nextCounts.set(data.jornadaLineaId, history);
+              });
+            counts = nextCounts;
             publish();
           },
           () => onError("No fue posible leer los conteos pendientes."),
+        ),
+      );
+      subscriptions.push(
+        onSnapshot(
+          query(collection(this.firestore, "decisionesRevision"), where("jornadaId", "==", activeJourneyId)),
+          (snapshot) => {
+            returnReasons = new Map(snapshot.docs.flatMap((documentSnapshot) => {
+              const data = documentSnapshot.data();
+              if (data.decision !== "DEVOLVER" || typeof data.conteoId !== "string" || typeof data.motivo !== "string") {
+                return [];
+              }
+              return [[data.conteoId, data.motivo] as const];
+            }));
+            publish();
+          },
+          () => onError("No fue posible leer los motivos de devolución."),
         ),
       );
       subscriptions.push(

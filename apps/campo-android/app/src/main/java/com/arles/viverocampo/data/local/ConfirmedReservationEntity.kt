@@ -25,4 +25,7 @@ data class ConfirmedReservationEntity(
     val orderValue: Int,
     val tokenCiphertext: String?,
     val tokenIv: String?,
+    val reservationType: String = "INICIAL",
+    val previousCountId: String? = null,
+    val nextCountVersion: Int = 1,
 )

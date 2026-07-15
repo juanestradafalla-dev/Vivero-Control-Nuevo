@@ -171,7 +171,7 @@ export function App({repository}: AppProps) {
 
       {!user ? (
         <section className="login-panel" aria-labelledby="login-title">
-          <p className="eyebrow">ETAPA 5</p>
+          <p className="eyebrow">ETAPA 6</p>
           <h1 id="login-title">Acceso a revisión</h1>
           <p>Use únicamente una cuenta ficticia cargada en Firebase Emulator Suite.</p>
           <form onSubmit={handleSignIn}>
@@ -280,6 +280,24 @@ export function App({repository}: AppProps) {
                           {!inventory && <p className="warning">No se puede aprobar sin inventario oficial inicial.</p>}
                         </>
                       ) : <p className="reservation-private">Conteo pendiente de revisión · detalle restringido</p>
+                    )}
+                    {user.canViewReservationDetails && (line.countHistory?.length ?? 0) > 0 && (
+                      <section className="count-history" aria-label={`Historial de versiones de ${line.location.displayName}`}>
+                        <h3>Historial de versiones</h3>
+                        {line.countHistory?.map((version) => (
+                          <article className="count-version" key={version.id}>
+                            <strong>
+                              Versión {version.version}
+                              {version.id === line.count?.id ? " · Vigente" : " · Anterior inmutable"}
+                            </strong>
+                            <span>
+                              Hembras {version.females} · Machos {version.males} · Patrones {version.rootstocks} · Total {version.total}
+                            </span>
+                            <span>Observaciones: {version.observations ?? "Sin observaciones"}</span>
+                            {version.returnReason && <span>Motivo de devolución: {version.returnReason}</span>}
+                          </article>
+                        ))}
+                      </section>
                     )}
                   </article>
                 );

@@ -27,7 +27,9 @@ export const expectedSchemas = [
   "approve-count-request.schema.json",
   "approve-count-result.schema.json",
   "return-count-request.schema.json",
-  "return-count-result.schema.json"
+  "return-count-result.schema.json",
+  "initiate-count-correction-request.schema.json",
+  "initiate-count-correction-result.schema.json"
 ];
 
 export const expectedEnums = new Map([

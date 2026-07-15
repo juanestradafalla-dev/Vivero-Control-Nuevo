@@ -40,6 +40,18 @@ data class ReserveLinePayload(
     )
 }
 
+data class InitiateCountCorrectionPayload(
+    val conteoId: String,
+    val dispositivoId: String,
+    val claveIdempotencia: String,
+) {
+    fun toWireMap(): Map<String, String> = mapOf(
+        "conteoId" to conteoId,
+        "dispositivoId" to dispositivoId,
+        "claveIdempotencia" to claveIdempotencia,
+    )
+}
+
 data class ConfirmedReservation(
     val reservationId: String,
     val userId: String,
@@ -49,6 +61,18 @@ data class ConfirmedReservation(
     val state: String,
     val confirmedAt: String,
     val version: Int,
+    val location: VisibleLocation,
+    val reservationType: String = "INICIAL",
+    val previousCountId: String? = null,
+    val nextCountVersion: Int = 1,
+)
+
+data class ReturnedCount(
+    val countId: String,
+    val journeyLineId: String,
+    val version: Int,
+    val reason: String,
+    val input: CountInput,
     val location: VisibleLocation,
 )
 

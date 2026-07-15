@@ -8,7 +8,7 @@
   "properties": {
     "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "actorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
-    "operacion": {"enum": ["RESERVAR_LINEA", "ENVIAR_CONTEO", "APROBAR_CONTEO", "DEVOLVER_CONTEO"]},
+    "operacion": {"enum": ["RESERVAR_LINEA", "ENVIAR_CONTEO", "APROBAR_CONTEO", "DEVOLVER_CONTEO", "INICIAR_CORRECCION_CONTEO"]},
     "claveHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "payloadHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "resultado": {
@@ -16,7 +16,8 @@
         {"$ref": "reserve-line-result.schema.json"},
         {"$ref": "send-count-result.schema.json"},
         {"$ref": "approve-count-result.schema.json"},
-        {"$ref": "return-count-result.schema.json"}
+        {"$ref": "return-count-result.schema.json"},
+        {"$ref": "initiate-count-correction-result.schema.json"}
       ]
     },
     "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}

@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [ConfirmedReservationEntity::class, CountDraftEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class ViveroCampoDatabase : RoomDatabase() {
@@ -54,6 +54,14 @@ abstract class ViveroCampoDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS index_count_drafts_syncState ON count_drafts (syncState)",
                 )
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE confirmed_reservations ADD COLUMN reservationType TEXT NOT NULL DEFAULT 'INICIAL'")
+                db.execSQL("ALTER TABLE confirmed_reservations ADD COLUMN previousCountId TEXT")
+                db.execSQL("ALTER TABLE confirmed_reservations ADD COLUMN nextCountVersion INTEGER NOT NULL DEFAULT 1")
             }
         }
     }

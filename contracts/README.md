@@ -2,7 +2,7 @@
 
 Los JSON Schema Draft 2020-12 son el lenguaje común de Campo, Maestro y backend.
 
-La Etapa 5 añade solicitudes y resultados estrictos para `aprobarConteo` y `devolverConteo`, amplía los resultados idempotentes y formaliza decisiones separadas, inventario oficial y movimientos históricos.
+La Etapa 6 añade contratos estrictos para `iniciarCorreccionConteo`, reservas `CORRECCION` y cadenas inmutables de versiones.
 
 Reglas de frontera:
 
@@ -14,8 +14,11 @@ Reglas de frontera:
 - devolución no modifica inventario;
 - el inventario inicial nunca se supone cero;
 - propiedades adicionales son inválidas.
+- una versión 1 usa `conteoAnteriorId = null`; toda versión posterior apunta a su antecesora;
+- iniciar una corrección solo recibe conteo, dispositivo y clave idempotente;
+- reenviar una corrección sigue sin modificar inventario oficial.
 
-Los ejemplos ficticios de revisión están en `examples/etapa-05/`.
+Los ejemplos ficticios de corrección están en `examples/etapa-06/`.
 
 ```powershell
 npm ci

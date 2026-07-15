@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/initiate-count-correction-request.schema.json",
+  "title": "IniciarCorreccionConteoRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["conteoId", "dispositivoId", "claveIdempotencia"],
+  "properties": {
+    "conteoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "dispositivoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}
+  }
+}

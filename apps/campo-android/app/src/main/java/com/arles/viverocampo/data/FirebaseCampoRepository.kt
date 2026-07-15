@@ -15,10 +15,12 @@ import com.arles.viverocampo.domain.CountFormValidator
 import com.arles.viverocampo.domain.CountInput
 import com.arles.viverocampo.domain.CountSyncOutcome
 import com.arles.viverocampo.domain.FrozenCountPayload
+import com.arles.viverocampo.domain.InitiateCountCorrectionPayload
 import com.arles.viverocampo.domain.JourneyLine
 import com.arles.viverocampo.domain.JourneySnapshot
 import com.arles.viverocampo.domain.LocalCountDraft
 import com.arles.viverocampo.domain.ReserveLinePayload
+import com.arles.viverocampo.domain.ReturnedCount
 import com.arles.viverocampo.domain.SyncState
 import com.arles.viverocampo.domain.UserProfile
 import com.arles.viverocampo.domain.VisibleLocation
@@ -106,6 +108,85 @@ class FirebaseCampoRepository(
         }
     }
 
+    override fun observeReturnedCounts(userId: String): Flow<List<ReturnedCount>> = callbackFlow {
+        var lineStates = emptyMap<String, Pair<String, String?>>()
+        var counts = emptyMap<String, ReturnedCount>()
+        var reasons = emptyMap<String, String>()
+
+        fun publish() {
+            val returned = counts.values.filter { count ->
+                val line = lineStates[count.journeyLineId]
+                line?.first == "DEVUELTA" && line.second == count.countId && reasons.containsKey(count.countId)
+            }.map { count ->
+                count.copy(reason = reasons.getValue(count.countId))
+            }.sortedBy { it.location.order }
+            trySend(returned)
+        }
+
+        val linesRegistration = services.firestore.collection("jornadaLineas")
+            .whereEqualTo("jornadaId", ACTIVE_JOURNEY_ID)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(CampoRepositoryException("NETWORK_ERROR", "No fue posible leer conteos devueltos.", error))
+                } else if (snapshot != null) {
+                    lineStates = snapshot.documents.associate { document ->
+                        document.id to ((document.getString("estadoCentral") ?: "") to document.getString("conteoVigenteId"))
+                    }
+                    publish()
+                }
+            }
+        val countsRegistration = services.firestore.collection("conteos")
+            .whereEqualTo("autorUsuarioId", userId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(CampoRepositoryException("NETWORK_ERROR", "No fue posible leer tus conteos.", error))
+                } else if (snapshot != null) {
+                    counts = snapshot.documents.mapNotNull { document ->
+                        val journeyLineId = document.getString("jornadaLineaId") ?: return@mapNotNull null
+                        val location = parseLocation(document.get("ubicacion")) ?: return@mapNotNull null
+                        val females = document.getLong("hembras") ?: return@mapNotNull null
+                        val males = document.getLong("machos") ?: return@mapNotNull null
+                        val rootstocks = document.getLong("patrones") ?: return@mapNotNull null
+                        val version = document.getLong("versionNumero")?.toInt() ?: return@mapNotNull null
+                        document.id to ReturnedCount(
+                            countId = document.id,
+                            journeyLineId = journeyLineId,
+                            version = version,
+                            reason = "",
+                            input = CountInput(
+                                females = females.toString(),
+                                males = males.toString(),
+                                rootstocks = rootstocks.toString(),
+                                observations = document.getString("observaciones").orEmpty(),
+                            ),
+                            location = location,
+                        )
+                    }.toMap()
+                    publish()
+                }
+            }
+        val decisionsRegistration = services.firestore.collection("decisionesRevision")
+            .whereEqualTo("autorUsuarioId", userId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(CampoRepositoryException("NETWORK_ERROR", "No fue posible leer motivos de devolución.", error))
+                } else if (snapshot != null) {
+                    reasons = snapshot.documents.mapNotNull { document ->
+                        if (document.getString("decision") != "DEVOLVER") return@mapNotNull null
+                        val countId = document.getString("conteoId") ?: return@mapNotNull null
+                        val reason = document.getString("motivo") ?: return@mapNotNull null
+                        countId to reason
+                    }.toMap()
+                    publish()
+                }
+            }
+        awaitClose {
+            linesRegistration.remove()
+            countsRegistration.remove()
+            decisionsRegistration.remove()
+        }
+    }
+
     override suspend fun reserveLine(payload: ReserveLinePayload, userId: String): ConfirmedReservation {
         try {
             val response = services.functions.getHttpsCallable("reservarLinea").call(payload.toWireMap()).await().data
@@ -129,6 +210,53 @@ class FirebaseCampoRepository(
         } catch (error: FirebaseFunctionsException) {
             val controlledCode = (error.details as? Map<*, *>)?.get("code") as? String ?: "NETWORK_ERROR"
             throw CampoRepositoryException(controlledCode, error.message ?: "No fue posible reservar la línea.", error)
+        } catch (error: Exception) {
+            throw CampoRepositoryException(
+                "NETWORK_ERROR",
+                "No se recibió confirmación central. Reintenta con la misma solicitud.",
+                error,
+            )
+        }
+    }
+
+    override suspend fun initiateCountCorrection(
+        payload: InitiateCountCorrectionPayload,
+        userId: String,
+        initialInput: CountInput,
+    ): ConfirmedReservation {
+        try {
+            val response = services.functions.getHttpsCallable("iniciarCorreccionConteo")
+                .call(payload.toWireMap()).await().data as? Map<*, *>
+                ?: throw CampoRepositoryException("INVALID_RESPONSE", "El backend devolvió una respuesta inválida.")
+            val token = response["tokenReserva"] as? String
+                ?: throw CampoRepositoryException("INVALID_RESPONSE", "La corrección no contiene un token opaco válido.")
+            val reservation = parseReservation(response, userId, payload.dispositivoId)
+            val encrypted = try {
+                tokenVault.encrypt(token)
+            } catch (error: Exception) {
+                throw CampoRepositoryException(
+                    "TOKEN_ENCRYPTION_FAILED",
+                    "No fue posible proteger la corrección en este dispositivo.",
+                    error,
+                )
+            }
+            database.withTransaction {
+                reservationDao.save(reservation.toEntity(encrypted))
+                draftDao.save(
+                    emptyDraft(reservation.reservationId, userId, payload.dispositivoId).copy(
+                        femalesInput = initialInput.females,
+                        malesInput = initialInput.males,
+                        rootstocksInput = initialInput.rootstocks,
+                        observationsInput = initialInput.observations,
+                    ),
+                )
+            }
+            return reservation
+        } catch (error: CampoRepositoryException) {
+            throw error
+        } catch (error: FirebaseFunctionsException) {
+            val controlledCode = (error.details as? Map<*, *>)?.get("code") as? String ?: "NETWORK_ERROR"
+            throw CampoRepositoryException(controlledCode, error.message ?: "No fue posible iniciar la corrección.", error)
         } catch (error: Exception) {
             throw CampoRepositoryException(
                 "NETWORK_ERROR",
@@ -292,6 +420,9 @@ class FirebaseCampoRepository(
         confirmedAt = response["reservadaEn"] as? String ?: invalidResponse("Falta reservadaEn."),
         version = (response["version"] as? Number)?.toInt() ?: invalidResponse("Falta version."),
         location = parseLocation(response["ubicacion"]) ?: invalidResponse("Falta ubicación."),
+        reservationType = response["tipoReserva"] as? String ?: "INICIAL",
+        previousCountId = response["conteoAnteriorId"] as? String,
+        nextCountVersion = (response["versionConteoSiguiente"] as? Number)?.toInt() ?: 1,
     )
 
     private fun invalidResponse(message: String): Nothing = throw CampoRepositoryException("INVALID_RESPONSE", message)
@@ -325,6 +456,9 @@ class FirebaseCampoRepository(
         orderValue = location.order,
         tokenCiphertext = encrypted.ciphertext,
         tokenIv = encrypted.iv,
+        reservationType = reservationType,
+        previousCountId = previousCountId,
+        nextCountVersion = nextCountVersion,
     )
 
     private fun ConfirmedReservationEntity.toDomain() = ConfirmedReservation(
@@ -337,6 +471,9 @@ class FirebaseCampoRepository(
         confirmedAt = confirmedAt,
         version = version,
         location = VisibleLocation(nursery, module, bed, line, displayName, orderValue),
+        reservationType = reservationType,
+        previousCountId = previousCountId,
+        nextCountVersion = nextCountVersion,
     )
 
     private fun CountDraftEntity.input() = CountInput(femalesInput, malesInput, rootstocksInput, observationsInput)

@@ -36,6 +36,8 @@ export interface MonitorCount {
   readonly deviceTimestamp: string;
   readonly serverTimestamp: string;
   readonly version: number;
+  readonly previousCountId?: string;
+  readonly returnReason?: string;
 }
 
 export interface MonitorInventory {
@@ -51,8 +53,10 @@ export interface MonitorLine {
   readonly lineId: string;
   readonly state: "DISPONIBLE" | "EN_CONTEO" | "PENDIENTE_REVISION" | "DEVUELTA" | "APROBADA";
   readonly location: MonitorLocation;
+  readonly currentCountId?: string;
   readonly reservation?: MonitorReservation;
   readonly count?: MonitorCount;
+  readonly countHistory?: readonly MonitorCount[];
   readonly inventory?: MonitorInventory;
 }
 

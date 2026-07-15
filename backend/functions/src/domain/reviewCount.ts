@@ -25,6 +25,7 @@ interface CountDocument {
   readonly jornadaLineaId?: string;
   readonly lineaId?: string;
   readonly autorUsuarioId?: string;
+  readonly autorNombreVisible?: string;
   readonly hembras?: number;
   readonly machos?: number;
   readonly patrones?: number;
@@ -425,6 +426,12 @@ export class ReturnCountService {
       transaction.update(lineRef, {
         estadoCentral: "DEVUELTA",
         decisionVigenteId: decisionId,
+        responsableCorreccionUsuarioId: review.count.autorUsuarioId,
+        responsableCorreccionNombreVisible: review.count.autorNombreVisible ?? "Usuario de prueba",
+        reasignacionActivaId: null,
+        reasignadaPorUsuarioId: null,
+        reasignadaPorNombreVisible: null,
+        motivoReasignacion: null,
         version: nextLineVersion,
         actualizadaEn: decidedAt
       });

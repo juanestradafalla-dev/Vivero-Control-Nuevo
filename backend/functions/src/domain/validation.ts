@@ -1,6 +1,7 @@
 import type {
   ApproveCountRequest,
   InitiateCountCorrectionRequest,
+  ReassignCountCorrectionRequest,
   ReserveLineRequest,
   ReturnCountRequest,
   SendCountRequest
@@ -26,6 +27,7 @@ const timestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z
 const approveCountFields = new Set(["conteoId", "claveIdempotencia", "motivoExcepcion"]);
 const returnCountFields = new Set(["conteoId", "motivo", "claveIdempotencia"]);
 const initiateCorrectionFields = new Set(["conteoId", "dispositivoId", "claveIdempotencia"]);
+const reassignCorrectionFields = new Set(["conteoId", "nuevoUsuarioId", "motivo", "claveIdempotencia"]);
 const REVIEW_REASON_LIMIT = 2000;
 
 function parseReviewBase(
@@ -100,6 +102,23 @@ export function parseInitiateCountCorrectionRequest(value: unknown): InitiateCou
     conteoId: record.conteoId,
     dispositivoId: record.dispositivoId,
     claveIdempotencia: record.claveIdempotencia
+  };
+}
+
+export function parseReassignCountCorrectionRequest(value: unknown): ReassignCountCorrectionRequest {
+  const record = parseReviewBase(value, reassignCorrectionFields);
+  if (
+    typeof record.nuevoUsuarioId !== "string" ||
+    !safeIdPattern.test(record.nuevoUsuarioId)
+  ) {
+    throw domainErrors.invalidArgument();
+  }
+  if (!validReason(record.motivo)) throw domainErrors.correctionReassignmentReasonRequired();
+  return {
+    conteoId: record.conteoId as string,
+    nuevoUsuarioId: record.nuevoUsuarioId,
+    motivo: (record.motivo as string).trim(),
+    claveIdempotencia: record.claveIdempotencia as string
   };
 }
 

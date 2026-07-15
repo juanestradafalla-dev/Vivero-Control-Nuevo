@@ -167,7 +167,7 @@ describe("corrección versionada mediante emuladores reales", () => {
   it("rechaza otro usuario y una línea que no está DEVUELTA", async () => {
     const {author, count} = await returnedCount();
     const other = await authenticatedClient("auxiliar2@prueba.local", "other-author");
-    await expectRejectCode(initiate(other, count.conteoId), "COUNT_AUTHOR_MISMATCH");
+    await expectRejectCode(initiate(other, count.conteoId), "CORRECTION_RESPONSIBLE_MISMATCH");
 
     await seedEmulator();
     const pending = await send(author, await reserve(author, 1));

@@ -39,13 +39,38 @@ beforeAll(async () => {
       id: "DECISION-AUXILIAR-1",
       jornadaId: ACTIVE_JOURNEY_ID,
       autorUsuarioId: "uid-auxiliar-1",
+      jornadaLineaId: journeyLineId(1),
+      conteoId: "CONTEO-AUXILIAR-1",
       decision: "APROBAR"
     });
     await setDoc(doc(database, "decisionesRevision/DECISION-AUXILIAR-2"), {
       id: "DECISION-AUXILIAR-2",
       jornadaId: ACTIVE_JOURNEY_ID,
       autorUsuarioId: "uid-auxiliar-2",
+      jornadaLineaId: journeyLineId(2),
+      conteoId: "CONTEO-AUXILIAR-2",
       decision: "DEVOLVER"
+    });
+    await setDoc(doc(database, `jornadaLineas/${journeyLineId(1)}`), {
+      id: journeyLineId(1),
+      jornadaId: ACTIVE_JOURNEY_ID,
+      lineaId: "LINEA-PRUEBA-1",
+      activa: true,
+      estadoCentral: "DEVUELTA",
+      conteoVigenteId: "CONTEO-AUXILIAR-1",
+      responsableCorreccionUsuarioId: "uid-auxiliar-2",
+      reasignacionActivaId: "REASIGNACION-PRUEBA-1"
+    });
+    await setDoc(doc(database, "reasignacionesCorreccion/REASIGNACION-PRUEBA-1"), {
+      id: "REASIGNACION-PRUEBA-1",
+      jornadaId: ACTIVE_JOURNEY_ID,
+      jornadaLineaId: journeyLineId(1),
+      conteoId: "CONTEO-AUXILIAR-1",
+      autorOriginalUsuarioId: "uid-auxiliar-1",
+      nuevoUsuarioId: "uid-auxiliar-2",
+      actorUsuarioId: "uid-supervisor",
+      motivo: "Autor ausente",
+      inmutable: true
     });
     await setDoc(doc(database, "inventarioOficialLineas/LINEA-PRUEBA-1"), {
       id: "LINEA-PRUEBA-1",
@@ -167,6 +192,33 @@ describe("lecturas mínimas y escrituras críticas cerradas en la ETAPA 5", () =
     await assertFails(updateDoc(doc(database, "inventarioOficialLineas/LINEA-PRUEBA-1"), {total: 1}));
     await assertFails(setDoc(doc(database, "movimientosInventario/MOVIMIENTO-DIRECTO"), {total: 1}));
     await assertFails(deleteDoc(doc(database, "decisionesRevision/DECISION-AUXILIAR-1")));
+  });
+
+  it("permite al asignado leer la corrección y mantiene terceros fuera", async () => {
+    const assigned = testEnvironment.authenticatedContext("uid-auxiliar-2").firestore();
+    await assertSucceeds(getDoc(doc(assigned, "reasignacionesCorreccion/REASIGNACION-PRUEBA-1")));
+    await assertSucceeds(getDoc(doc(assigned, "conteos/CONTEO-AUXILIAR-1")));
+    await assertSucceeds(getDoc(doc(assigned, "decisionesRevision/DECISION-AUXILIAR-1")));
+
+    const unrelated = testEnvironment.authenticatedContext("uid-inactivo-prueba").firestore();
+    await assertFails(getDoc(doc(unrelated, "reasignacionesCorreccion/REASIGNACION-PRUEBA-1")));
+  });
+
+  it("permite al supervisor consultar candidatos activos y autorizaciones de su jornada", async () => {
+    const supervisor = testEnvironment.authenticatedContext("uid-supervisor").firestore();
+    await assertFails(getDocs(query(collection(supervisor, "usuarios"), where("activo", "==", true))));
+    await assertSucceeds(getDocs(collection(supervisor, `jornadas/${ACTIVE_JOURNEY_ID}/autorizaciones`)));
+
+    const auxiliary = testEnvironment.authenticatedContext("uid-auxiliar-1").firestore();
+    await assertFails(getDocs(query(collection(auxiliary, "usuarios"), where("activo", "==", true))));
+    await assertFails(getDocs(collection(auxiliary, `jornadas/${ACTIVE_JOURNEY_ID}/autorizaciones`)));
+  });
+
+  it("rechaza crear, editar o eliminar reasignaciones desde clientes", async () => {
+    const database = testEnvironment.authenticatedContext("uid-administrador").firestore();
+    await assertFails(setDoc(doc(database, "reasignacionesCorreccion/DIRECTA"), {conteoId: "CONTEO-AUXILIAR-1"}));
+    await assertFails(updateDoc(doc(database, "reasignacionesCorreccion/REASIGNACION-PRUEBA-1"), {motivo: "Otro"}));
+    await assertFails(deleteDoc(doc(database, "reasignacionesCorreccion/REASIGNACION-PRUEBA-1")));
   });
 
   it("rechaza todas las escrituras directas de estado, reserva, auditoría e idempotencia", async () => {

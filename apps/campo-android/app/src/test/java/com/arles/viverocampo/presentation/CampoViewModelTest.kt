@@ -2,6 +2,7 @@ package com.arles.viverocampo.presentation
 
 import com.arles.viverocampo.data.sync.CountSyncScheduler
 import com.arles.viverocampo.domain.CampoRepository
+import com.arles.viverocampo.domain.ActiveJourney
 import com.arles.viverocampo.domain.CampoRepositoryException
 import com.arles.viverocampo.domain.ConfirmedReservation
 import com.arles.viverocampo.domain.CountFormValidator
@@ -60,6 +61,38 @@ class CampoViewModelTest {
         assertEquals("Auxiliar ficticio", viewModel.uiState.value.user?.name)
         assertEquals("Jornada ficticia", viewModel.uiState.value.journey?.displayName)
         assertEquals("CONECTADO", viewModel.uiState.value.connectionStatus)
+        assertEquals("jornada-prueba", viewModel.uiState.value.selectedJourneyId)
+    }
+
+    @Test
+    fun `varias jornadas exigen selección y cambian la fuente de líneas`() = runTest {
+        repository.activeJourneys = listOf(activeJourney, secondActiveJourney)
+        login()
+        assertNull(viewModel.uiState.value.journey)
+
+        viewModel.selectJourney(secondActiveJourney.id)
+        advanceUntilIdle()
+        assertEquals(secondActiveJourney.id, viewModel.uiState.value.selectedJourneyId)
+        assertEquals("Jornada ficticia 2", viewModel.uiState.value.journey?.displayName)
+        assertEquals(listOf(secondActiveJourney.id), repository.observedJourneyIds)
+    }
+
+    @Test
+    fun `reserva en jornada seleccionada y bloquea cambio con trabajo pendiente`() = runTest {
+        repository.activeJourneys = listOf(activeJourney, secondActiveJourney)
+        repository.reserveBehavior = { secondJourneyReservation }
+        login()
+        viewModel.selectJourney(secondActiveJourney.id)
+        advanceUntilIdle()
+        viewModel.selectLine(secondJourneyLine)
+        viewModel.confirmReservation()
+        advanceUntilIdle()
+
+        assertEquals(secondJourneyLine.id, repository.reservePayloads.single().jornadaLineaId)
+        assertEquals(secondActiveJourney.id, viewModel.uiState.value.confirmedReservation?.journeyId)
+        viewModel.selectJourney(activeJourney.id)
+        assertEquals(secondActiveJourney.id, viewModel.uiState.value.selectedJourneyId)
+        assertTrue(viewModel.uiState.value.message?.contains("trabajo pendiente") == true)
     }
 
     @Test
@@ -315,7 +348,12 @@ class CampoViewModelTest {
 
     private class FakeCampoRepository : CampoRepository {
         override val emulatorEnabled = true
-        private val journey = MutableStateFlow(journeySnapshot)
+        var activeJourneys: List<ActiveJourney> = listOf(activeJourney)
+        private val journeys = mapOf(
+            activeJourney.id to MutableStateFlow(journeySnapshot),
+            secondActiveJourney.id to MutableStateFlow(secondJourneySnapshot),
+        )
+        val observedJourneyIds = mutableListOf<String>()
         val returnedCounts = MutableStateFlow<List<ReturnedCount>>(emptyList())
         private val drafts = mutableMapOf<Triple<String, String, String>, MutableStateFlow<LocalCountDraft?>>()
         private val reservationStates = mutableMapOf<String, MutableStateFlow<String>>()
@@ -327,8 +365,12 @@ class CampoViewModelTest {
 
         override suspend fun signIn(email: String, password: String) = UserProfile("uid-auxiliar-1", "Auxiliar ficticio", "AUXILIAR")
         override suspend fun signOut() = Unit
-        override fun observeActiveJourney(): Flow<JourneySnapshot> = journey
-        override fun observeReturnedCounts(userId: String): Flow<List<ReturnedCount>> = returnedCounts
+        override suspend fun listActiveJourneys(): List<ActiveJourney> = activeJourneys
+        override fun observeJourney(journeyId: String): Flow<JourneySnapshot> {
+            observedJourneyIds += journeyId
+            return requireNotNull(journeys[journeyId])
+        }
+        override fun observeReturnedCounts(userId: String, journeyId: String): Flow<List<ReturnedCount>> = returnedCounts
         override suspend fun reserveLine(payload: ReserveLinePayload, userId: String): ConfirmedReservation {
             reservePayloads += payload
             return reserveBehavior().also { latestReservation = it }
@@ -428,6 +470,11 @@ class CampoViewModelTest {
         val secondLocation = location.copy(line = "LINEA-2", displayName = "Línea ficticia 2", order = 2)
         val secondAvailableLine = JourneyLine("jornada-linea-2", "DISPONIBLE", 0, secondLocation)
         val journeySnapshot = JourneySnapshot("jornada-prueba", "Jornada ficticia", listOf(availableLine, secondAvailableLine))
+        val activeJourney = ActiveJourney("jornada-prueba", "Jornada ficticia", "ACTIVA", "AUXILIAR", true, 2)
+        val secondJourneyLocation = location.copy(module = "MODULO-2", line = "LINEA-B-1", displayName = "Línea B1")
+        val secondJourneyLine = JourneyLine("jornada-prueba-2__linea-b-1", "DISPONIBLE", 0, secondJourneyLocation)
+        val secondJourneySnapshot = JourneySnapshot("jornada-prueba-2", "Jornada ficticia 2", listOf(secondJourneyLine))
+        val secondActiveJourney = ActiveJourney("jornada-prueba-2", "Jornada ficticia 2", "ACTIVA", "AUXILIAR", true, 1)
         val confirmedReservation = ConfirmedReservation(
             "reserva-prueba", "uid-auxiliar-1", DEVICE_ID, "jornada-prueba", availableLine.id, "EN_CONTEO",
             "2026-07-13T12:00:00.000Z", 1, location,
@@ -435,6 +482,10 @@ class CampoViewModelTest {
         val secondConfirmedReservation = ConfirmedReservation(
             "reserva-prueba-2", "uid-auxiliar-1", DEVICE_ID, "jornada-prueba", secondAvailableLine.id, "EN_CONTEO",
             "2026-07-13T12:10:00.000Z", 1, secondLocation,
+        )
+        val secondJourneyReservation = ConfirmedReservation(
+            "reserva-jornada-2", "uid-auxiliar-1", DEVICE_ID, secondActiveJourney.id, secondJourneyLine.id, "EN_CONTEO",
+            "2026-07-16T12:00:00.000Z", 1, secondJourneyLocation,
         )
         val returnedCount = ReturnedCount(
             countId = "conteo-version-1",

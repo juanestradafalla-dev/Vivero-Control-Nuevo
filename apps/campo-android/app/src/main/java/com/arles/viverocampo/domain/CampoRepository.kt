@@ -9,9 +9,11 @@ interface CampoRepository {
 
     suspend fun signOut()
 
-    fun observeActiveJourney(): Flow<JourneySnapshot>
+    suspend fun listActiveJourneys(): List<ActiveJourney>
 
-    fun observeReturnedCounts(userId: String): Flow<List<ReturnedCount>>
+    fun observeJourney(journeyId: String): Flow<JourneySnapshot>
+
+    fun observeReturnedCounts(userId: String, journeyId: String): Flow<List<ReturnedCount>>
 
     suspend fun reserveLine(
         payload: ReserveLinePayload,

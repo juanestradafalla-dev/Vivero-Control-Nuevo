@@ -9,6 +9,7 @@ import com.arles.viverocampo.data.local.ViveroCampoDatabase
 import com.arles.viverocampo.data.security.EncryptedReservationToken
 import com.arles.viverocampo.data.security.ReservationTokenVault
 import com.arles.viverocampo.domain.CampoRepository
+import com.arles.viverocampo.domain.ActiveJourney
 import com.arles.viverocampo.domain.CampoRepositoryException
 import com.arles.viverocampo.domain.ConfirmedReservation
 import com.arles.viverocampo.domain.CountFormValidator
@@ -69,25 +70,55 @@ class FirebaseCampoRepository(
         services.auth.signOut()
     }
 
-    override fun observeActiveJourney(): Flow<JourneySnapshot> = callbackFlow {
+    override suspend fun listActiveJourneys(): List<ActiveJourney> {
+        try {
+            val response = services.functions.getHttpsCallable("listarJornadasActivas")
+                .call(emptyMap<String, Any>()).await().data as? Map<*, *>
+                ?: throw CampoRepositoryException("INVALID_RESPONSE", "El backend devolvió una lista de jornadas inválida.")
+            val journeys = response["jornadas"] as? List<*>
+                ?: throw CampoRepositoryException("INVALID_RESPONSE", "La respuesta no contiene jornadas.")
+            return journeys.map { value ->
+                val journey = value as? Map<*, *>
+                    ?: throw CampoRepositoryException("INVALID_RESPONSE", "Una jornada no tiene formato válido.")
+                ActiveJourney(
+                    id = journey["jornadaId"] as? String ?: invalidResponse("Falta jornadaId."),
+                    displayName = journey["nombreVisible"] as? String ?: invalidResponse("Falta nombreVisible."),
+                    state = journey["estado"] as? String ?: invalidResponse("Falta estado."),
+                    effectiveRole = journey["rolEfectivo"] as? String ?: invalidResponse("Falta rolEfectivo."),
+                    canCount = journey["puedeContar"] as? Boolean ?: invalidResponse("Falta puedeContar."),
+                    lineCount = (journey["cantidadLineas"] as? Number)?.toInt()
+                        ?: invalidResponse("Falta cantidadLineas."),
+                )
+            }
+        } catch (error: CampoRepositoryException) {
+            throw error
+        } catch (error: FirebaseFunctionsException) {
+            val controlledCode = (error.details as? Map<*, *>)?.get("code") as? String ?: "NETWORK_ERROR"
+            throw CampoRepositoryException(controlledCode, error.message ?: "No fue posible consultar las jornadas.", error)
+        } catch (error: Exception) {
+            throw CampoRepositoryException("NETWORK_ERROR", "No fue posible consultar las jornadas activas.", error)
+        }
+    }
+
+    override fun observeJourney(journeyId: String): Flow<JourneySnapshot> = callbackFlow {
         var journeyName: String? = null
         var lines: List<JourneyLine>? = null
         fun publishWhenReady() {
             val currentName = journeyName ?: return
             val currentLines = lines ?: return
-            trySend(JourneySnapshot(ACTIVE_JOURNEY_ID, currentName, currentLines))
+            trySend(JourneySnapshot(journeyId, currentName, currentLines))
         }
-        val journeyRegistration = services.firestore.collection("jornadas").document(ACTIVE_JOURNEY_ID)
+        val journeyRegistration = services.firestore.collection("jornadas").document(journeyId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     close(CampoRepositoryException("NETWORK_ERROR", "No fue posible leer la jornada de prueba.", error))
                 } else if (snapshot?.exists() == true) {
-                    journeyName = snapshot.getString("nombreVisible") ?: ACTIVE_JOURNEY_ID
+                    journeyName = snapshot.getString("nombreVisible") ?: journeyId
                     publishWhenReady()
                 }
             }
         val linesRegistration = services.firestore.collection("jornadaLineas")
-            .whereEqualTo("jornadaId", ACTIVE_JOURNEY_ID)
+            .whereEqualTo("jornadaId", journeyId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     close(CampoRepositoryException("NETWORK_ERROR", "No fue posible leer las líneas de prueba.", error))
@@ -109,7 +140,7 @@ class FirebaseCampoRepository(
         }
     }
 
-    override fun observeReturnedCounts(userId: String): Flow<List<ReturnedCount>> = callbackFlow {
+    override fun observeReturnedCounts(userId: String, journeyId: String): Flow<List<ReturnedCount>> = callbackFlow {
         data class LineState(
             val state: String,
             val currentCountId: String?,
@@ -146,7 +177,7 @@ class FirebaseCampoRepository(
         }
 
         val linesRegistration = services.firestore.collection("jornadaLineas")
-            .whereEqualTo("jornadaId", ACTIVE_JOURNEY_ID)
+            .whereEqualTo("jornadaId", journeyId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     close(CampoRepositoryException("NETWORK_ERROR", "No fue posible leer conteos devueltos.", error))
@@ -520,7 +551,7 @@ class FirebaseCampoRepository(
         reservationId = response["reservaId"] as? String ?: invalidResponse("Falta reservaId."),
         userId = userId,
         deviceId = deviceId,
-        journeyId = ACTIVE_JOURNEY_ID,
+        journeyId = response["jornadaId"] as? String ?: invalidResponse("Falta jornadaId."),
         journeyLineId = response["jornadaLineaId"] as? String ?: invalidResponse("Falta jornadaLineaId."),
         state = response["estadoCentral"] as? String ?: invalidResponse("Falta estadoCentral."),
         confirmedAt = response["reservadaEn"] as? String ?: invalidResponse("Falta reservadaEn."),
@@ -620,7 +651,6 @@ class FirebaseCampoRepository(
     )
 
     private companion object {
-        const val ACTIVE_JOURNEY_ID = "JORNADA-PRUEBA-ETAPA-3"
         val RETRYABLE_CODES = setOf("NETWORK_ERROR", "INTERNAL_ERROR")
     }
 }

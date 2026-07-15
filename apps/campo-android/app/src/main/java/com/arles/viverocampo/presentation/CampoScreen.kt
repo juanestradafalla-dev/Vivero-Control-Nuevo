@@ -30,6 +30,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.arles.viverocampo.domain.JourneyLine
+import com.arles.viverocampo.domain.ActiveJourney
 import com.arles.viverocampo.domain.ReturnedCount
 import com.arles.viverocampo.domain.SyncState
 
@@ -58,6 +59,8 @@ fun CampoRoute(viewModel: CampoViewModel) {
         onPasswordChange = viewModel::updatePassword,
         onSignIn = viewModel::signIn,
         onSignOut = viewModel::signOut,
+        onSelectJourney = viewModel::selectJourney,
+        onReturnToJourneySelection = viewModel::returnToJourneySelection,
         onSelectLine = viewModel::selectLine,
         onCancelSelection = viewModel::cancelSelection,
         onConfirmReservation = viewModel::confirmReservation,
@@ -81,6 +84,8 @@ private fun CampoScreen(
     onPasswordChange: (String) -> Unit,
     onSignIn: () -> Unit,
     onSignOut: () -> Unit,
+    onSelectJourney: (String) -> Unit,
+    onReturnToJourneySelection: () -> Unit,
     onSelectLine: (JourneyLine) -> Unit,
     onCancelSelection: () -> Unit,
     onConfirmReservation: () -> Unit,
@@ -116,7 +121,8 @@ private fun CampoScreen(
                     onRetry,
                     onFinishAndTakeAnotherLine,
                 )
-                else -> JourneyContent(state, onSignOut, onSelectLine, onCorrectCount)
+                state.journey == null -> JourneySelectionContent(state, onSignOut, onSelectJourney)
+                else -> JourneyContent(state, onSignOut, onReturnToJourneySelection, onSelectLine, onCorrectCount)
             }
         }
     }
@@ -251,7 +257,7 @@ private fun CountContent(
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(if (released) "Reserva liberada" else "Línea en conteo", fontWeight = FontWeight.Bold)
-                    Text("Jornada: ${reservation.journeyId}")
+                    Text("Jornada: ${state.journey?.displayName ?: reservation.journeyId}")
                     Text("Vivero: ${reservation.location.nursery}")
                     Text("Módulo: ${reservation.location.module}")
                     Text("Cama: ${reservation.location.bed}")
@@ -358,6 +364,7 @@ private fun QuantityField(
 private fun JourneyContent(
     state: CampoUiState,
     onSignOut: () -> Unit,
+    onReturnToJourneySelection: () -> Unit,
     onSelectLine: (JourneyLine) -> Unit,
     onCorrectCount: (ReturnedCount) -> Unit,
 ) {
@@ -374,6 +381,15 @@ private fun JourneyContent(
                     Text("Conexión: ${state.connectionStatus}")
                 }
                 OutlinedButton(onClick = onSignOut, enabled = !state.reserving) { Text("Salir") }
+            }
+        }
+        if (state.activeJourneys.size > 1) {
+            item {
+                OutlinedButton(
+                    onClick = onReturnToJourneySelection,
+                    enabled = !state.reserving && state.correctingCountId == null,
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Cambiar jornada") }
             }
         }
         state.message?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
@@ -445,6 +461,44 @@ private fun JourneyContent(
                     Button(onClick = { onSelectLine(line) }, enabled = line.state == "DISPONIBLE" && !state.reserving) {
                         Text(if (line.state == "DISPONIBLE") "Tomar línea" else "No disponible")
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun JourneySelectionContent(
+    state: CampoUiState,
+    onSignOut: () -> Unit,
+    onSelectJourney: (String) -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        item {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Text(state.user?.name.orEmpty(), fontWeight = FontWeight.Bold)
+                    Text("Selecciona una jornada activa")
+                }
+                OutlinedButton(onClick = onSignOut) { Text("Salir") }
+            }
+        }
+        state.message?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
+        items(state.activeJourneys, key = ActiveJourney::id) { journey ->
+            Card(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(journey.displayName, fontWeight = FontWeight.Bold)
+                    Text("Rol efectivo: ${journey.effectiveRole}")
+                    Text("Líneas: ${journey.lineCount}")
+                    Button(
+                        onClick = { onSelectJourney(journey.id) },
+                        enabled = journey.state == "ACTIVA",
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Entrar a esta jornada") }
                 }
             }
         }

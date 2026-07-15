@@ -20,6 +20,7 @@ import type {
   MonitorCorrectionCandidate,
   MonitorCorrectionResponsibility,
   MonitorInventory,
+  MonitorJourney,
   MonitorLine,
   MonitorLocation,
   MonitorRepository,
@@ -30,8 +31,6 @@ import type {
   MonitorUser,
 } from "../domain/MonitorModels";
 import {sortMonitorLines} from "../domain/MonitorModels";
-
-const activeJourneyId = "JORNADA-PRUEBA-ETAPA-3";
 
 function isRole(value: unknown): value is MonitorRole {
   return value === "AUXILIAR" || value === "SUPERVISOR" || value === "ADMINISTRADOR";
@@ -117,6 +116,36 @@ export class FirebaseMonitorRepository implements MonitorRepository {
     await this.auth.signOut();
   }
 
+  async listActiveJourneys(): Promise<readonly MonitorJourney[]> {
+    const callable = httpsCallable<Record<string, never>, {jornadas: unknown[]}>(this.functions, "listarJornadasActivas");
+    try {
+      const response = await callable({});
+      if (!Array.isArray(response.data.jornadas)) throw new Error("La respuesta no contiene jornadas.");
+      return response.data.jornadas.map((value) => {
+        if (typeof value !== "object" || value === null) throw new Error("Una jornada no tiene formato válido.");
+        const journey = value as Record<string, unknown>;
+        if (
+          typeof journey.jornadaId !== "string" ||
+          typeof journey.nombreVisible !== "string" ||
+          journey.estado !== "ACTIVA" ||
+          !isRole(journey.rolEfectivo) ||
+          typeof journey.puedeContar !== "boolean" ||
+          !Number.isSafeInteger(journey.cantidadLineas)
+        ) throw new Error("Una jornada no tiene formato válido.");
+        return {
+          id: journey.jornadaId,
+          displayName: journey.nombreVisible,
+          state: "ACTIVA" as const,
+          effectiveRole: journey.rolEfectivo,
+          canCount: journey.puedeContar,
+          lineCount: journey.cantidadLineas as number,
+        };
+      });
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible consultar las jornadas activas.", {cause: error});
+    }
+  }
+
   async approveCount(countId: string, idempotencyKey: string, exceptionReason?: string): Promise<void> {
     const callable = httpsCallable(this.functions, "aprobarConteo");
     try {
@@ -169,6 +198,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
 
   observeMonitor(
     user: MonitorUser,
+    journeyId: string,
     onMonitorSnapshot: (snapshot: MonitorSnapshot) => void,
     onError: (message: string) => void,
   ): MonitorUnsubscribe {
@@ -184,7 +214,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
     const publish = () => {
       if (!journeyDisplayName) return;
       onMonitorSnapshot({
-        journeyId: activeJourneyId,
+        journeyId,
         journeyDisplayName,
         lines: sortMonitorLines(lines.map((line) => {
           const history = (counts.get(line.id) ?? [])
@@ -206,7 +236,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
     };
     const subscriptions = [
       onSnapshot(
-        doc(this.firestore, "jornadas", activeJourneyId),
+        doc(this.firestore, "jornadas", journeyId),
         (snapshot) => {
           if (!snapshot.exists()) {
             onError("La jornada ficticia no existe.");
@@ -214,13 +244,13 @@ export class FirebaseMonitorRepository implements MonitorRepository {
           }
           journeyDisplayName = typeof snapshot.data().nombreVisible === "string"
             ? snapshot.data().nombreVisible
-            : activeJourneyId;
+            : journeyId;
           publish();
         },
         () => onError("No fue posible leer la jornada de prueba."),
       ),
       onSnapshot(
-        query(collection(this.firestore, "jornadaLineas"), where("jornadaId", "==", activeJourneyId)),
+        query(collection(this.firestore, "jornadaLineas"), where("jornadaId", "==", journeyId)),
         (snapshot) => {
           lines = snapshot.docs.flatMap((documentSnapshot) => {
             const data = documentSnapshot.data();
@@ -254,7 +284,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
     if (user.canViewReservationDetails) {
       subscriptions.push(
         onSnapshot(
-          query(collection(this.firestore, "reasignacionesCorreccion"), where("jornadaId", "==", activeJourneyId)),
+          query(collection(this.firestore, "reasignacionesCorreccion"), where("jornadaId", "==", journeyId)),
           (snapshot) => {
             reassignments = new Map(snapshot.docs.flatMap((documentSnapshot) => {
               const data = documentSnapshot.data();
@@ -288,7 +318,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
       );
       subscriptions.push(
         onSnapshot(
-          collection(this.firestore, "jornadas", activeJourneyId, "autorizaciones"),
+          collection(this.firestore, "jornadas", journeyId, "autorizaciones"),
           (snapshot) => {
             correctionCandidates = snapshot.docs.flatMap((documentSnapshot) => {
               const data = documentSnapshot.data();
@@ -312,7 +342,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
       );
       subscriptions.push(
         onSnapshot(
-          query(collection(this.firestore, "reservas"), where("jornadaId", "==", activeJourneyId)),
+          query(collection(this.firestore, "reservas"), where("jornadaId", "==", journeyId)),
           (snapshot) => {
             reservations = new Map(
               snapshot.docs.flatMap((documentSnapshot) => {
@@ -347,7 +377,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
       );
       subscriptions.push(
         onSnapshot(
-          query(collection(this.firestore, "conteos"), where("jornadaId", "==", activeJourneyId)),
+          query(collection(this.firestore, "conteos"), where("jornadaId", "==", journeyId)),
           (snapshot) => {
             const nextCounts = new Map<string, MonitorCount[]>();
             snapshot.docs.forEach((documentSnapshot) => {
@@ -400,7 +430,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
       );
       subscriptions.push(
         onSnapshot(
-          query(collection(this.firestore, "decisionesRevision"), where("jornadaId", "==", activeJourneyId)),
+          query(collection(this.firestore, "decisionesRevision"), where("jornadaId", "==", journeyId)),
           (snapshot) => {
             returnReasons = new Map(snapshot.docs.flatMap((documentSnapshot) => {
               const data = documentSnapshot.data();
@@ -416,7 +446,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
       );
       subscriptions.push(
         onSnapshot(
-          query(collection(this.firestore, "inventarioOficialLineas"), where("jornadaId", "==", activeJourneyId)),
+          query(collection(this.firestore, "inventarioOficialLineas"), where("jornadaId", "==", journeyId)),
           (snapshot) => {
             inventories = new Map(
               snapshot.docs.flatMap((documentSnapshot) => {
@@ -459,6 +489,10 @@ export class DisabledMonitorRepository implements MonitorRepository {
   }
 
   async signOut(): Promise<void> {}
+
+  async listActiveJourneys(): Promise<readonly MonitorJourney[]> {
+    throw new Error("Firebase de producción permanece deshabilitado.");
+  }
 
   async approveCount(): Promise<void> {
     throw new Error("Firebase de producción permanece deshabilitado.");

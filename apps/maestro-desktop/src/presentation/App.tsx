@@ -2,6 +2,7 @@ import {type FormEvent, useEffect, useRef, useState} from "react";
 
 import type {
   MonitorLine,
+  MonitorJourney,
   MonitorRepository,
   MonitorSnapshot,
   MonitorUnsubscribe,
@@ -58,6 +59,8 @@ export function App({repository}: AppProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [user, setUser] = useState<MonitorUser>();
+  const [journeys, setJourneys] = useState<readonly MonitorJourney[]>([]);
+  const [selectedJourneyId, setSelectedJourneyId] = useState<string>();
   const [snapshot, setSnapshot] = useState<MonitorSnapshot>();
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
@@ -74,22 +77,40 @@ export function App({repository}: AppProps) {
 
   useEffect(() => () => unsubscribeRef.current?.(), []);
 
+  const startMonitoring = (monitorUser: MonitorUser, journeyId: string) => {
+    unsubscribeRef.current?.();
+    setSelectedJourneyId(journeyId);
+    setSnapshot(undefined);
+    setReviewDialog(undefined);
+    setReassignmentDialog(undefined);
+    setReleaseDialog(undefined);
+    setError(undefined);
+    unsubscribeRef.current = repository.observeMonitor(
+      monitorUser,
+      journeyId,
+      (nextSnapshot) => {
+        setSnapshot(nextSnapshot);
+        setError(undefined);
+      },
+      setError,
+    );
+  };
+
   const handleSignIn = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);
     setError(undefined);
     try {
       const signedInUser = await repository.signIn(email, password);
+      const activeJourneys = await repository.listActiveJourneys();
       setUser(signedInUser);
+      setJourneys(activeJourneys);
       setPassword("");
-      unsubscribeRef.current = repository.observeMonitor(
-        signedInUser,
-        (nextSnapshot) => {
-          setSnapshot(nextSnapshot);
-          setError(undefined);
-        },
-        setError,
-      );
+      if (activeJourneys.length === 1 && activeJourneys[0]) {
+        startMonitoring(signedInUser, activeJourneys[0].id);
+      } else if (activeJourneys.length === 0) {
+        setError("No hay jornadas activas autorizadas para esta cuenta.");
+      }
     } catch (signInError) {
       setError(signInError instanceof Error ? signInError.message : "No fue posible iniciar sesión.");
     } finally {
@@ -102,6 +123,8 @@ export function App({repository}: AppProps) {
     unsubscribeRef.current = undefined;
     await repository.signOut();
     setUser(undefined);
+    setJourneys([]);
+    setSelectedJourneyId(undefined);
     setSnapshot(undefined);
     setError(undefined);
     setNotice(undefined);
@@ -306,7 +329,7 @@ export function App({repository}: AppProps) {
 
       {!user ? (
         <section className="login-panel" aria-labelledby="login-title">
-          <p className="eyebrow">ETAPA 8</p>
+          <p className="eyebrow">ETAPA 9</p>
           <h1 id="login-title">Acceso a revisión</h1>
           <p>Use únicamente una cuenta ficticia cargada en Firebase Emulator Suite.</p>
           <form onSubmit={handleSignIn}>
@@ -326,12 +349,34 @@ export function App({repository}: AppProps) {
         </section>
       ) : (
         <section className="monitor" aria-labelledby="monitor-title">
+          <div className="monitor-filters">
+            <label>
+              Jornada activa
+              <select
+                aria-label="Jornada activa"
+                value={selectedJourneyId ?? ""}
+                disabled={reviewing || reassigning || releasing}
+                onChange={(event) => {
+                  if (user && event.target.value) startMonitoring(user, event.target.value);
+                }}
+              >
+                <option value="">Seleccionar jornada</option>
+                {journeys.map((journey) => (
+                  <option key={journey.id} value={journey.id}>
+                    {journey.displayName} · {journey.lineCount} líneas
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           <div className="monitor-heading">
             <div>
               <p className="eyebrow">BANDEJA DE REVISIÓN</p>
-              <h1 id="monitor-title">{snapshot?.journeyDisplayName ?? "Cargando jornada…"}</h1>
+              <h1 id="monitor-title">
+                {snapshot?.journeyDisplayName ?? (selectedJourneyId ? "Cargando jornada…" : "Selecciona una jornada activa")}
+              </h1>
             </div>
-            <span className="live-indicator"><i aria-hidden="true" /> Actualización en vivo</span>
+            {selectedJourneyId && <span className="live-indicator"><i aria-hidden="true" /> Actualización en vivo</span>}
           </div>
 
           {error && <p className="alert" role="alert">{error}</p>}
@@ -353,7 +398,9 @@ export function App({repository}: AppProps) {
               </select>
             </label>
           </div>
-          {!snapshot ? (
+          {!selectedJourneyId ? (
+            <p className="empty-state">Selecciona una jornada para consultar sus líneas.</p>
+          ) : !snapshot ? (
             <p className="empty-state">Esperando datos del emulador…</p>
           ) : visibleLines.length === 0 ? (
             <p className="empty-state">No hay líneas que coincidan con el filtro.</p>

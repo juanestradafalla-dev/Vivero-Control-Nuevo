@@ -1,6 +1,7 @@
 package com.arles.viverocampo.data
 
 import com.arles.viverocampo.domain.CampoRepository
+import com.arles.viverocampo.domain.ActiveJourney
 import com.arles.viverocampo.domain.CampoRepositoryException
 import com.arles.viverocampo.domain.ConfirmedReservation
 import com.arles.viverocampo.domain.JourneySnapshot
@@ -21,9 +22,11 @@ class DisabledCampoRepository : CampoRepository {
 
     override suspend fun signOut() = Unit
 
-    override fun observeActiveJourney(): Flow<JourneySnapshot> = emptyFlow()
+    override suspend fun listActiveJourneys(): List<ActiveJourney> = unavailable()
 
-    override fun observeReturnedCounts(userId: String): Flow<List<ReturnedCount>> = emptyFlow()
+    override fun observeJourney(journeyId: String): Flow<JourneySnapshot> = emptyFlow()
+
+    override fun observeReturnedCounts(userId: String, journeyId: String): Flow<List<ReturnedCount>> = emptyFlow()
 
     override suspend fun reserveLine(
         payload: ReserveLinePayload,

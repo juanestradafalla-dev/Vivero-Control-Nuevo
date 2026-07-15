@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/reopen-cancelled-journey-request.schema.json",
+  "title": "Solicitud reabrirJornadaCancelada",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["jornadaId", "versionEsperada", "claveIdempotencia"],
+  "properties": {
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+    "versionEsperada": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}
+  }
+}

@@ -32,8 +32,9 @@ function groupKey(line: DraftCatalogLine): string {
 }
 
 export function DraftJourneysSection({repository, user, onActiveJourneysChanged}: DraftJourneysSectionProps) {
-  const [data, setData] = useState<ManageableJourneysData>({journeys: [], catalogLines: []});
+  const [data, setData] = useState<ManageableJourneysData>({journeys: [], cancelledJourneys: [], catalogLines: []});
   const [selectedDraftId, setSelectedDraftId] = useState<string>();
+  const [selectedCancelledId, setSelectedCancelledId] = useState<string>();
   const [selectedLineIds, setSelectedLineIds] = useState<readonly string[]>([]);
   const [draftName, setDraftName] = useState("");
   const [search, setSearch] = useState("");
@@ -41,11 +42,14 @@ export function DraftJourneysSection({repository, user, onActiveJourneysChanged}
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [reopening, setReopening] = useState(false);
+  const [showReopenSummary, setShowReopenSummary] = useState(false);
   const [showSaveSummary, setShowSaveSummary] = useState(false);
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const createKey = useRef<string | undefined>(undefined);
   const saveKey = useRef<string | undefined>(undefined);
+  const reopenKey = useRef<string | undefined>(undefined);
 
   const load = async (): Promise<ManageableJourneysData | undefined> => {
     setLoading(true);
@@ -67,6 +71,11 @@ export function DraftJourneysSection({repository, user, onActiveJourneysChanged}
   }, []);
 
   const selectedDraft = data.journeys.find((journey) => journey.id === selectedDraftId);
+  const selectedCancelled = data.cancelledJourneys.find((journey) => journey.id === selectedCancelledId);
+  const cancelledLines = selectedCancelled?.lineIds.flatMap((lineId) => {
+    const line = data.catalogLines.find((candidate) => candidate.id === lineId);
+    return line ? [line] : [];
+  }) ?? [];
   const visibleLines = data.catalogLines.filter((line) => {
     const haystack = [
       line.displayName,
@@ -87,9 +96,21 @@ export function DraftJourneysSection({repository, user, onActiveJourneysChanged}
 
   const openDraft = (journey: ManageableDraftJourney) => {
     setSelectedDraftId(journey.id);
+    setSelectedCancelledId(undefined);
     setSelectedLineIds(journey.lineIds);
     setShowSaveSummary(false);
     saveKey.current = undefined;
+    setError(undefined);
+    setNotice(undefined);
+  };
+
+  const openCancelled = (journeyId: string) => {
+    setSelectedDraftId(undefined);
+    setSelectedCancelledId(journeyId);
+    setSelectedLineIds([]);
+    setShowSaveSummary(false);
+    setShowReopenSummary(false);
+    reopenKey.current = undefined;
     setError(undefined);
     setNotice(undefined);
   };
@@ -163,6 +184,37 @@ export function DraftJourneysSection({repository, user, onActiveJourneysChanged}
     );
   };
 
+  const handleCancelled = async () => {
+    setSelectedDraftId(undefined);
+    setSelectedLineIds([]);
+    setShowSaveSummary(false);
+    saveKey.current = undefined;
+    await load();
+    setNotice("Borrador cancelado. Sus selecciones permanecen conservadas en modo lectura.");
+  };
+
+  const confirmReopen = async () => {
+    if (!selectedCancelled || reopening) return;
+    setReopening(true);
+    setError(undefined);
+    const key = reopenKey.current ?? crypto.randomUUID();
+    reopenKey.current = key;
+    try {
+      await repository.reopenCancelledJourney(selectedCancelled.id, selectedCancelled.version, key);
+      reopenKey.current = undefined;
+      setShowReopenSummary(false);
+      setSelectedCancelledId(undefined);
+      const next = await load();
+      const reopened = next?.journeys.find((journey) => journey.id === selectedCancelled.id);
+      if (reopened) openDraft(reopened);
+      setNotice("Borrador reabierto. Las selecciones conservadas vuelven a estar disponibles para edición.");
+    } catch (reopenError) {
+      setError(reopenError instanceof Error ? reopenError.message : "No fue posible reabrir el borrador.");
+    } finally {
+      setReopening(false);
+    }
+  };
+
   const lineSelectionDirty = selectedDraft
     ? [...selectedLineIds].sort().join("|") !== [...selectedDraft.lineIds].sort().join("|")
     : false;
@@ -220,10 +272,61 @@ export function DraftJourneysSection({repository, user, onActiveJourneysChanged}
               <span>Versión {journey.version} · {formatTime(journey.updatedAt)}</span>
             </button>
           ))}
+          <h2>Borradores cancelados</h2>
+          {data.cancelledJourneys.length === 0 ? (
+            <p>No hay borradores cancelados.</p>
+          ) : data.cancelledJourneys.map((journey) => (
+            <button
+              className={journey.id === selectedCancelledId ? "draft-card draft-card--selected" : "draft-card"}
+              key={journey.id}
+              type="button"
+              onClick={() => openCancelled(journey.id)}
+            >
+              <strong>{journey.displayName}</strong>
+              <span>CANCELADO · {journey.lineIds.length} líneas</span>
+              <span>Por {journey.cancelledByDisplayName}</span>
+              <span>{formatTime(journey.cancelledAt)}</span>
+            </button>
+          ))}
         </aside>
 
         <div className="draft-editor">
-          {!selectedDraft ? (
+          {selectedCancelled ? (
+            <section className="cancelled-draft-detail" aria-labelledby="cancelled-draft-title">
+              <div className="draft-editor-heading">
+                <div>
+                  <span className="state state--inactive">CANCELADO</span>
+                  <h2 id="cancelled-draft-title">{selectedCancelled.displayName}</h2>
+                  <p>BORRADOR CANCELADO — SOLO LECTURA</p>
+                </div>
+                <button className="button" type="button" disabled={reopening} onClick={() => setShowReopenSummary(true)}>
+                  Reabrir borrador
+                </button>
+              </div>
+              <div className="inventory-summary" aria-label="Datos de cancelación">
+                <span>Creada por: {selectedCancelled.creatorDisplayName}</span>
+                <span>Cancelada por: {selectedCancelled.cancelledByDisplayName}</span>
+                <span>Fecha: {formatTime(selectedCancelled.cancelledAt)}</span>
+                <span>Motivo: {selectedCancelled.cancellationReason}</span>
+                <span>Versión: {selectedCancelled.version}</span>
+              </div>
+              <h3>Líneas conservadas</h3>
+              {cancelledLines.length === 0 ? <p>No había líneas seleccionadas.</p> : cancelledLines.map((line) => (
+                <p key={line.id}>{line.location.nursery} · {line.location.module} · {line.location.bed} · {line.displayName}</p>
+              ))}
+              <h3>Participantes conservados</h3>
+              {selectedCancelled.participants.length === 0 ? <p>No había participantes seleccionados.</p> : (
+                <div className="participant-list">
+                  {selectedCancelled.participants.map((participant) => (
+                    <div className="participant-row" key={participant.id}>
+                      <span><strong>{participant.displayName}</strong><small>{participant.role}</small></span>
+                      <span>{participant.canCount ? "Puede contar" : "No cuenta"}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          ) : !selectedDraft ? (
             <p className="empty-state">Abre un borrador para seleccionar sus líneas.</p>
           ) : (
             <>
@@ -297,6 +400,7 @@ export function DraftJourneysSection({repository, user, onActiveJourneysChanged}
                 catalogLines={data.catalogLines}
                 lineSelectionDirty={lineSelectionDirty}
                 onActivated={handleActivated}
+                onCancelled={handleCancelled}
               />
             </>
           )}
@@ -320,6 +424,29 @@ export function DraftJourneysSection({repository, user, onActiveJourneysChanged}
               </button>
               <button className="button" type="button" disabled={saving} onClick={confirmSave}>
                 {saving ? "Guardando…" : "Confirmar y guardar"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {showReopenSummary && selectedCancelled && (
+        <div className="dialog-backdrop" role="presentation">
+          <section className="review-dialog" role="dialog" aria-modal="true" aria-labelledby="reopen-draft-title">
+            <p className="eyebrow">REAPERTURA TRANSACCIONAL</p>
+            <h2 id="reopen-draft-title">Reabrir borrador</h2>
+            <div className="inventory-summary" aria-label="Resumen de reapertura">
+              <strong>{selectedCancelled.displayName}</strong>
+              <span>Líneas conservadas: {selectedCancelled.lineIds.length}</span>
+              <span>Participantes conservados: {selectedCancelled.participants.length}</span>
+              <span>La cancelación anterior permanecerá en la trazabilidad.</span>
+            </div>
+            <div className="dialog-actions">
+              <button className="button button--secondary" type="button" disabled={reopening} onClick={() => setShowReopenSummary(false)}>
+                Volver
+              </button>
+              <button className="button" type="button" disabled={reopening} onClick={confirmReopen}>
+                {reopening ? "Reabriendo…" : "Confirmar reapertura"}
               </button>
             </div>
           </section>

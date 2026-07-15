@@ -108,6 +108,8 @@ class FakeMonitorRepository implements MonitorRepository {
     versions: DraftActivationVersions;
     key: string;
   }> = [];
+  cancelledDrafts: Array<{journeyId: string; expectedVersion: number; reason: string; key: string}> = [];
+  reopenedDrafts: Array<{journeyId: string; expectedVersion: number; key: string}> = [];
   closedJourneys: Array<{journeyId: string; expectedVersion: number; key: string}> = [];
   activationErrors: string[] = [];
   participantsData: DraftParticipantsData = {
@@ -141,6 +143,7 @@ class FakeMonitorRepository implements MonitorRepository {
       createdAt: "2026-07-15T12:00:00.000Z",
       updatedAt: "2026-07-15T12:00:00.000Z",
     }],
+    cancelledJourneys: [],
     catalogLines: [
       {
         id: "LINEA-LIBRE-1",
@@ -280,6 +283,65 @@ class FakeMonitorRepository implements MonitorRepository {
       canClose: this.user.role === "ADMINISTRADOR" || draft.creatorUserId === this.user.id,
     }];
     return result;
+  }
+  async cancelDraftJourney(
+    journeyId: string,
+    expectedVersion: number,
+    reason: string,
+    key: string,
+  ): Promise<void> {
+    this.cancelledDrafts.push({journeyId, expectedVersion, reason, key});
+    const draft = this.manageableData.journeys.find((journey) => journey.id === journeyId);
+    if (!draft) throw new Error("El borrador ya no existe.");
+    this.manageableData = {
+      ...this.manageableData,
+      journeys: this.manageableData.journeys.filter((journey) => journey.id !== journeyId),
+      cancelledJourneys: [{
+        id: draft.id,
+        displayName: draft.displayName,
+        state: "INACTIVA",
+        inactiveType: "CANCELACION_BORRADOR",
+        creatorUserId: draft.creatorUserId,
+        creatorDisplayName: draft.creatorDisplayName,
+        version: expectedVersion + 1,
+        lineIds: draft.lineIds,
+        participants: this.participantsData.participants,
+        cancellationId: "CANCELACION-FAKE-1",
+        cancelledByUserId: this.user.id,
+        cancelledByDisplayName: this.user.displayName,
+        cancellationReason: reason,
+        cancelledAt: "2026-07-15T20:00:00.000Z",
+        createdAt: draft.createdAt,
+        updatedAt: "2026-07-15T20:00:00.000Z",
+      }, ...this.manageableData.cancelledJourneys],
+    };
+  }
+  async reopenCancelledJourney(journeyId: string, expectedVersion: number, key: string): Promise<void> {
+    this.reopenedDrafts.push({journeyId, expectedVersion, key});
+    const cancelled = this.manageableData.cancelledJourneys.find((journey) => journey.id === journeyId);
+    if (!cancelled) throw new Error("El borrador cancelado ya no existe.");
+    const reopened: ManageableDraftJourney = {
+      id: cancelled.id,
+      displayName: cancelled.displayName,
+      state: "BORRADOR",
+      creatorUserId: cancelled.creatorUserId,
+      creatorDisplayName: cancelled.creatorDisplayName,
+      version: expectedVersion + 1,
+      lineIds: cancelled.lineIds,
+      createdAt: cancelled.createdAt,
+      updatedAt: "2026-07-15T20:30:00.000Z",
+    };
+    this.manageableData = {
+      ...this.manageableData,
+      journeys: [reopened, ...this.manageableData.journeys],
+      cancelledJourneys: this.manageableData.cancelledJourneys.filter((journey) => journey.id !== journeyId),
+    };
+    this.participantsData = {
+      ...this.participantsData,
+      journeyId,
+      version: reopened.version,
+      participants: cancelled.participants,
+    };
   }
   async closeJourney(journeyId: string, expectedVersion: number, key: string): Promise<void> {
     this.closedJourneys.push({journeyId, expectedVersion, key});
@@ -834,5 +896,58 @@ describe("jornadas en borrador de Vivero Maestro", () => {
     fireEvent.click(screen.getByRole("button", {name: "Confirmar activación"}));
     expect(await screen.findByRole("alert")).toHaveTextContent("otra jornada ACTIVA");
     expect(screen.getByRole("button", {name: /Borrador semanal/})).toBeInTheDocument();
+  });
+
+  it("cancela con resumen, motivo y confirmacion explicita", async () => {
+    const repository = new FakeMonitorRepository();
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Jornadas"}));
+    fireEvent.click(await screen.findByRole("button", {name: /Borrador semanal/}));
+    fireEvent.click(await screen.findByRole("button", {name: "Cancelar borrador"}));
+    const summary = screen.getByLabelText("Resumen de cancelación del borrador");
+    expect(summary).toHaveTextContent("Líneas conservadas: 1");
+    expect(summary).toHaveTextContent("Participantes conservados: 1");
+    fireEvent.change(screen.getByLabelText("Motivo de cancelación"), {
+      target: {value: "La preparación se retomará después."},
+    });
+    const confirmButton = screen.getByRole("button", {name: "Confirmar cancelación"});
+    expect(confirmButton).toBeDisabled();
+    fireEvent.click(screen.getByRole("checkbox", {name: /Confirmo que deseo cancelar/}));
+    fireEvent.click(confirmButton);
+    await waitFor(() => expect(repository.cancelledDrafts).toHaveLength(1));
+    expect(repository.cancelledDrafts[0]).toMatchObject({
+      journeyId: "JORNADA-BORRADOR-1",
+      expectedVersion: 1,
+      reason: "La preparación se retomará después.",
+    });
+    expect(await screen.findByText(/Borrador cancelado/)).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: /Borrador semanal/})).toHaveTextContent("CANCELADO");
+  });
+
+  it("muestra cancelados en solo lectura y los reabre con sus selecciones", async () => {
+    const repository = new FakeMonitorRepository();
+    await repository.cancelDraftJourney(
+      "JORNADA-BORRADOR-1",
+      1,
+      "Motivo conservado para pruebas",
+      "cancel-preloaded-key-0001",
+    );
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Jornadas"}));
+    fireEvent.click(await screen.findByRole("button", {name: /Borrador semanal/}));
+    expect(screen.getByText("BORRADOR CANCELADO — SOLO LECTURA")).toBeInTheDocument();
+    expect(screen.getByText(/Motivo conservado para pruebas/)).toBeInTheDocument();
+    expect(screen.getByText("Auxiliar Uno")).toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: "Activar jornada"})).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "Reabrir borrador"}));
+    expect(screen.getByLabelText("Resumen de reapertura")).toHaveTextContent("Líneas conservadas: 1");
+    fireEvent.click(screen.getByRole("button", {name: "Confirmar reapertura"}));
+    await waitFor(() => expect(repository.reopenedDrafts).toHaveLength(1));
+    expect(repository.reopenedDrafts[0]).toMatchObject({
+      journeyId: "JORNADA-BORRADOR-1",
+      expectedVersion: 2,
+    });
+    expect(await screen.findByText(/Borrador reabierto/)).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Activar jornada"})).toBeInTheDocument();
   });
 });

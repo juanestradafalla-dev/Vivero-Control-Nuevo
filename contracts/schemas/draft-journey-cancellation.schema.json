@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/draft-journey-cancellation.schema.json",
+  "title": "Cancelacion inmutable de jornada en borrador",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "jornadaId", "tipoInactivacion", "actorUsuarioId", "actorNombreVisible", "motivo", "versionAnterior", "version", "canceladaEn"],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "tipoInactivacion": {"const": "CANCELACION_BORRADOR"},
+    "actorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "actorNombreVisible": {"type": "string", "minLength": 1, "maxLength": 200},
+    "motivo": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "versionAnterior": {"type": "integer", "minimum": 1, "maximum": 9007199254740990},
+    "version": {"type": "integer", "minimum": 2, "maximum": 9007199254740991},
+    "canceladaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

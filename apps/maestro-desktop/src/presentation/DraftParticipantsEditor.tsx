@@ -16,6 +16,7 @@ interface DraftParticipantsEditorProps {
   readonly catalogLines: readonly DraftCatalogLine[];
   readonly lineSelectionDirty: boolean;
   readonly onActivated: (result: DraftActivationResult) => void | Promise<void>;
+  readonly onCancelled: () => void | Promise<void>;
 }
 
 const roleLabels: Record<MonitorRole, string> = {
@@ -37,6 +38,7 @@ export function DraftParticipantsEditor({
   catalogLines,
   lineSelectionDirty,
   onActivated,
+  onCancelled,
 }: DraftParticipantsEditorProps) {
   const [data, setData] = useState<DraftParticipantsData>();
   const [selection, setSelection] = useState<readonly DraftParticipantInput[]>([]);
@@ -47,10 +49,15 @@ export function DraftParticipantsEditor({
   const [showSummary, setShowSummary] = useState(false);
   const [showActivationSummary, setShowActivationSummary] = useState(false);
   const [activating, setActivating] = useState(false);
+  const [showCancelSummary, setShowCancelSummary] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelConfirmed, setCancelConfirmed] = useState(false);
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const saveKey = useRef<string | undefined>(undefined);
   const activationKey = useRef<string | undefined>(undefined);
+  const cancelKey = useRef<string | undefined>(undefined);
 
   const load = async (): Promise<void> => {
     setLoading(true);
@@ -76,9 +83,13 @@ export function DraftParticipantsEditor({
     setRoleFilter("TODOS");
     setShowSummary(false);
     setShowActivationSummary(false);
+    setShowCancelSummary(false);
+    setCancelReason("");
+    setCancelConfirmed(false);
     setNotice(undefined);
     saveKey.current = undefined;
     activationKey.current = undefined;
+    cancelKey.current = undefined;
     void load();
   }, [journey.id, journey.version]);
 
@@ -120,6 +131,7 @@ export function DraftParticipantsEditor({
     !lineSelectionDirty &&
     !loading &&
     !saving;
+  const cancellationReady = Boolean(data) && !participantsDirty && !lineSelectionDirty && !loading && !saving;
 
   const updateSelection = (next: readonly DraftParticipantInput[]) => {
     setSelection([...new Map(next.map((participant) => [participant.userId, participant])).values()]);
@@ -186,6 +198,25 @@ export function DraftParticipantsEditor({
     }
   };
 
+  const confirmCancellation = async () => {
+    const reason = cancelReason.trim();
+    if (!data || !cancellationReady || !cancelConfirmed || reason === "" || cancelling) return;
+    setCancelling(true);
+    setError(undefined);
+    const key = cancelKey.current ?? crypto.randomUUID();
+    cancelKey.current = key;
+    try {
+      await repository.cancelDraftJourney(journey.id, data.version, reason, key);
+      cancelKey.current = undefined;
+      setShowCancelSummary(false);
+      await onCancelled();
+    } catch (cancelError) {
+      setError(cancelError instanceof Error ? cancelError.message : "No fue posible cancelar el borrador.");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   return (
     <section className="draft-participants" aria-labelledby="participants-title">
       <div className="draft-editor-heading">
@@ -195,6 +226,14 @@ export function DraftParticipantsEditor({
           <p>{selection.length} participantes seleccionados</p>
         </div>
         <div className="draft-heading-actions">
+          <button
+            className="button button--danger"
+            type="button"
+            disabled={!cancellationReady || activating || cancelling}
+            onClick={() => setShowCancelSummary(true)}
+          >
+            Cancelar borrador
+          </button>
           <button className="button button--secondary" type="button" disabled={loading || saving || activating} onClick={() => setShowSummary(true)}>
             Revisar participantes
           </button>
@@ -328,6 +367,57 @@ export function DraftParticipantsEditor({
               </button>
               <button className="button" type="button" disabled={activating} onClick={confirmActivation}>
                 {activating ? "Activando…" : "Confirmar activación"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {showCancelSummary && data && (
+        <div className="dialog-backdrop" role="presentation">
+          <section className="review-dialog" role="dialog" aria-modal="true" aria-labelledby="cancel-draft-title">
+            <p className="eyebrow">CANCELACIÓN TRANSACCIONAL</p>
+            <h2 id="cancel-draft-title">Cancelar borrador</h2>
+            <div className="inventory-summary" aria-label="Resumen de cancelación del borrador">
+              <strong>{journey.displayName}</strong>
+              <span>Líneas conservadas: {selectedLines.length}</span>
+              <span>Participantes conservados: {savedParticipants.length}</span>
+              {savedParticipants.map((participant) => (
+                <span key={participant.id}>{participant.displayName} · {roleLabels[participant.role]}</span>
+              ))}
+            </div>
+            <label>
+              Motivo obligatorio
+              <textarea
+                aria-label="Motivo de cancelación"
+                maxLength={2000}
+                value={cancelReason}
+                onChange={(event) => {
+                  setCancelReason(event.target.value);
+                  cancelKey.current = undefined;
+                }}
+              />
+            </label>
+            <p className="warning">La jornada dejará de ser editable. Las selecciones se conservarán.</p>
+            <label className="confirmation-check">
+              <input
+                type="checkbox"
+                checked={cancelConfirmed}
+                onChange={(event) => setCancelConfirmed(event.target.checked)}
+              />
+              Confirmo que deseo cancelar este borrador.
+            </label>
+            <div className="dialog-actions">
+              <button className="button button--secondary" type="button" disabled={cancelling} onClick={() => setShowCancelSummary(false)}>
+                Volver
+              </button>
+              <button
+                className="button button--danger"
+                type="button"
+                disabled={cancelling || !cancelConfirmed || cancelReason.trim() === ""}
+                onClick={confirmCancellation}
+              >
+                {cancelling ? "Cancelando…" : "Confirmar cancelación"}
               </button>
             </div>
           </section>

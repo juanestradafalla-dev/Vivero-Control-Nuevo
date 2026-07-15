@@ -4,11 +4,15 @@
   "title": "Resultado listarJornadasAdministrables",
   "type": "object",
   "additionalProperties": false,
-  "required": ["jornadas", "lineasCatalogo"],
+  "required": ["jornadas", "jornadasCanceladas", "lineasCatalogo"],
   "properties": {
     "jornadas": {
       "type": "array",
       "items": {"$ref": "draft-journey-summary.schema.json"}
+    },
+    "jornadasCanceladas": {
+      "type": "array",
+      "items": {"$ref": "cancelled-draft-journey-summary.schema.json"}
     },
     "lineasCatalogo": {
       "type": "array",

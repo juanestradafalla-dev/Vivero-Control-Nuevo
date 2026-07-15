@@ -1,0 +1,24 @@
+{
+  "jornadaId": "JORNADA-BORRADOR-ETAPA-14",
+  "nombreVisible": "Conteo semanal cancelado",
+  "estado": "INACTIVA",
+  "tipoInactivacion": "CANCELACION_BORRADOR",
+  "creadorUsuarioId": "uid-supervisor",
+  "creadorNombreVisible": "Supervisor ficticio",
+  "version": 5,
+  "cantidadLineas": 1,
+  "lineaIds": ["LINEA-CATALOGO-LIBRE-1"],
+  "participantes": [{
+    "usuarioId": "uid-auxiliar-1",
+    "nombreVisible": "Auxiliar ficticio 1",
+    "rol": "AUXILIAR",
+    "puedeContar": true
+  }],
+  "cancelacionId": "CANCELACION-BORRADOR-ETAPA-14",
+  "canceladaPorUsuarioId": "uid-supervisor",
+  "canceladaPorNombreVisible": "Supervisor ficticio",
+  "motivoCancelacion": "La preparacion continuara en una fecha posterior.",
+  "canceladaEn": "2026-07-15T22:00:00.000Z",
+  "creadaEn": "2026-07-15T20:00:00.000Z",
+  "actualizadaEn": "2026-07-15T22:00:00.000Z"
+}

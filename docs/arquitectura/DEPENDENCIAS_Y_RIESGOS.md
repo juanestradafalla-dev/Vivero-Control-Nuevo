@@ -141,3 +141,11 @@ No se agregan dependencias externas, migraciones Room ni índices de producción
 La liberación de ocupaciones permite reutilizar líneas físicas en nuevos borradores, pero no autoriza reapertura ni edición histórica. Una ocupación faltante o perteneciente a otra jornada bloquea el cierre para evitar ocultar inconsistencias. Campo conserva los datos locales ante revocación; la política definitiva de retención local sigue pendiente.
 
 Persisten los riesgos de estructura y datos reales, calidad de señal, dispositivos Android reales, pérdida de claves Keystore y 9 alertas moderadas transitivas del backend, sin alertas altas ni críticas. No existe cierre forzado para resolver trabajo pendiente: debe completarse por los flujos normales. Firebase real sigue sin configurarse ni desplegarse.
+
+## Actualización de la ETAPA 14
+
+No se agregan dependencias externas, migraciones Room ni índices de producción. Cancelación y reapertura reutilizan Auth, Functions, transacciones, auditoría e idempotencia. La cancelación verifica que el borrador nunca haya materializado datos operativos; la reapertura exige la marca central `CANCELACION_BORRADOR` y ausencia de cualquier activación o cierre normal.
+
+Las selecciones conservadas pueden quedar obsoletas mientras la jornada permanece cancelada. Esto es intencional: no se revalidan al reabrir y deben volver a validarse al editar o activar. El historial inmutable de cancelaciones crece con cada nuevo ciclo y requerirá una política de retención antes de producción.
+
+Persisten los riesgos de estructura y datos reales, calidad de señal, dispositivos Android reales, pérdida de claves Keystore y 9 alertas moderadas transitivas del backend, sin alertas altas ni críticas. No se implementan cancelación de jornadas activas, reapertura de jornadas activadas o cerradas, eliminación definitiva ni cierre forzado. Firebase real sigue sin configurarse ni desplegarse.

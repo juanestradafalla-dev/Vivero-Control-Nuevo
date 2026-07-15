@@ -2,6 +2,8 @@
 
 Los JSON Schema Draft 2020-12 son el lenguaje común de Campo, Maestro y backend.
 
+La Etapa 14 agrega contratos estrictos para `cancelarJornadaBorrador`, `reabrirJornadaCancelada`, el resumen administrativo de cancelados y la cancelación inmutable. Cancelar solo acepta jornada, versión, motivo y clave; reabrir solo jornada, versión y clave. `INACTIVA` por `CANCELACION_BORRADOR` no equivale a cierre normal y conserva las selecciones preparatorias. Los ejemplos están en `examples/etapa-14/`.
+
 La Etapa 13 agrega contratos estrictos para `cerrarJornada` y su resultado idempotente. La solicitud contiene solo jornada, versión observada y clave; el resultado central declara `INACTIVA`, nueva versión, cantidades conservadas y ocupaciones liberadas. `listarJornadasActivas` incluye la versión y el permiso de cierre calculado centralmente, sin exponer la identidad del creador a Campo. Los ejemplos están en `examples/etapa-13/`.
 
 La Etapa 12 agrega contratos para `activarJornada`, su resultado y el bloqueo determinista `ocupacionesLineasActivas/{lineaId}`. La solicitud solo contiene jornada, las tres versiones observadas y clave idempotente. El límite técnico combinado de líneas y participantes es 200; su exceso rechaza toda la activación y nunca habilita lotes parciales. Los ejemplos están en `examples/etapa-12/`.
@@ -46,6 +48,9 @@ Reglas de frontera:
 - cerrar usa la versión esperada de la jornada y no acepta identidad, rol, estados ni horas del cliente;
 - `CERRAR_JORNADA` conserva historia, desactiva datos operativos y libera solo bloqueos de líneas de esa jornada;
 - un cierre normal nunca modifica inventario, movimientos, conteos, decisiones, reservas o selecciones preparatorias.
+- cancelar un borrador exige motivo, versión observada y ausencia total de datos operativos;
+- reabrir solo acepta `INACTIVA` por `CANCELACION_BORRADOR` que nunca fue activada o cerrada;
+- cancelación y reapertura conservan selecciones y no crean `jornadaLineas`, autorizaciones, reservas u ocupaciones.
 
 Los ejemplos ficticios de liberación están en `examples/etapa-08/`.
 

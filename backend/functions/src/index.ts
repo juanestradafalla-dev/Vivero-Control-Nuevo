@@ -4,6 +4,10 @@ import {HttpsError, onCall} from "firebase-functions/v2/https";
 import type {ControlledErrorCode} from "./domain/contracts.js";
 import {ActivateJourneyService} from "./domain/activateJourney.js";
 import {CloseJourneyService} from "./domain/closeJourney.js";
+import {
+  CancelDraftJourneyService,
+  ReopenCancelledJourneyService
+} from "./domain/cancelDraftJourney.js";
 import {DomainError, domainErrors} from "./domain/errors.js";
 import {InitiateCountCorrectionService} from "./domain/correctCount.js";
 import {
@@ -24,6 +28,7 @@ import {SendCountService} from "./domain/sendCount.js";
 import {
   parseApproveCountRequest,
   parseActivateJourneyRequest,
+  parseCancelDraftJourneyRequest,
   parseCreateDraftJourneyRequest,
   parseCloseJourneyRequest,
   parseInitiateCountCorrectionRequest,
@@ -31,6 +36,7 @@ import {
   parseListDraftJourneyParticipantsRequest,
   parseListManageableJourneysRequest,
   parseReassignCountCorrectionRequest,
+  parseReopenCancelledJourneyRequest,
   parseReleaseReservationRequest,
   parseReserveLineRequest,
   parseReturnCountRequest,
@@ -75,7 +81,14 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
     "JOURNEY_CLOSE_ACTIVE_RESERVATIONS",
     "JOURNEY_CLOSE_PENDING_CORRECTIONS",
     "JOURNEY_CLOSE_LIMIT_EXCEEDED",
-    "JOURNEY_CLOSE_OCCUPATION_MISMATCH"
+    "JOURNEY_CLOSE_OCCUPATION_MISMATCH",
+    "DRAFT_CANCELLATION_REASON_REQUIRED",
+    "DRAFT_CANCELLATION_STALE_VERSION",
+    "DRAFT_CANCELLATION_INVALID_STATE",
+    "DRAFT_CANCELLATION_OPERATIONAL_DATA_EXISTS",
+    "DRAFT_REOPEN_STALE_VERSION",
+    "DRAFT_REOPEN_INVALID_STATE",
+    "DRAFT_REOPEN_NOT_ALLOWED"
   ].includes(code)) return "failed-precondition";
   if (["RESERVATION_NOT_ACTIVE", "LINE_RESERVATION_MISMATCH", "LINE_NOT_IN_COUNT"].includes(code)) {
     return "failed-precondition";
@@ -131,6 +144,38 @@ const listDraftJourneyParticipantsService = new ListDraftJourneyParticipantsServ
 const updateDraftJourneyParticipantsService = new UpdateDraftJourneyParticipantsService(firestore);
 const activateJourneyService = new ActivateJourneyService(firestore);
 const closeJourneyService = new CloseJourneyService(firestore);
+const cancelDraftJourneyService = new CancelDraftJourneyService(firestore);
+const reopenCancelledJourneyService = new ReopenCancelledJourneyService(firestore);
+
+export const cancelarJornadaBorrador = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    const payload = parseCancelDraftJourneyRequest(request.data);
+    return await cancelDraftJourneyService.execute(payload, {actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en cancelarJornadaBorrador", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const reabrirJornadaCancelada = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    const payload = parseReopenCancelledJourneyRequest(request.data);
+    return await reopenCancelledJourneyService.execute(payload, {actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en reabrirJornadaCancelada", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
 
 export const cerrarJornada = onCall({region: "us-central1"}, async (request) => {
   try {

@@ -22,6 +22,16 @@
     "activadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
     "entorno": {"type": "string", "minLength": 1, "maxLength": 120},
     "cerradaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
-    "cerradaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"}
+    "cerradaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "tipoInactivacion": {"type": ["string", "null"], "enum": ["CANCELACION_BORRADOR", null]},
+    "cancelacionVigenteId": {"oneOf": [{"$ref": "comun.schema.json#/$defs/idGlobal"}, {"type": "null"}]},
+    "ultimaCancelacionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "canceladaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "canceladaPorNombreVisible": {"type": "string", "minLength": 1, "maxLength": 200},
+    "motivoCancelacion": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "canceladaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "reabiertaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "reabiertaPorNombreVisible": {"type": "string", "minLength": 1, "maxLength": 200},
+    "reabiertaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
   }
 }

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/cancelled-draft-journey-summary.schema.json",
+  "title": "Resumen administrable de borrador cancelado",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["jornadaId", "nombreVisible", "estado", "tipoInactivacion", "creadorUsuarioId", "creadorNombreVisible", "version", "cantidadLineas", "lineaIds", "participantes", "cancelacionId", "canceladaPorUsuarioId", "canceladaPorNombreVisible", "motivoCancelacion", "canceladaEn", "creadaEn", "actualizadaEn"],
+  "properties": {
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "nombreVisible": {"type": "string", "minLength": 1, "maxLength": 200},
+    "estado": {"const": "INACTIVA"},
+    "tipoInactivacion": {"const": "CANCELACION_BORRADOR"},
+    "creadorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "creadorNombreVisible": {"type": "string", "minLength": 1, "maxLength": 200},
+    "version": {"type": "integer", "minimum": 2, "maximum": 9007199254740991},
+    "cantidadLineas": {"type": "integer", "minimum": 0, "maximum": 400},
+    "lineaIds": {"type": "array", "maxItems": 400, "uniqueItems": true, "items": {"$ref": "comun.schema.json#/$defs/idRutaSegura"}},
+    "participantes": {"type": "array", "maxItems": 200, "items": {"$ref": "draft-participant.schema.json"}},
+    "cancelacionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "canceladaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "canceladaPorNombreVisible": {"type": "string", "minLength": 1, "maxLength": 200},
+    "motivoCancelacion": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "canceladaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "creadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "actualizadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

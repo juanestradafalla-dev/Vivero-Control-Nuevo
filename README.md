@@ -2,7 +2,7 @@
 
 Sistema nuevo para operar inventario por línea mediante Vivero Campo (Android), Vivero Maestro (Windows) y un backend transaccional. Este repositorio no consulta, modifica ni reutiliza el proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 14
+## Estado: ETAPA 15
 
 La vertical disponible funciona exclusivamente con Firebase Emulator Suite y datos ficticios:
 
@@ -59,6 +59,12 @@ La vertical disponible funciona exclusivamente con Firebase Emulator Suite y dat
 43. `reabrirJornadaCancelada` restaura exclusivamente cancelaciones de borrador que nunca fueron activadas ni cerradas normalmente.
 44. Maestro separa borradores editables y cancelados, muestra la preparación conservada en modo lectura y confirma ambas operaciones.
 45. Cancelar compite transaccionalmente con editar líneas, editar participantes y activar; solo una operación puede confirmar.
+
+46. `listarUsuariosAdministrables` entrega a administradores activos solo nombre, rol, estado, versión y advertencias operativas centrales.
+47. `actualizarEstadoUsuario` desactiva o reactiva perfiles con motivo, versión, auditoría e idempotencia sin modificar Firebase Auth.
+48. `actualizarRolUsuario` admite únicamente los tres roles centrales y rechaza trabajo activo, versiones obsoletas y cambios que dejarían al sistema sin administrador.
+49. Desactivar conserva reservas, correcciones, autorizaciones e historia para su liberación o reasignación supervisada; toda nueva operación central queda bloqueada inmediatamente.
+50. Maestro limita “Usuarios” a administradores y Campo/Maestro invalidan una sesión desactivada sin borrar borradores locales ni tokens cifrados.
 
 > **MODO DE PRUEBA — EMULADOR.** No existe Firebase real configurado, no hay credenciales de producción y ningún comando despliega recursos.
 
@@ -120,7 +126,7 @@ Set-Location backend/functions
 npm run emulator:seed
 ```
 
-Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las diecisiete Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
+Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las veinte Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
 
 | Correo ficticio | Rol |
 |---|---|
@@ -165,6 +171,14 @@ npm run build
 npm run test:emulators
 npm audit --omit=dev --audit-level=high
 ```
+
+## Documentación de la ETAPA 15
+
+- [Administración central de perfiles y acceso](docs/arquitectura/ADMINISTRACION_PERFILES_ETAPA_15.md)
+- [Pruebas y seguridad](docs/pruebas/PRUEBAS_ETAPA_15.md)
+- [Criterios de aceptación](docs/ETAPA_15_CRITERIOS_DE_ACEPTACION.md)
+- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
+- [Contratos compartidos](contracts/README.md)
 
 ## Documentación de la ETAPA 14
 
@@ -229,4 +243,4 @@ npm audit --omit=dev --audit-level=high
 
 ## Exclusiones vigentes
 
-No están implementados: cierre forzado o excepcional; cancelación de jornadas activas; reapertura de jornadas activadas o cerradas; eliminación definitiva; edición de jornadas cerradas; modificación histórica; creación de cuentas; cambio de roles o perfiles; creación de ubicaciones o líneas; inicialización o migración de inventario; vencimiento automático; temporizadores de abandono; eliminación o recuperación administrativa de borradores locales; corrección simultánea por varios usuarios; datos reales; Firebase de producción; despliegues; APK de producción; instalador Windows definitivo; descartes, despachos, químicos, aplicaciones ni reingresos.
+No están implementados: cierre forzado o excepcional; cancelación de jornadas activas; reapertura de jornadas activadas o cerradas; eliminación definitiva; edición de jornadas cerradas; modificación histórica; creación o eliminación de cuentas Firebase Auth; cambio de correo, contraseña, nombre visible o recuperación de acceso; edición directa de autorizaciones activas; creación de ubicaciones o líneas; inicialización o migración de inventario; vencimiento automático; temporizadores de abandono; eliminación o recuperación administrativa de borradores locales; corrección simultánea por varios usuarios; datos reales; Firebase de producción; despliegues; APK de producción; instalador Windows definitivo; descartes, despachos, químicos, aplicaciones ni reingresos.

@@ -6,6 +6,7 @@ export interface MonitorUser {
   readonly role: MonitorRole;
   readonly canViewReservationDetails: boolean;
   readonly canReview: boolean;
+  readonly canRelease: boolean;
 }
 
 export interface MonitorLocation {
@@ -18,7 +19,10 @@ export interface MonitorLocation {
 }
 
 export interface MonitorReservation {
+  readonly id: string;
   readonly userDisplayName: string;
+  readonly type: "INICIAL" | "CORRECCION";
+  readonly deviceId: string;
   readonly reservedAt: string;
 }
 
@@ -69,6 +73,7 @@ export interface MonitorCorrectionResponsibility {
 export interface MonitorLine {
   readonly id: string;
   readonly lineId: string;
+  readonly version: number;
   readonly state: "DISPONIBLE" | "EN_CONTEO" | "PENDIENTE_REVISION" | "DEVUELTA" | "APROBADA";
   readonly location: MonitorLocation;
   readonly currentCountId?: string;
@@ -96,6 +101,7 @@ export interface MonitorRepository {
   approveCount(countId: string, idempotencyKey: string, exceptionReason?: string): Promise<void>;
   returnCount(countId: string, reason: string, idempotencyKey: string): Promise<void>;
   reassignCountCorrection(countId: string, newUserId: string, reason: string, idempotencyKey: string): Promise<void>;
+  releaseReservation(reservationId: string, reason: string, idempotencyKey: string): Promise<void>;
   observeMonitor(
     user: MonitorUser,
     onSnapshot: (snapshot: MonitorSnapshot) => void,

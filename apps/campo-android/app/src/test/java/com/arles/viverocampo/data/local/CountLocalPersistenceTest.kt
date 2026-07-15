@@ -64,6 +64,27 @@ class CountLocalPersistenceTest {
         assertNull(database.confirmedReservationDao().latestActiveForUserAndDevice("usuario-1", "dispositivo-1"))
     }
 
+    @Test
+    fun `liberacion conserva borrador y token cifrado y detiene el estado pendiente`() = runTest {
+        database.confirmedReservationDao().save(reservation())
+        database.countDraftDao().save(draft())
+
+        CountLocalPersistence(database).markReleasedAndKeepDraft("reserva-1")
+
+        val releasedReservation = database.confirmedReservationDao().byId("reserva-1")
+        val preservedDraft = database.countDraftDao().byReservationId("reserva-1")
+        assertEquals("LIBERADA", releasedReservation?.state)
+        assertEquals("ciphertext-que-no-es-token", releasedReservation?.tokenCiphertext)
+        assertEquals("iv-aleatorio", releasedReservation?.tokenIv)
+        assertEquals(SyncState.ERROR.name, preservedDraft?.syncState)
+        assertEquals("RESERVATION_RELEASED", preservedDraft?.errorCode)
+        assertEquals("450", preservedDraft?.femalesInput)
+        assertEquals("320", preservedDraft?.malesInput)
+        assertEquals("210", preservedDraft?.rootstocksInput)
+        assertEquals("Conteo local", preservedDraft?.observationsInput)
+        assertEquals("clave-idempotencia", preservedDraft?.idempotencyKey)
+    }
+
     private fun reservation() = ConfirmedReservationEntity(
         "reserva-1", "usuario-1", "dispositivo-1", "jornada-1", "jornada-linea-1", "EN_CONTEO",
         "2026-07-13T20:00:00.000Z", 1, "Vivero", "Módulo", "Cama", "Línea", "Línea 1", 1,

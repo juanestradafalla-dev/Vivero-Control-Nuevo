@@ -252,6 +252,32 @@ class CampoViewModelTest {
         assertEquals("Supervisor ficticio", viewModel.uiState.value.returnedCounts.single().reassignedByName)
     }
 
+    @Test
+    fun `reserva liberada conserva borrador cancela reintentos y nunca marca enviada`() = runTest {
+        loginWithReservation()
+        enterValidCount()
+        viewModel.requestCountConfirmation()
+        viewModel.confirmCountSubmission()
+        advanceUntilIdle()
+        val callsBeforeRelease = scheduler.scheduleCalls
+
+        repository.forceReleased(confirmedReservation.reservationId)
+        advanceUntilIdle()
+
+        val draft = requireNotNull(viewModel.uiState.value.countDraft)
+        assertEquals("LIBERADA", viewModel.uiState.value.confirmedReservation?.state)
+        assertEquals(SyncState.ERROR, draft.syncState)
+        assertEquals("RESERVATION_RELEASED", draft.errorCode)
+        assertEquals(CountInput("450", "320", "210", "Conteo ficticio"), draft.input)
+        assertFalse(draft.syncState == SyncState.ENVIADA)
+        assertTrue(scheduler.cancelled.any { it.first == confirmedReservation.reservationId })
+        assertTrue(viewModel.uiState.value.message?.contains("liberada por supervisión") == true)
+
+        viewModel.retryCountSubmission()
+        advanceUntilIdle()
+        assertEquals(callsBeforeRelease, scheduler.scheduleCalls)
+    }
+
     private suspend fun kotlinx.coroutines.test.TestScope.login() {
         viewModel.updateEmail("auxiliar1@prueba.local")
         viewModel.updatePassword("SoloEmulador-Etapa3!")
@@ -277,7 +303,9 @@ class CampoViewModelTest {
     private class FakeScheduler : CountSyncScheduler {
         val uniqueScheduled = linkedSetOf<Pair<String, String>>()
         val cancelled = mutableListOf<Pair<String, String>>()
+        var scheduleCalls = 0
         override fun schedule(reservationId: String, idempotencyKey: String) {
+            scheduleCalls += 1
             uniqueScheduled += reservationId to idempotencyKey
         }
         override fun cancel(reservationId: String, idempotencyKey: String) {
@@ -290,6 +318,7 @@ class CampoViewModelTest {
         private val journey = MutableStateFlow(journeySnapshot)
         val returnedCounts = MutableStateFlow<List<ReturnedCount>>(emptyList())
         private val drafts = mutableMapOf<Triple<String, String, String>, MutableStateFlow<LocalCountDraft?>>()
+        private val reservationStates = mutableMapOf<String, MutableStateFlow<String>>()
         val reservePayloads = mutableListOf<ReserveLinePayload>()
         val correctionPayloads = mutableListOf<InitiateCountCorrectionPayload>()
         var reserveBehavior: suspend () -> ConfirmedReservation = { confirmedReservation }
@@ -319,6 +348,18 @@ class CampoViewModelTest {
         }
         override fun observeCountDraft(reservationId: String, userId: String, deviceId: String): Flow<LocalCountDraft?> =
             drafts.getOrPut(Triple(reservationId, userId, deviceId)) { MutableStateFlow(null) }
+        override fun observeReservationState(reservationId: String): Flow<String> =
+            reservationStates.getOrPut(reservationId) { MutableStateFlow("ACTIVA") }
+        override suspend fun markReservationReleased(reservationId: String) {
+            latestReservation = latestReservation?.takeIf { it.reservationId == reservationId }?.copy(state = "LIBERADA")
+            drafts.entries.firstOrNull { it.key.first == reservationId }?.value?.let { flow ->
+                flow.value = flow.value?.copy(
+                    syncState = SyncState.ERROR,
+                    errorCode = "RESERVATION_RELEASED",
+                    errorMessage = "La reserva fue liberada por supervisión.",
+                )
+            }
+        }
         override suspend fun saveCountInput(reservationId: String, userId: String, deviceId: String, input: CountInput) {
             val flow = drafts.getOrPut(Triple(reservationId, userId, deviceId)) { MutableStateFlow(null) }
             val old = flow.value
@@ -374,6 +415,9 @@ class CampoViewModelTest {
                 serverReceivedAt = "2026-07-14T13:00:00.000Z",
             )
             consumedReservations += reservationId
+        }
+        fun forceReleased(reservationId: String) {
+            reservationStates.getOrPut(reservationId) { MutableStateFlow("ACTIVA") }.value = "LIBERADA"
         }
     }
 

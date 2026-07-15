@@ -31,6 +31,14 @@ interface ReassignmentDialog {
   readonly attempted: boolean;
 }
 
+interface ReleaseDialog {
+  readonly line: MonitorLine;
+  readonly idempotencyKey: string;
+  readonly reason: string;
+  readonly showSummary: boolean;
+  readonly attempted: boolean;
+}
+
 function formatTime(value: string): string {
   const date = new Date(value);
   return Number.isNaN(date.valueOf())
@@ -60,6 +68,8 @@ export function App({repository}: AppProps) {
   const [reviewing, setReviewing] = useState(false);
   const [reassignmentDialog, setReassignmentDialog] = useState<ReassignmentDialog>();
   const [reassigning, setReassigning] = useState(false);
+  const [releaseDialog, setReleaseDialog] = useState<ReleaseDialog>();
+  const [releasing, setReleasing] = useState(false);
   const unsubscribeRef = useRef<MonitorUnsubscribe | undefined>(undefined);
 
   useEffect(() => () => unsubscribeRef.current?.(), []);
@@ -99,6 +109,7 @@ export function App({repository}: AppProps) {
     setStateFilter("PENDIENTE_REVISION");
     setReviewDialog(undefined);
     setReassignmentDialog(undefined);
+    setReleaseDialog(undefined);
   };
 
   const openReview = (kind: ReviewDialog["kind"], line: MonitorLine) => {
@@ -209,6 +220,60 @@ export function App({repository}: AppProps) {
     }
   };
 
+  const openRelease = (line: MonitorLine) => {
+    if (!line.reservation) return;
+    setError(undefined);
+    setNotice(undefined);
+    setReleaseDialog({
+      line,
+      idempotencyKey: crypto.randomUUID(),
+      reason: "",
+      showSummary: false,
+      attempted: false,
+    });
+  };
+
+  const updateReleaseReason = (reason: string) => {
+    setReleaseDialog((current) => current && ({
+      ...current,
+      reason,
+      idempotencyKey: current.attempted ? crypto.randomUUID() : current.idempotencyKey,
+      showSummary: false,
+      attempted: false,
+    }));
+  };
+
+  const reviewRelease = () => {
+    if (!releaseDialog) return;
+    if (!releaseDialog.reason.trim()) {
+      setError("Escribe el motivo de la liberación manual.");
+      return;
+    }
+    setError(undefined);
+    setReleaseDialog({...releaseDialog, reason: releaseDialog.reason.trim(), showSummary: true});
+  };
+
+  const submitRelease = async () => {
+    const reservation = releaseDialog?.line.reservation;
+    if (!releaseDialog?.showSummary || !reservation || releasing) return;
+    setReleasing(true);
+    setError(undefined);
+    setReleaseDialog({...releaseDialog, attempted: true});
+    try {
+      await repository.releaseReservation(
+        reservation.id,
+        releaseDialog.reason,
+        releaseDialog.idempotencyKey,
+      );
+      setNotice("Reserva liberada mediante transacción central.");
+      setReleaseDialog(undefined);
+    } catch (releaseError) {
+      setError(releaseError instanceof Error ? releaseError.message : "No fue posible liberar la reserva.");
+    } finally {
+      setReleasing(false);
+    }
+  };
+
   const visibleLines = sortMonitorLines(snapshot?.lines ?? []).filter((line) => {
     const haystack = Object.values(line.location).join(" ").toLocaleLowerCase("es");
     return (stateFilter === "TODOS" || line.state === stateFilter) &&
@@ -241,7 +306,7 @@ export function App({repository}: AppProps) {
 
       {!user ? (
         <section className="login-panel" aria-labelledby="login-title">
-          <p className="eyebrow">ETAPA 7</p>
+          <p className="eyebrow">ETAPA 8</p>
           <h1 id="login-title">Acceso a revisión</h1>
           <p>Use únicamente una cuenta ficticia cargada en Firebase Emulator Suite.</p>
           <form onSubmit={handleSignIn}>
@@ -310,7 +375,17 @@ export function App({repository}: AppProps) {
                       user.canViewReservationDetails && line.reservation ? (
                         <dl className="reservation-detail">
                           <div><dt>Reservada por</dt><dd>{line.reservation.userDisplayName}</dd></div>
+                          <div><dt>Tipo</dt><dd>{line.reservation.type === "CORRECCION" ? "Corrección" : "Normal"}</dd></div>
+                          <div><dt>Dispositivo</dt><dd>{line.reservation.deviceId}</dd></div>
                           <div><dt>Desde</dt><dd>{formatTime(line.reservation.reservedAt)}</dd></div>
+                          <div><dt>Versión de línea</dt><dd>{line.version}</dd></div>
+                          {user.canRelease && (
+                            <div className="review-actions">
+                              <button className="button" type="button" onClick={() => openRelease(line)}>
+                                Liberar reserva
+                              </button>
+                            </div>
+                          )}
                         </dl>
                       ) : <p className="reservation-private">Reserva activa</p>
                     )}
@@ -508,6 +583,64 @@ export function App({repository}: AppProps) {
                 </button>
               ) : (
                 <button className="button" type="button" onClick={reviewReassignment}>Revisar reasignación</button>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {releaseDialog?.line.reservation && user && (
+        <div className="dialog-backdrop" role="presentation">
+          <section className="review-dialog" role="dialog" aria-modal="true" aria-labelledby="release-title">
+            <p className="eyebrow">DECISIÓN HUMANA SUPERVISADA</p>
+            <h2 id="release-title">Liberar reserva</h2>
+            <p>
+              {releaseDialog.line.location.nursery} · {releaseDialog.line.location.module} · {releaseDialog.line.location.bed} · {releaseDialog.line.location.line}
+            </p>
+            {!releaseDialog.showSummary ? (
+              <>
+                <dl className="reservation-detail">
+                  <div><dt>Titular</dt><dd>{releaseDialog.line.reservation.userDisplayName}</dd></div>
+                  <div><dt>Dispositivo</dt><dd>{releaseDialog.line.reservation.deviceId}</dd></div>
+                  <div><dt>Tipo</dt><dd>{releaseDialog.line.reservation.type === "CORRECCION" ? "Corrección" : "Normal"}</dd></div>
+                  <div><dt>Versión de línea</dt><dd>{releaseDialog.line.version}</dd></div>
+                </dl>
+                <p className="warning">
+                  Puede existir un borrador local sin enviar. La liberación no lo elimina ni recupera su contenido.
+                </p>
+                <label>
+                  Motivo obligatorio
+                  <textarea
+                    rows={4}
+                    maxLength={2000}
+                    value={releaseDialog.reason}
+                    onChange={(event) => updateReleaseReason(event.target.value)}
+                  />
+                </label>
+              </>
+            ) : (
+              <div className="inventory-summary" aria-label="Resumen de liberación">
+                <strong>Confirma la liberación manual</strong>
+                <span>Titular: {releaseDialog.line.reservation.userDisplayName}</span>
+                <span>Motivo: {releaseDialog.reason}</span>
+                <span>
+                  Estado resultante: {releaseDialog.line.reservation.type === "CORRECCION" ? "DEVUELTA" : "DISPONIBLE"}
+                </span>
+                <span>El borrador, la reserva y el historial no serán eliminados.</span>
+              </div>
+            )}
+            <div className="dialog-actions">
+              <button className="button button--secondary" type="button" disabled={releasing} onClick={() => setReleaseDialog(undefined)}>
+                Cancelar
+              </button>
+              {releaseDialog.showSummary ? (
+                <button className="button" type="button" disabled={releasing} onClick={submitRelease}>
+                  {releasing ? "Procesando…" : "Confirmar liberación"}
+                </button>
+              ) : (
+                <button className="button" type="button" disabled={releasing} onClick={reviewRelease}>
+                  Revisar liberación
+                </button>
               )}
             </div>
           </section>

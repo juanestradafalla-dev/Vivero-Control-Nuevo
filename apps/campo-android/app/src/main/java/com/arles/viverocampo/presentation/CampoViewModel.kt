@@ -15,6 +15,7 @@ import com.arles.viverocampo.domain.JourneySnapshot
 import com.arles.viverocampo.domain.InitiateCountCorrectionPayload
 import com.arles.viverocampo.domain.LocalCountDraft
 import com.arles.viverocampo.domain.ReserveLinePayload
+import com.arles.viverocampo.domain.RELEASED_RESERVATION_MESSAGE
 import com.arles.viverocampo.domain.ReturnedCount
 import com.arles.viverocampo.domain.SyncState
 import com.arles.viverocampo.domain.UserProfile
@@ -73,6 +74,7 @@ class CampoViewModel(
     private var journeyJob: Job? = null
     private var returnedCountsJob: Job? = null
     private var draftJob: Job? = null
+    private var reservationStateJob: Job? = null
     private var countSaveJob: Job? = null
 
     fun updateEmail(value: String) {
@@ -105,7 +107,10 @@ class CampoViewModel(
                 )
                 observeJourney()
                 observeReturnedCounts(user)
-                if (reservation != null && reservation.deviceId == deviceId) observeDraft(user, reservation)
+                if (reservation != null && reservation.deviceId == deviceId) {
+                    observeReservationState(reservation)
+                    observeDraft(user, reservation)
+                }
             } catch (error: CampoRepositoryException) {
                 mutableState.value = mutableState.value.copy(
                     signingIn = false,
@@ -123,6 +128,7 @@ class CampoViewModel(
             journeyJob?.cancel()
             returnedCountsJob?.cancel()
             draftJob?.cancel()
+            reservationStateJob?.cancel()
             countSaveJob?.cancel()
             pendingReservationKeys.clear()
             pendingCorrectionKeys.clear()
@@ -160,6 +166,7 @@ class CampoViewModel(
                     confirmedReservation = confirmation,
                     message = "Reserva confirmada por el servidor.",
                 )
+                observeReservationState(confirmation)
                 observeDraft(user, confirmation)
             } catch (error: CampoRepositoryException) {
                 val conflict = error.code == "LINE_NOT_AVAILABLE"
@@ -193,6 +200,7 @@ class CampoViewModel(
                     countInput = returnedCount.input,
                     message = "Corrección iniciada. Revisa los valores de la versión anterior.",
                 )
+                observeReservationState(reservation)
                 observeDraft(user, reservation)
             } catch (error: CampoRepositoryException) {
                 if (error.code != "NETWORK_ERROR" && error.code != "INTERNAL_ERROR") {
@@ -215,6 +223,7 @@ class CampoViewModel(
         val state = mutableState.value
         val reservation = state.confirmedReservation ?: return
         val user = state.user ?: return
+        if (reservation.state == "LIBERADA") return
         if (state.countDraft?.syncState in setOf(SyncState.SINCRONIZANDO, SyncState.ENVIADA)) return
         state.countDraft?.takeIf { it.syncState == SyncState.ERROR }?.frozenPayload?.let {
             syncScheduler.cancel(reservation.reservationId, it.idempotencyKey)
@@ -235,6 +244,7 @@ class CampoViewModel(
     }
 
     fun requestCountConfirmation() {
+        if (mutableState.value.confirmedReservation?.state == "LIBERADA") return
         val validation = CountFormValidator.validate(mutableState.value.countInput)
         if (!validation.valid) {
             mutableState.value = mutableState.value.copy(
@@ -264,6 +274,7 @@ class CampoViewModel(
         val state = mutableState.value
         val reservation = state.confirmedReservation ?: return
         val user = state.user ?: return
+        if (reservation.state == "LIBERADA") return
         if (state.confirmingCount) return
         val pendingSave = countSaveJob
         mutableState.value = state.copy(confirmingCount = true, message = null)
@@ -296,6 +307,7 @@ class CampoViewModel(
     }
 
     fun retryCountSubmission() {
+        if (mutableState.value.confirmedReservation?.state == "LIBERADA") return
         val frozen = mutableState.value.countDraft?.frozenPayload ?: return
         syncScheduler.schedule(frozen.reservationId, frozen.idempotencyKey)
     }
@@ -330,7 +342,11 @@ class CampoViewModel(
                 if (draft == null) {
                     repository.saveCountInput(reservation.reservationId, user.id, deviceId, CountInput())
                 } else {
-                    if (draft.syncState == SyncState.PENDIENTE && draft.frozenPayload != null) {
+                    if (
+                        draft.syncState == SyncState.PENDIENTE &&
+                        draft.frozenPayload != null &&
+                        mutableState.value.confirmedReservation?.state != "LIBERADA"
+                    ) {
                         syncScheduler.schedule(reservation.reservationId, draft.frozenPayload.idempotencyKey)
                     }
                     val validation = CountFormValidator.validate(draft.input)
@@ -343,6 +359,34 @@ class CampoViewModel(
                     )
                 }
             }
+        }
+    }
+
+    private fun observeReservationState(reservation: ConfirmedReservation) {
+        reservationStateJob?.cancel()
+        reservationStateJob = viewModelScope.launch {
+            repository.observeReservationState(reservation.reservationId)
+                .catch { error ->
+                    mutableState.value = mutableState.value.copy(
+                        message = error.message ?: "No fue posible comprobar el estado de la reserva.",
+                    )
+                }
+                .collect { centralState ->
+                    if (
+                        centralState != "LIBERADA" ||
+                        mutableState.value.confirmedReservation?.state == "LIBERADA"
+                    ) return@collect
+                    mutableState.value.countDraft?.frozenPayload?.let { frozen ->
+                        syncScheduler.cancel(reservation.reservationId, frozen.idempotencyKey)
+                    }
+                    repository.markReservationReleased(reservation.reservationId)
+                    mutableState.value = mutableState.value.copy(
+                        confirmedReservation = mutableState.value.confirmedReservation?.copy(state = "LIBERADA"),
+                        showCountSummary = false,
+                        confirmingCount = false,
+                        message = RELEASED_RESERVATION_MESSAGE,
+                    )
+                }
         }
     }
 

@@ -227,8 +227,11 @@ private fun CountContent(
 ) {
     val reservation = requireNotNull(state.confirmedReservation)
     val syncState = state.countDraft?.syncState ?: SyncState.PENDIENTE
-    val editable = (syncState == SyncState.ERROR && state.countDraft?.errorCode == "INVALID_ARGUMENT") ||
-        (syncState == SyncState.PENDIENTE && state.countDraft?.frozenPayload == null)
+    val released = reservation.state == "LIBERADA" || state.countDraft?.errorCode == "RESERVATION_RELEASED"
+    val editable = !released && (
+        (syncState == SyncState.ERROR && state.countDraft?.errorCode == "INVALID_ARGUMENT") ||
+            (syncState == SyncState.PENDIENTE && state.countDraft?.frozenPayload == null)
+        )
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -247,7 +250,7 @@ private fun CountContent(
         item {
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("Línea en conteo", fontWeight = FontWeight.Bold)
+                    Text(if (released) "Reserva liberada" else "Línea en conteo", fontWeight = FontWeight.Bold)
                     Text("Jornada: ${reservation.journeyId}")
                     Text("Vivero: ${reservation.location.nursery}")
                     Text("Módulo: ${reservation.location.module}")
@@ -307,7 +310,18 @@ private fun CountContent(
                         Text("Finalizar y tomar otra línea")
                     }
                 }
-                SyncState.ERROR -> Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) { Text("Reintentar mismo envío") }
+                SyncState.ERROR -> if (released) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "La reserva fue liberada por supervisión.",
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text("El borrador permanece guardado. Consulta con el supervisor antes de continuar.")
+                    }
+                } else {
+                    Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) { Text("Reintentar mismo envío") }
+                }
                 SyncState.SINCRONIZANDO -> Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("Sincronizando…") }
                 SyncState.PENDIENTE -> Button(
                     onClick = onRequestCountConfirmation,

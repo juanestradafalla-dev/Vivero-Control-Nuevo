@@ -28,6 +28,10 @@ interface CampoRepository {
 
     fun observeCountDraft(reservationId: String, userId: String, deviceId: String): Flow<LocalCountDraft?>
 
+    fun observeReservationState(reservationId: String): Flow<String>
+
+    suspend fun markReservationReleased(reservationId: String)
+
     suspend fun saveCountInput(reservationId: String, userId: String, deviceId: String, input: CountInput)
 
     suspend fun freezeCountAttempt(

@@ -12,6 +12,7 @@ import {afterAll, beforeAll, describe, it} from "vitest";
 
 import {
   ACTIVE_JOURNEY_ID,
+  DRAFT_JOURNEY_ID,
   SECOND_ACTIVE_JOURNEY_ID,
   UNAUTHORIZED_ACTIVE_JOURNEY_ID,
   journeyLineId,
@@ -277,5 +278,19 @@ describe("lecturas mínimas y escrituras críticas cerradas en la ETAPA 5", () =
     await assertFails(setDoc(doc(database, "reservas/reserva-directa"), {usuarioId: "uid-administrador"}));
     await assertFails(setDoc(doc(database, "auditoria/evento-directo"), {tipo: "NO_PERMITIDO"}));
     await assertFails(setDoc(doc(database, "idempotencia/resultado-directo"), {operacion: "NO_PERMITIDA"}));
+  });
+
+  it("rechaza lectura y escritura directa de borradores y su seleccion preparatoria", async () => {
+    for (const uid of ["uid-auxiliar-1", "uid-supervisor", "uid-administrador"]) {
+      const database = testEnvironment.authenticatedContext(uid).firestore();
+      await assertFails(getDoc(doc(database, `jornadas/${DRAFT_JOURNEY_ID}`)));
+      await assertFails(getDoc(doc(database, `seleccionesLineasJornada/${DRAFT_JOURNEY_ID}`)));
+      await assertFails(setDoc(doc(database, "jornadas/JORNADA-BORRADOR-DIRECTA"), {
+        estadoAdministrativo: "BORRADOR"
+      }));
+      await assertFails(setDoc(doc(database, `seleccionesLineasJornada/${DRAFT_JOURNEY_ID}`), {
+        lineaIds: ["LINEA-CATALOGO-LIBRE-1"]
+      }));
+    }
   });
 });

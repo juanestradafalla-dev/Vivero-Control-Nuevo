@@ -5,12 +5,19 @@
   "description": "Agrupa las líneas incluidas en una jornada. La ETAPA 3 solo opera cuando está ACTIVA.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "creadaPorUsuarioId", "estadoAdministrativo", "creadaEn"],
+  "required": ["id", "nombreVisible", "creadaPorUsuarioId", "estadoAdministrativo", "version", "creadaEn"],
   "properties": {
     "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "nombreVisible": {"type": "string", "minLength": 1, "maxLength": 200},
     "creadaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "creadorNombreVisible": {"type": "string", "minLength": 1, "maxLength": 200},
+    "rolCreador": {"$ref": "../enums/roles.json"},
     "estadoAdministrativo": {"$ref": "../enums/estados-jornada.json"},
+    "version": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "cantidadLineasSeleccionadas": {"type": "integer", "minimum": 0, "maximum": 400},
     "creadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "actualizadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "entorno": {"type": "string", "minLength": 1, "maxLength": 120},
     "cerradaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
   }
 }

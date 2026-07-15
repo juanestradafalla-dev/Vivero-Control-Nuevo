@@ -8,7 +8,7 @@
   "properties": {
     "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "actorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
-    "operacion": {"enum": ["RESERVAR_LINEA", "ENVIAR_CONTEO", "APROBAR_CONTEO", "DEVOLVER_CONTEO", "INICIAR_CORRECCION_CONTEO", "REASIGNAR_CORRECCION_CONTEO", "LIBERAR_RESERVA_LINEA"]},
+    "operacion": {"enum": ["RESERVAR_LINEA", "ENVIAR_CONTEO", "APROBAR_CONTEO", "DEVOLVER_CONTEO", "INICIAR_CORRECCION_CONTEO", "REASIGNAR_CORRECCION_CONTEO", "LIBERAR_RESERVA_LINEA", "CREAR_JORNADA_BORRADOR", "ACTUALIZAR_LINEAS_JORNADA_BORRADOR"]},
     "claveHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "payloadHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "resultado": {
@@ -19,7 +19,9 @@
         {"$ref": "return-count-result.schema.json"},
         {"$ref": "initiate-count-correction-result.schema.json"},
         {"$ref": "reassign-count-correction-result.schema.json"},
-        {"$ref": "release-reservation-result.schema.json"}
+        {"$ref": "release-reservation-result.schema.json"},
+        {"$ref": "create-draft-journey-result.schema.json"},
+        {"$ref": "update-draft-journey-lines-result.schema.json"}
       ]
     },
     "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}

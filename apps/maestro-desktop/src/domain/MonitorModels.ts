@@ -7,6 +7,7 @@ export interface MonitorUser {
   readonly canViewReservationDetails: boolean;
   readonly canReview: boolean;
   readonly canRelease: boolean;
+  readonly canManageDraftJourneys: boolean;
 }
 
 export interface MonitorJourney {
@@ -101,6 +102,31 @@ export interface MonitorSnapshot {
   readonly correctionCandidates: readonly MonitorCorrectionCandidate[];
 }
 
+export interface ManageableDraftJourney {
+  readonly id: string;
+  readonly displayName: string;
+  readonly state: "BORRADOR";
+  readonly creatorUserId: string;
+  readonly creatorDisplayName: string;
+  readonly version: number;
+  readonly lineIds: readonly string[];
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface DraftCatalogLine {
+  readonly id: string;
+  readonly displayName: string;
+  readonly selectable: boolean;
+  readonly unavailableReason?: "JORNADA_ACTIVA";
+  readonly location: MonitorLocation;
+}
+
+export interface ManageableJourneysData {
+  readonly journeys: readonly ManageableDraftJourney[];
+  readonly catalogLines: readonly DraftCatalogLine[];
+}
+
 export type MonitorUnsubscribe = () => void;
 
 export interface MonitorRepository {
@@ -108,6 +134,13 @@ export interface MonitorRepository {
   signIn(email: string, password: string): Promise<MonitorUser>;
   signOut(): Promise<void>;
   listActiveJourneys(): Promise<readonly MonitorJourney[]>;
+  listManageableJourneys(): Promise<ManageableJourneysData>;
+  createDraftJourney(displayName: string, idempotencyKey: string): Promise<ManageableDraftJourney>;
+  updateDraftJourneyLines(
+    journeyId: string,
+    lineIds: readonly string[],
+    idempotencyKey: string,
+  ): Promise<void>;
   approveCount(countId: string, idempotencyKey: string, exceptionReason?: string): Promise<void>;
   returnCount(countId: string, reason: string, idempotencyKey: string): Promise<void>;
   reassignCountCorrection(countId: string, newUserId: string, reason: string, idempotencyKey: string): Promise<void>;

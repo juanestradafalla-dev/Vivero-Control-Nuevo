@@ -24,8 +24,8 @@ async function assertInvalid(schemaFilename, exampleFilename) {
 }
 
 test("compila todos los esquemas Draft 2020-12 y resuelve sus referencias", () => {
-  assert.equal(registry.entityCount, 32);
-  assert.equal(registry.schemaCount, 33);
+  assert.equal(registry.entityCount, 41);
+  assert.equal(registry.schemaCount, 42);
   assert.equal(registry.enumCount, 5);
 });
 
@@ -235,4 +235,38 @@ test("rechaza solicitar jornadas para otro usuario", async () => {
     "list-active-journeys-request.schema.json",
     "etapa-09/list-active-journeys-request-with-user.json"
   );
+});
+
+test("acepta crear y listar jornadas en borrador sin identidad del cliente", async () => {
+  await assertValid("create-draft-journey-request.schema.json", "etapa-10/create-draft-journey-request.json");
+  await assertValid("create-draft-journey-result.schema.json", "etapa-10/create-draft-journey-result.json");
+  await assertValid("list-manageable-journeys-request.schema.json", "etapa-10/list-manageable-journeys-request.json");
+  await assertValid("list-manageable-journeys-result.schema.json", "etapa-10/list-manageable-journeys-result.json");
+});
+
+test("rechaza nombre vacio y lineas duplicadas en solicitudes de borrador", async () => {
+  await assertInvalid(
+    "create-draft-journey-request.schema.json",
+    "etapa-10/create-draft-journey-request-empty-name.json"
+  );
+  await assertInvalid(
+    "update-draft-journey-lines-request.schema.json",
+    "etapa-10/update-draft-journey-lines-request-duplicates.json"
+  );
+});
+
+test("acepta seleccion preparatoria de lineas separada del estado operativo", async () => {
+  await assertValid(
+    "update-draft-journey-lines-request.schema.json",
+    "etapa-10/update-draft-journey-lines-request.json"
+  );
+  await assertValid(
+    "update-draft-journey-lines-result.schema.json",
+    "etapa-10/update-draft-journey-lines-result.json"
+  );
+  await assertValid(
+    "draft-journey-line-selection.schema.json",
+    "etapa-10/draft-journey-line-selection.json"
+  );
+  await assertValid("jornada.schema.json", "etapa-10/draft-journey.json");
 });

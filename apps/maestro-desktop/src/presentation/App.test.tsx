@@ -1,7 +1,15 @@
 import {act, cleanup, fireEvent, render, screen, waitFor} from "@testing-library/react";
 import {afterEach, describe, expect, it} from "vitest";
 
-import type {MonitorJourney, MonitorRepository, MonitorSnapshot, MonitorUnsubscribe, MonitorUser} from "../domain/MonitorModels";
+import type {
+  ManageableDraftJourney,
+  ManageableJourneysData,
+  MonitorJourney,
+  MonitorRepository,
+  MonitorSnapshot,
+  MonitorUnsubscribe,
+  MonitorUser,
+} from "../domain/MonitorModels";
 import {App} from "./App";
 
 afterEach(cleanup);
@@ -13,6 +21,7 @@ const supervisor: MonitorUser = {
   canViewReservationDetails: true,
   canReview: true,
   canRelease: true,
+  canManageDraftJourneys: true,
 };
 
 const pendingLine = {
@@ -78,10 +87,97 @@ class FakeMonitorRepository implements MonitorRepository {
   returned: Array<{countId: string; reason: string; key: string}> = [];
   reassigned: Array<{countId: string; newUserId: string; reason: string; key: string}> = [];
   released: Array<{reservationId: string; reason: string; key: string}> = [];
+  manageableListCalls = 0;
+  createdDrafts: Array<{name: string; key: string}> = [];
+  updatedDrafts: Array<{journeyId: string; lineIds: readonly string[]; key: string}> = [];
+  manageableData: ManageableJourneysData = {
+    journeys: [{
+      id: "JORNADA-BORRADOR-1",
+      displayName: "Borrador semanal",
+      state: "BORRADOR",
+      creatorUserId: "uid-supervisor",
+      creatorDisplayName: "Supervisor Pruebas",
+      version: 1,
+      lineIds: ["LINEA-LIBRE-1"],
+      createdAt: "2026-07-15T12:00:00.000Z",
+      updatedAt: "2026-07-15T12:00:00.000Z",
+    }],
+    catalogLines: [
+      {
+        id: "LINEA-LIBRE-1",
+        displayName: "Linea libre 1",
+        selectable: true,
+        location: {
+          nursery: "Vivero Norte",
+          module: "Modulo 1",
+          bed: "Cama A",
+          line: "LINEA-LIBRE-1",
+          displayName: "Linea libre 1",
+          order: 1,
+        },
+      },
+      {
+        id: "LINEA-LIBRE-2",
+        displayName: "Linea libre 2",
+        selectable: true,
+        location: {
+          nursery: "Vivero Norte",
+          module: "Modulo 1",
+          bed: "Cama A",
+          line: "LINEA-LIBRE-2",
+          displayName: "Linea libre 2",
+          order: 2,
+        },
+      },
+      {
+        id: "LINEA-ACTIVA-1",
+        displayName: "Linea ocupada",
+        selectable: false,
+        unavailableReason: "JORNADA_ACTIVA",
+        location: {
+          nursery: "Vivero Norte",
+          module: "Modulo 2",
+          bed: "Cama B",
+          line: "LINEA-ACTIVA-1",
+          displayName: "Linea ocupada",
+          order: 1,
+        },
+      },
+    ],
+  };
 
   async signIn(): Promise<MonitorUser> { return this.user; }
   async signOut(): Promise<void> {}
   async listActiveJourneys(): Promise<readonly MonitorJourney[]> { return this.journeys; }
+  async listManageableJourneys(): Promise<ManageableJourneysData> {
+    this.manageableListCalls += 1;
+    return this.manageableData;
+  }
+  async createDraftJourney(name: string, key: string): Promise<ManageableDraftJourney> {
+    this.createdDrafts.push({name, key});
+    const draft: ManageableDraftJourney = {
+      id: `JORNADA-BORRADOR-${this.createdDrafts.length + 1}`,
+      displayName: name,
+      state: "BORRADOR",
+      creatorUserId: this.user.id,
+      creatorDisplayName: this.user.displayName,
+      version: 1,
+      lineIds: [],
+      createdAt: "2026-07-15T16:00:00.000Z",
+      updatedAt: "2026-07-15T16:00:00.000Z",
+    };
+    this.manageableData = {...this.manageableData, journeys: [draft, ...this.manageableData.journeys]};
+    return draft;
+  }
+  async updateDraftJourneyLines(journeyId: string, lineIds: readonly string[], key: string): Promise<void> {
+    this.updatedDrafts.push({journeyId, lineIds, key});
+    this.manageableData = {
+      ...this.manageableData,
+      journeys: this.manageableData.journeys.map((journey) => journey.id === journeyId
+        ? {...journey, lineIds, version: journey.version + 1}
+        : journey),
+    };
+  }
   async approveCount(countId: string, key: string, reason?: string): Promise<void> {
     this.approved.push({countId, key, ...(reason === undefined ? {} : {reason})});
   }
@@ -270,6 +366,7 @@ describe("bandeja de revisión de Vivero Maestro", () => {
       canViewReservationDetails: false,
       canReview: false,
       canRelease: false,
+      canManageDraftJourneys: false,
     };
     await signIn(repository);
     expect(screen.getByText(/detalle restringido/)).toBeInTheDocument();
@@ -331,6 +428,7 @@ describe("bandeja de revisión de Vivero Maestro", () => {
       canViewReservationDetails: false,
       canReview: false,
       canRelease: false,
+      canManageDraftJourneys: false,
     };
     repository.currentSnapshot = {
       ...snapshot,
@@ -401,5 +499,73 @@ describe("bandeja de revisión de Vivero Maestro", () => {
     fireEvent.change(screen.getByLabelText("Motivo obligatorio"), {target: {value: "Corrección interrumpida"}});
     fireEvent.click(screen.getByRole("button", {name: "Revisar liberación"}));
     expect(screen.getByLabelText("Resumen de liberación")).toHaveTextContent("Estado resultante: DEVUELTA");
+  });
+});
+
+describe("jornadas en borrador de Vivero Maestro", () => {
+  it("muestra la seccion Jornadas solo a supervision y lista sus borradores", async () => {
+    const repository = new FakeMonitorRepository();
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Jornadas"}));
+    await screen.findByRole("heading", {name: "Jornadas"});
+    expect(screen.getByText("BORRADOR — AÚN NO DISPONIBLE EN CAMPO")).toBeInTheDocument();
+    expect(await screen.findByText("Borrador semanal")).toBeInTheDocument();
+    expect(repository.manageableListCalls).toBe(1);
+    for (const action of ["Activar", "Cerrar jornada", "Cancelar jornada", "Eliminar"]) {
+      expect(screen.queryByRole("button", {name: new RegExp(action, "i")})).not.toBeInTheDocument();
+    }
+  });
+
+  it("crea una jornada en borrador sin ofrecer activacion", async () => {
+    const repository = new FakeMonitorRepository();
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Jornadas"}));
+    await screen.findByRole("heading", {name: "Jornadas"});
+    fireEvent.change(screen.getByLabelText("Nombre de la nueva jornada"), {
+      target: {value: "Borrador creado desde Maestro"},
+    });
+    fireEvent.click(screen.getByRole("button", {name: "Crear borrador"}));
+    await waitFor(() => expect(repository.createdDrafts).toHaveLength(1));
+    expect(repository.createdDrafts[0]?.name).toBe("Borrador creado desde Maestro");
+    expect((await screen.findAllByText("Borrador creado desde Maestro")).length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByRole("button", {name: /Activar/i})).not.toBeInTheDocument();
+  });
+
+  it("agrupa, filtra y guarda una seleccion sin duplicados mediante confirmacion", async () => {
+    const repository = new FakeMonitorRepository();
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Jornadas"}));
+    await screen.findByRole("heading", {name: "Jornadas"});
+    fireEvent.click(await screen.findByRole("button", {name: /Borrador semanal/}));
+    expect(screen.getByText("Vivero Norte · Modulo 1 · Cama A")).toBeInTheDocument();
+    expect(screen.getByText("Ya pertenece a una jornada activa")).toBeInTheDocument();
+    const occupied = screen.getByRole("checkbox", {name: /Linea ocupada/});
+    expect(occupied).toBeDisabled();
+    fireEvent.click(screen.getByRole("checkbox", {name: /Linea libre 2/}));
+    fireEvent.click(screen.getByRole("button", {name: "Revisar selección"}));
+    expect(screen.getByLabelText("Resumen de selección de líneas")).toHaveTextContent("Líneas seleccionadas: 2");
+    fireEvent.click(screen.getByRole("button", {name: "Confirmar y guardar"}));
+    await waitFor(() => expect(repository.updatedDrafts).toHaveLength(1));
+    expect(repository.updatedDrafts[0]).toMatchObject({
+      journeyId: "JORNADA-BORRADOR-1",
+      lineIds: ["LINEA-LIBRE-1", "LINEA-LIBRE-2"],
+    });
+    expect(new Set(repository.updatedDrafts[0]?.lineIds).size).toBe(2);
+  });
+
+  it("no consulta ni muestra borradores a un auxiliar", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.user = {
+      id: "uid-auxiliar-1",
+      displayName: "Auxiliar",
+      role: "AUXILIAR",
+      canViewReservationDetails: false,
+      canReview: false,
+      canRelease: false,
+      canManageDraftJourneys: false,
+    };
+    await signIn(repository);
+    expect(screen.queryByRole("button", {name: "Jornadas"})).not.toBeInTheDocument();
+    expect(repository.manageableListCalls).toBe(0);
   });
 });

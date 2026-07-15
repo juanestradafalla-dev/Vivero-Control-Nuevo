@@ -1,11 +1,13 @@
 import type {
   ApproveCountRequest,
+  CreateDraftJourneyRequest,
   InitiateCountCorrectionRequest,
   ReassignCountCorrectionRequest,
   ReleaseReservationRequest,
   ReserveLineRequest,
   ReturnCountRequest,
-  SendCountRequest
+  SendCountRequest,
+  UpdateDraftJourneyLinesRequest
 } from "./contracts.js";
 import {domainErrors} from "./errors.js";
 
@@ -30,13 +32,71 @@ const returnCountFields = new Set(["conteoId", "motivo", "claveIdempotencia"]);
 const initiateCorrectionFields = new Set(["conteoId", "dispositivoId", "claveIdempotencia"]);
 const reassignCorrectionFields = new Set(["conteoId", "nuevoUsuarioId", "motivo", "claveIdempotencia"]);
 const releaseReservationFields = new Set(["reservaId", "motivo", "claveIdempotencia"]);
+const createDraftJourneyFields = new Set(["nombreVisible", "claveIdempotencia"]);
+const updateDraftJourneyLinesFields = new Set(["jornadaId", "lineaIds", "claveIdempotencia"]);
 const REVIEW_REASON_LIMIT = 2000;
+const JOURNEY_NAME_LIMIT = 200;
+const DRAFT_LINE_LIMIT = 400;
 
 export function parseListActiveJourneysRequest(value: unknown): void {
   if (value === undefined || value === null) return;
   if (typeof value !== "object" || Array.isArray(value) || Object.keys(value as object).length > 0) {
     throw domainErrors.invalidArgument();
   }
+}
+
+export const parseListManageableJourneysRequest = parseListActiveJourneysRequest;
+
+export function parseCreateDraftJourneyRequest(value: unknown): CreateDraftJourneyRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw domainErrors.invalidArgument();
+  }
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).some((field) => !createDraftJourneyFields.has(field))) {
+    throw domainErrors.invalidArgument();
+  }
+  if (typeof record.nombreVisible !== "string" || record.nombreVisible.trim().length === 0) {
+    throw domainErrors.journeyNameRequired();
+  }
+  if (
+    record.nombreVisible.length > JOURNEY_NAME_LIMIT ||
+    typeof record.claveIdempotencia !== "string" ||
+    !idempotencyPattern.test(record.claveIdempotencia)
+  ) {
+    throw domainErrors.invalidArgument();
+  }
+  return {
+    nombreVisible: record.nombreVisible.trim(),
+    claveIdempotencia: record.claveIdempotencia
+  };
+}
+
+export function parseUpdateDraftJourneyLinesRequest(value: unknown): UpdateDraftJourneyLinesRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw domainErrors.invalidArgument();
+  }
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).some((field) => !updateDraftJourneyLinesFields.has(field))) {
+    throw domainErrors.invalidArgument();
+  }
+  if (
+    typeof record.jornadaId !== "string" ||
+    !safeIdPattern.test(record.jornadaId) ||
+    !Array.isArray(record.lineaIds) ||
+    record.lineaIds.length > DRAFT_LINE_LIMIT ||
+    record.lineaIds.some((lineId) => typeof lineId !== "string" || !safeIdPattern.test(lineId)) ||
+    typeof record.claveIdempotencia !== "string" ||
+    !idempotencyPattern.test(record.claveIdempotencia)
+  ) {
+    throw domainErrors.invalidArgument();
+  }
+  const lineIds = record.lineaIds as string[];
+  if (new Set(lineIds).size !== lineIds.length) throw domainErrors.duplicateLineIds();
+  return {
+    jornadaId: record.jornadaId,
+    lineaIds: [...lineIds].sort((left, right) => left.localeCompare(right)),
+    claveIdempotencia: record.claveIdempotencia
+  };
 }
 
 function parseReviewBase(

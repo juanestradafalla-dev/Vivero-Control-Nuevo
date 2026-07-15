@@ -113,3 +113,9 @@ La operación es exclusivamente manual: no hay temporizadores, vencimiento ni in
 No se agregan dependencias externas, migraciones Room ni índices de producción. La selección dinámica reutiliza Auth, Functions y snapshots existentes; cada cambio de Maestro cancela todas las suscripciones anteriores antes de abrir las nuevas.
 
 Persisten los riesgos de señal y dispositivos reales, retención local, pérdida de claves Keystore y alertas moderadas transitivas del backend. La fecha central ordena la lista, pero la política operativa para nombrar, crear, activar y cerrar jornadas continúa fuera de alcance. Firebase real sigue sin configurarse ni desplegarse.
+
+## Actualización de la ETAPA 10
+
+No se agregan dependencias externas, migraciones Room ni índices de producción. La gestión de borradores reutiliza Auth, Functions, transacciones, auditoría e idempotencia. La selección se conserva en una colección de preparación separada y no materializa líneas operativas ni inventario.
+
+Persisten como decisiones futuras la activación, el cierre, la cancelación, la eliminación y la autorización de usuarios. Una línea puede dejar de ser seleccionable entre la lectura del catálogo y la confirmación; el backend vuelve a validar todo dentro de la operación y rechaza la escritura completa. También continúan pendientes la estructura real del vivero, los datos reales, la señal y dispositivos reales, la retención local y las alertas moderadas transitivas del backend. Firebase real sigue sin configurarse ni desplegarse.

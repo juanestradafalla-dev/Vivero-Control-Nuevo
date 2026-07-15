@@ -1,0 +1,13 @@
+{
+  "id": "JORNADA-BORRADOR-SUPERVISOR",
+  "nombreVisible": "Borrador ficticio del supervisor",
+  "creadaPorUsuarioId": "uid-supervisor",
+  "creadorNombreVisible": "Supervisor ficticio",
+  "rolCreador": "SUPERVISOR",
+  "estadoAdministrativo": "BORRADOR",
+  "version": 1,
+  "cantidadLineasSeleccionadas": 1,
+  "creadaEn": "2026-07-15T12:00:00.000Z",
+  "actualizadaEn": "2026-07-15T12:00:00.000Z",
+  "entorno": "FICTICIO_EMULADOR"
+}

@@ -5,8 +5,13 @@ import {pathToFileURL} from "node:url";
 
 import {
   ACTIVE_JOURNEY_ID,
+  DRAFT_JOURNEY_ID,
   DEMO_PASSWORD,
   DEMO_PROJECT_ID,
+  FREE_CATALOG_LINE_ID,
+  INACTIVE_CATALOG_LINE_ID,
+  OTHER_SUPERVISOR_DRAFT_JOURNEY_ID,
+  SECOND_FREE_CATALOG_LINE_ID,
   SECOND_ACTIVE_JOURNEY_ID,
   UNAUTHORIZED_ACTIVE_JOURNEY_ID,
   demoAccounts,
@@ -81,7 +86,9 @@ export async function seedEmulator() {
     "reservas",
     "idempotencia",
     "auditoria",
-    "jornadaLineas"
+    "jornadaLineas",
+    "jornadas",
+    "seleccionesLineasJornada"
   ]) {
     await clearCollection(database, collectionName);
   }
@@ -152,14 +159,33 @@ export async function seedEmulator() {
     });
   }
 
+  for (const line of [
+    {id: FREE_CATALOG_LINE_ID, name: "Linea libre de catalogo 1", order: 92, active: true},
+    {id: SECOND_FREE_CATALOG_LINE_ID, name: "Linea libre de catalogo 2", order: 93, active: true},
+    {id: INACTIVE_CATALOG_LINE_ID, name: "Linea inactiva de catalogo", order: 94, active: false}
+  ]) {
+    batch.set(database.collection("lineas").doc(line.id), {
+      id: line.id,
+      ubicacionId: "CAMA-PRUEBA-2",
+      codigo: line.id,
+      nombreVisible: line.name,
+      orden: line.order,
+      activa: line.active,
+      creadaEn: now,
+      actualizadaEn: now
+    });
+  }
+
   const journeyRef = database.collection("jornadas").doc(ACTIVE_JOURNEY_ID);
   batch.set(journeyRef, {
     id: ACTIVE_JOURNEY_ID,
     nombreVisible: "Jornada ficticia de la Etapa 3",
     creadaPorUsuarioId: "uid-administrador",
     estadoAdministrativo: "ACTIVA",
+    version: 1,
     entorno: "FICTICIO_EMULADOR",
-    creadaEn: now
+    creadaEn: now,
+    actualizadaEn: now
   });
   const secondJourneyRef = database.collection("jornadas").doc(SECOND_ACTIVE_JOURNEY_ID);
   batch.set(secondJourneyRef, {
@@ -167,8 +193,10 @@ export async function seedEmulator() {
     nombreVisible: "Jornada ficticia dinámica B",
     creadaPorUsuarioId: "uid-administrador",
     estadoAdministrativo: "ACTIVA",
+    version: 1,
     entorno: "FICTICIO_EMULADOR",
-    creadaEn: secondJourneyCreatedAt
+    creadaEn: secondJourneyCreatedAt,
+    actualizadaEn: secondJourneyCreatedAt
   });
   const unauthorizedJourneyRef = database.collection("jornadas").doc(UNAUTHORIZED_ACTIVE_JOURNEY_ID);
   batch.set(unauthorizedJourneyRef, {
@@ -176,8 +204,10 @@ export async function seedEmulator() {
     nombreVisible: "Jornada activa sin autorización",
     creadaPorUsuarioId: "uid-administrador",
     estadoAdministrativo: "ACTIVA",
+    version: 1,
     entorno: "FICTICIO_EMULADOR",
-    creadaEn: now
+    creadaEn: now,
+    actualizadaEn: now
   });
   const inactiveJourneyId = "JORNADA-PRUEBA-INACTIVA";
   const inactiveJourneyRef = database.collection("jornadas").doc(inactiveJourneyId);
@@ -186,9 +216,52 @@ export async function seedEmulator() {
     nombreVisible: "Jornada inactiva ficticia",
     creadaPorUsuarioId: "uid-administrador",
     estadoAdministrativo: "INACTIVA",
+    version: 1,
     entorno: "FICTICIO_EMULADOR",
-    creadaEn: now
+    creadaEn: now,
+    actualizadaEn: now
   });
+
+  const draftCreatedAt = Timestamp.fromDate(new Date("2026-07-15T12:00:00.000Z"));
+  for (const draft of [
+    {
+      id: DRAFT_JOURNEY_ID,
+      name: "Borrador ficticio del supervisor",
+      creatorId: "uid-supervisor",
+      creatorName: "Supervisor ficticio",
+      lineIds: [FREE_CATALOG_LINE_ID]
+    },
+    {
+      id: OTHER_SUPERVISOR_DRAFT_JOURNEY_ID,
+      name: "Borrador ficticio de otro supervisor",
+      creatorId: "uid-supervisor-2",
+      creatorName: "Supervisor ficticio 2",
+      lineIds: []
+    }
+  ]) {
+    batch.set(database.collection("jornadas").doc(draft.id), {
+      id: draft.id,
+      nombreVisible: draft.name,
+      creadaPorUsuarioId: draft.creatorId,
+      creadorNombreVisible: draft.creatorName,
+      rolCreador: "SUPERVISOR",
+      estadoAdministrativo: "BORRADOR",
+      version: 1,
+      cantidadLineasSeleccionadas: draft.lineIds.length,
+      entorno: "FICTICIO_EMULADOR",
+      creadaEn: draftCreatedAt,
+      actualizadaEn: draftCreatedAt
+    });
+    batch.set(database.collection("seleccionesLineasJornada").doc(draft.id), {
+      id: draft.id,
+      jornadaId: draft.id,
+      lineaIds: draft.lineIds,
+      cantidadLineas: draft.lineIds.length,
+      versionJornada: 1,
+      actualizadaPorUsuarioId: draft.creatorId,
+      actualizadaEn: draftCreatedAt
+    });
+  }
 
   for (const account of demoAccounts.filter((candidate) => candidate.autorizado && candidate.crearPerfil !== false)) {
     batch.set(journeyRef.collection("autorizaciones").doc(account.uid), {
@@ -338,7 +411,7 @@ export async function seedEmulator() {
     projectId,
     users: demoAccounts.length,
     journeyId: ACTIVE_JOURNEY_ID,
-    lines: visibleLocations.length + secondJourneyLocations.length + 2,
+    lines: visibleLocations.length + secondJourneyLocations.length + 5,
     inventories: initialInventories.length
   };
 }

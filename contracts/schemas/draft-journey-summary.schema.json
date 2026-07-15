@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/draft-journey-summary.schema.json",
+  "title": "Resumen administrable de jornada en borrador",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["jornadaId", "nombreVisible", "estado", "creadorUsuarioId", "creadorNombreVisible", "version", "cantidadLineas", "lineaIds", "creadaEn", "actualizadaEn"],
+  "properties": {
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "nombreVisible": {"type": "string", "minLength": 1, "maxLength": 200},
+    "estado": {"const": "BORRADOR"},
+    "creadorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "creadorNombreVisible": {"type": "string", "minLength": 1, "maxLength": 200},
+    "version": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "cantidadLineas": {"type": "integer", "minimum": 0, "maximum": 400},
+    "lineaIds": {
+      "type": "array",
+      "maxItems": 400,
+      "uniqueItems": true,
+      "items": {"$ref": "comun.schema.json#/$defs/idRutaSegura"}
+    },
+    "creadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "actualizadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

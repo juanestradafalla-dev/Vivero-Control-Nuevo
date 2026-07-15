@@ -2,7 +2,7 @@
 
 Sistema nuevo para operar inventario por línea mediante Vivero Campo (Android), Vivero Maestro (Windows) y un backend transaccional. Este repositorio no consulta, modifica ni reutiliza el proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 9
+## Estado: ETAPA 10
 
 La vertical disponible funciona exclusivamente con Firebase Emulator Suite y datos ficticios:
 
@@ -29,6 +29,11 @@ La vertical disponible funciona exclusivamente con Firebase Emulator Suite y dat
 18. Campo selecciona automáticamente una única jornada o muestra selector cuando existen varias y bloquea el cambio con trabajo pendiente.
 19. Maestro cambia todas sus suscripciones al seleccionar otra jornada y nunca mezcla líneas, reservas, conteos o inventario.
 20. El ID histórico `JORNADA-PRUEBA-ETAPA-3` permanece solo como fixture del seed; ya no dirige consultas funcionales.
+
+21. Supervisor y administrador pueden crear jornadas `BORRADOR` mediante `crearJornadaBorrador`.
+22. Maestro permite seleccionar líneas activas del catálogo y guarda la preparación mediante `actualizarLineasJornadaBorrador`, sin crear `jornadaLineas` operativas.
+23. Supervisor administra exclusivamente sus borradores; administrador puede administrar todos y auxiliares no los consultan.
+24. Campo continúa recibiendo únicamente jornadas `ACTIVA`; un borrador no genera estados `DISPONIBLE` ni modifica inventario.
 
 > **MODO DE PRUEBA — EMULADOR.** No existe Firebase real configurado, no hay credenciales de producción y ningún comando despliega recursos.
 
@@ -90,7 +95,7 @@ Set-Location backend/functions
 npm run emulator:seed
 ```
 
-Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las ocho Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
+Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las once Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
 
 | Correo ficticio | Rol |
 |---|---|
@@ -136,6 +141,13 @@ npm run test:emulators
 npm audit --omit=dev --audit-level=high
 ```
 
+## Documentación de la ETAPA 10
+
+- [Jornadas en borrador y selección de líneas](docs/arquitectura/JORNADAS_BORRADOR_ETAPA_10.md)
+- [Pruebas](docs/pruebas/PRUEBAS_ETAPA_10.md)
+- [Criterios de aceptación](docs/ETAPA_10_CRITERIOS_DE_ACEPTACION.md)
+- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
+
 ## Documentación de la ETAPA 9
 
 - [Jornadas activas dinámicas](docs/arquitectura/JORNADAS_DINAMICAS_ETAPA_09.md)
@@ -161,4 +173,4 @@ npm audit --omit=dev --audit-level=high
 
 ## Exclusiones vigentes
 
-No están implementados: creación, edición, activación o cierre de jornadas, autorización de usuarios desde interfaces, vencimiento automático, temporizadores de abandono, eliminación o recuperación administrativa de borradores, corrección simultánea por varios usuarios, administración de usuarios, datos reales, migración, Firebase de producción, despliegues, APK de producción, instalador Windows definitivo, descartes, despachos, químicos, aplicaciones ni reingresos.
+No están implementados: activación, cierre, cancelación, reapertura o eliminación de jornadas; autorización de usuarios desde interfaces; creación de ubicaciones o líneas; vencimiento automático; temporizadores de abandono; eliminación o recuperación administrativa de borradores locales; corrección simultánea por varios usuarios; administración de usuarios; datos reales; migración; Firebase de producción; despliegues; APK de producción; instalador Windows definitivo; descartes, despachos, químicos, aplicaciones ni reingresos.

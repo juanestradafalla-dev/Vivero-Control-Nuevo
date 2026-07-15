@@ -9,6 +9,7 @@ import type {
   MonitorUser,
 } from "../domain/MonitorModels";
 import {sortMonitorLines} from "../domain/MonitorModels";
+import {DraftJourneysSection} from "./DraftJourneysSection";
 import "./app.css";
 
 interface AppProps {
@@ -59,6 +60,7 @@ export function App({repository}: AppProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [user, setUser] = useState<MonitorUser>();
+  const [activeSection, setActiveSection] = useState<"MONITOR" | "JOURNEYS">("MONITOR");
   const [journeys, setJourneys] = useState<readonly MonitorJourney[]>([]);
   const [selectedJourneyId, setSelectedJourneyId] = useState<string>();
   const [snapshot, setSnapshot] = useState<MonitorSnapshot>();
@@ -123,6 +125,7 @@ export function App({repository}: AppProps) {
     unsubscribeRef.current = undefined;
     await repository.signOut();
     setUser(undefined);
+    setActiveSection("MONITOR");
     setJourneys([]);
     setSelectedJourneyId(undefined);
     setSnapshot(undefined);
@@ -327,9 +330,33 @@ export function App({repository}: AppProps) {
         {repository.emulatorEnabled ? "MODO DE PRUEBA — EMULADOR" : "FIREBASE DESHABILITADO — SIN PRODUCCIÓN"}
       </div>
 
+      {user?.canManageDraftJourneys && (
+        <nav className="workspace-nav" aria-label="Secciones de Maestro">
+          <button
+            className={activeSection === "MONITOR" ? "workspace-tab workspace-tab--active" : "workspace-tab"}
+            type="button"
+            onClick={() => setActiveSection("MONITOR")}
+          >
+            Conteos
+          </button>
+          <button
+            className={activeSection === "JOURNEYS" ? "workspace-tab workspace-tab--active" : "workspace-tab"}
+            type="button"
+            onClick={() => {
+              setReviewDialog(undefined);
+              setReassignmentDialog(undefined);
+              setReleaseDialog(undefined);
+              setActiveSection("JOURNEYS");
+            }}
+          >
+            Jornadas
+          </button>
+        </nav>
+      )}
+
       {!user ? (
         <section className="login-panel" aria-labelledby="login-title">
-          <p className="eyebrow">ETAPA 9</p>
+          <p className="eyebrow">ETAPA 10</p>
           <h1 id="login-title">Acceso a revisión</h1>
           <p>Use únicamente una cuenta ficticia cargada en Firebase Emulator Suite.</p>
           <form onSubmit={handleSignIn}>
@@ -347,6 +374,8 @@ export function App({repository}: AppProps) {
             </button>
           </form>
         </section>
+      ) : activeSection === "JOURNEYS" ? (
+        <DraftJourneysSection repository={repository} user={user} />
       ) : (
         <section className="monitor" aria-labelledby="monitor-title">
           <div className="monitor-filters">
@@ -524,7 +553,7 @@ export function App({repository}: AppProps) {
         </section>
       )}
 
-      {reviewDialog?.line.count && user && (
+      {activeSection === "MONITOR" && reviewDialog?.line.count && user && (
         <div className="dialog-backdrop" role="presentation">
           <section className="review-dialog" role="dialog" aria-modal="true" aria-labelledby="review-title">
             <p className="eyebrow">CONFIRMACIÓN CENTRAL</p>
@@ -570,7 +599,7 @@ export function App({repository}: AppProps) {
         </div>
       )}
 
-      {reassignmentDialog?.line.count && user && (
+      {activeSection === "MONITOR" && reassignmentDialog?.line.count && user && (
         <div className="dialog-backdrop" role="presentation">
           <section className="review-dialog" role="dialog" aria-modal="true" aria-labelledby="reassignment-title">
             <p className="eyebrow">REASIGNACIÓN SUPERVISADA</p>
@@ -636,7 +665,7 @@ export function App({repository}: AppProps) {
         </div>
       )}
 
-      {releaseDialog?.line.reservation && user && (
+      {activeSection === "MONITOR" && releaseDialog?.line.reservation && user && (
         <div className="dialog-backdrop" role="presentation">
           <section className="review-dialog" role="dialog" aria-modal="true" aria-labelledby="release-title">
             <p className="eyebrow">DECISIÓN HUMANA SUPERVISADA</p>

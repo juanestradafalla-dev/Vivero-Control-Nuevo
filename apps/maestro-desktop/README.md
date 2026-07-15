@@ -1,6 +1,6 @@
 # Vivero Maestro
 
-Aplicación Electron/React de la Etapa 6 para revisar conteos en Firebase Emulator Suite.
+Aplicación Electron/React de la Etapa 7 para revisar conteos en Firebase Emulator Suite.
 
 - Observa líneas, conteos e inventarios ficticios mediante snapshots.
 - Presenta ubicación, autor, rol, dispositivo, cantidades, observaciones, horas, versión, inventario actual y diferencia.
@@ -12,6 +12,8 @@ Aplicación Electron/React de la Etapa 6 para revisar conteos en Firebase Emulat
 - Auxiliares no leen detalle ajeno ni ven acciones.
 - Presenta todas las versiones por línea, marca la vigente y conserva visible el motivo de devolución.
 - Las versiones anteriores son solo lectura; las acciones apuntan a la versión vigente y el backend vuelve a validarla.
+- En líneas `DEVUELTA` muestra autor original, responsable actual, asignador y motivos.
+- Supervisor y administrador seleccionan exclusivamente usuarios activos y autorizados, revisan un resumen y solicitan la reasignación mediante Callable.
 
 ```powershell
 npm ci
@@ -22,4 +24,4 @@ npm run build
 npm audit --omit=dev --audit-level=high
 ```
 
-No incluye edición de versiones, reasignación, liberación, gestión de jornadas ni instalador.
+No incluye edición de versiones, liberación, gestión de jornadas ni instalador.

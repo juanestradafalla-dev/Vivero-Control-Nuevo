@@ -1,0 +1,30 @@
+{
+  "id": "conteo-ficticio-version-2",
+  "jornadaId": "JORNADA-PRUEBA-ETAPA-3",
+  "jornadaLineaId": "JORNADA-PRUEBA-ETAPA-3__LINEA-PRUEBA-1",
+  "lineaId": "LINEA-PRUEBA-1",
+  "reservaId": "reserva-correccion-ficticia-001",
+  "autorUsuarioId": "uid-auxiliar-1",
+  "autorNombreVisible": "Auxiliar ficticio uno",
+  "rolEfectivo": "AUXILIAR",
+  "dispositivoId": "DISPOSITIVO-EMULADOR-001",
+  "hembras": 451,
+  "machos": 319,
+  "patrones": 210,
+  "total": 980,
+  "versionNumero": 2,
+  "conteoAnteriorId": "conteo-ficticio-version-1",
+  "claveIdempotencia": "enviar-correccion-etapa-06-0001",
+  "observaciones": "Conteo corregido en emulador.",
+  "timestampDispositivo": "2026-07-15T08:10:00.000-05:00",
+  "recibidoEn": "2026-07-15T13:10:01.000Z",
+  "ubicacion": {
+    "vivero": "VIVERO-PRUEBA",
+    "modulo": "MODULO-1",
+    "cama": "CAMA-1",
+    "linea": "LINEA-1",
+    "nombreVisible": "Línea ficticia 1",
+    "orden": 1
+  },
+  "inmutable": true
+}

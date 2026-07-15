@@ -1,0 +1,19 @@
+{
+  "reservaId": "reserva-correccion-ficticia-001",
+  "jornadaLineaId": "JORNADA-PRUEBA-ETAPA-3__LINEA-PRUEBA-1",
+  "conteoAnteriorId": "conteo-ficticio-version-1",
+  "estadoCentral": "EN_CONTEO",
+  "tipoReserva": "CORRECCION",
+  "tokenReserva": "abcdefghijklmnopqrstuvwxyzABCDEFGH123456789",
+  "reservadaEn": "2026-07-15T13:00:00.000Z",
+  "version": 4,
+  "versionConteoSiguiente": 2,
+  "ubicacion": {
+    "vivero": "VIVERO-PRUEBA",
+    "modulo": "MODULO-1",
+    "cama": "CAMA-1",
+    "linea": "LINEA-1",
+    "nombreVisible": "Línea ficticia 1",
+    "orden": 1
+  }
+}

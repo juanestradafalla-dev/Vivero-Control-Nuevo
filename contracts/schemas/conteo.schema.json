@@ -45,13 +45,28 @@
       "readOnly": true,
       "description": "Calculado centralmente como hembras + machos + patrones."
     },
-    "versionNumero": {"const": 1},
-    "conteoAnteriorId": {"type": "null"},
+    "versionNumero": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "conteoAnteriorId": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "comun.schema.json#/$defs/idGlobal"}
+      ]
+    },
     "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"},
     "observaciones": {"type": "string", "maxLength": 4000},
     "timestampDispositivo": {"type": "string", "format": "date-time"},
     "recibidoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
     "ubicacion": {"$ref": "comun.schema.json#/$defs/ubicacionVisible"},
     "inmutable": {"const": true}
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"versionNumero": {"const": 1}}, "required": ["versionNumero"]},
+      "then": {"properties": {"conteoAnteriorId": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"versionNumero": {"type": "integer", "minimum": 2}}, "required": ["versionNumero"]},
+      "then": {"properties": {"conteoAnteriorId": {"$ref": "comun.schema.json#/$defs/idGlobal"}}}
+    }
+  ]
 }

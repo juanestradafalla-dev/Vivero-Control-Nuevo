@@ -24,8 +24,8 @@ async function assertInvalid(schemaFilename, exampleFilename) {
 }
 
 test("compila todos los esquemas Draft 2020-12 y resuelve sus referencias", () => {
-  assert.equal(registry.entityCount, 22);
-  assert.equal(registry.schemaCount, 23);
+  assert.equal(registry.entityCount, 24);
+  assert.equal(registry.schemaCount, 25);
   assert.equal(registry.enumCount, 5);
 });
 
@@ -165,4 +165,24 @@ test("acepta decisiones separadas de aprobación y devolución", async () => {
 test("acepta resultados idempotentes de aprobación y devolución", async () => {
   await assertValid("resultado-idempotente.schema.json", "etapa-05/idempotent-approval-result.json");
   await assertValid("resultado-idempotente.schema.json", "etapa-05/idempotent-return-result.json");
+});
+
+test("acepta iniciar una corrección y su resultado idempotente", async () => {
+  await assertValid(
+    "initiate-count-correction-request.schema.json",
+    "etapa-06/initiate-count-correction-request.json"
+  );
+  await assertValid(
+    "initiate-count-correction-result.schema.json",
+    "etapa-06/initiate-count-correction-result.json"
+  );
+  await assertValid(
+    "resultado-idempotente.schema.json",
+    "etapa-06/resultado-idempotente-correccion.json"
+  );
+});
+
+test("acepta una versión 2 que apunta al conteo anterior", async () => {
+  await assertValid("conteo.schema.json", "etapa-06/conteo-version-2.json");
+  await assertValid("reserva.schema.json", "etapa-06/reserva-correccion.json");
 });

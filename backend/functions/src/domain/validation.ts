@@ -1,5 +1,6 @@
 import type {
   ApproveCountRequest,
+  InitiateCountCorrectionRequest,
   ReserveLineRequest,
   ReturnCountRequest,
   SendCountRequest
@@ -24,6 +25,7 @@ const tokenPattern = /^[A-Za-z0-9_-]{32,256}$/;
 const timestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 const approveCountFields = new Set(["conteoId", "claveIdempotencia", "motivoExcepcion"]);
 const returnCountFields = new Set(["conteoId", "motivo", "claveIdempotencia"]);
+const initiateCorrectionFields = new Set(["conteoId", "dispositivoId", "claveIdempotencia"]);
 const REVIEW_REASON_LIMIT = 2000;
 
 function parseReviewBase(
@@ -73,6 +75,31 @@ export function parseReturnCountRequest(value: unknown): ReturnCountRequest {
     conteoId: record.conteoId as string,
     motivo: (record.motivo as string).trim(),
     claveIdempotencia: record.claveIdempotencia as string
+  };
+}
+
+export function parseInitiateCountCorrectionRequest(value: unknown): InitiateCountCorrectionRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw domainErrors.invalidArgument();
+  }
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).some((field) => !initiateCorrectionFields.has(field))) {
+    throw domainErrors.invalidArgument();
+  }
+  if (
+    typeof record.conteoId !== "string" ||
+    typeof record.dispositivoId !== "string" ||
+    typeof record.claveIdempotencia !== "string" ||
+    !safeIdPattern.test(record.conteoId) ||
+    !safeIdPattern.test(record.dispositivoId) ||
+    !idempotencyPattern.test(record.claveIdempotencia)
+  ) {
+    throw domainErrors.invalidArgument();
+  }
+  return {
+    conteoId: record.conteoId,
+    dispositivoId: record.dispositivoId,
+    claveIdempotencia: record.claveIdempotencia
   };
 }
 

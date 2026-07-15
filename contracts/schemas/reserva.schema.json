@@ -21,6 +21,8 @@
   ],
   "properties": {
     "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "tipoReserva": {"enum": ["INICIAL", "CORRECCION"]},
+    "conteoAnteriorId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "jornadaLineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "usuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
@@ -55,6 +57,13 @@
       "then": {
         "properties": {"motivoLiberacion": {}},
         "required": ["motivoLiberacion"]
+      }
+    },
+    {
+      "if": {"properties": {"tipoReserva": {"const": "CORRECCION"}}, "required": ["tipoReserva"]},
+      "then": {
+        "properties": {"conteoAnteriorId": {}},
+        "required": ["conteoAnteriorId"]
       }
     }
   ]

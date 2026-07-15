@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/initiate-count-correction-result.schema.json",
+  "title": "IniciarCorreccionConteoResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "reservaId",
+    "jornadaLineaId",
+    "conteoAnteriorId",
+    "estadoCentral",
+    "tipoReserva",
+    "tokenReserva",
+    "reservadaEn",
+    "version",
+    "versionConteoSiguiente",
+    "ubicacion"
+  ],
+  "properties": {
+    "reservaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaLineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "conteoAnteriorId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "estadoCentral": {"const": "EN_CONTEO"},
+    "tipoReserva": {"const": "CORRECCION"},
+    "tokenReserva": {"type": "string", "pattern": "^[A-Za-z0-9_-]{32,256}$"},
+    "reservadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "version": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "versionConteoSiguiente": {"type": "integer", "minimum": 2, "maximum": 9007199254740991},
+    "ubicacion": {"$ref": "comun.schema.json#/$defs/ubicacionVisible"}
+  }
+}

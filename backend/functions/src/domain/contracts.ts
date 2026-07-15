@@ -26,6 +26,8 @@ export type ControlledErrorCode =
   | "LINE_RESERVATION_MISMATCH"
   | "LINE_NOT_IN_COUNT"
   | "COUNT_NOT_FOUND"
+  | "COUNT_NOT_RETURNED"
+  | "COUNT_AUTHOR_MISMATCH"
   | "COUNT_NOT_PENDING_REVIEW"
   | "COUNT_LINE_MISMATCH"
   | "REVIEW_NOT_ALLOWED"
@@ -33,6 +35,7 @@ export type ControlledErrorCode =
   | "EXCEPTION_REASON_REQUIRED"
   | "RETURN_REASON_REQUIRED"
   | "INVENTORY_NOT_FOUND"
+  | "ACTIVE_RESERVATION_EXISTS"
   | "IDEMPOTENCY_CONFLICT"
   | "EMULATOR_ONLY"
   | "INTERNAL_ERROR";
@@ -62,6 +65,25 @@ export interface ReserveLineResult {
   readonly ubicacion: VisibleLocation;
 }
 
+export interface InitiateCountCorrectionRequest {
+  readonly conteoId: string;
+  readonly dispositivoId: string;
+  readonly claveIdempotencia: string;
+}
+
+export interface InitiateCountCorrectionResult {
+  readonly reservaId: string;
+  readonly jornadaLineaId: string;
+  readonly conteoAnteriorId: string;
+  readonly estadoCentral: "EN_CONTEO";
+  readonly tipoReserva: "CORRECCION";
+  readonly tokenReserva: string;
+  readonly reservadaEn: string;
+  readonly version: number;
+  readonly versionConteoSiguiente: number;
+  readonly ubicacion: VisibleLocation;
+}
+
 export interface SendCountRequest {
   readonly reservaId: string;
   readonly tokenReserva: string;
@@ -82,7 +104,7 @@ export interface SendCountResult {
   readonly machos: number;
   readonly patrones: number;
   readonly total: number;
-  readonly versionConteo: 1;
+  readonly versionConteo: number;
   readonly versionLinea: number;
   readonly recibidoEn: string;
 }

@@ -76,6 +76,8 @@ const journeyOne: MonitorJourney = {
   effectiveRole: "SUPERVISOR",
   canCount: true,
   lineCount: 1,
+  version: 4,
+  canClose: true,
 };
 
 class FakeMonitorRepository implements MonitorRepository {
@@ -106,6 +108,7 @@ class FakeMonitorRepository implements MonitorRepository {
     versions: DraftActivationVersions;
     key: string;
   }> = [];
+  closedJourneys: Array<{journeyId: string; expectedVersion: number; key: string}> = [];
   activationErrors: string[] = [];
   participantsData: DraftParticipantsData = {
     journeyId: "JORNADA-BORRADOR-1",
@@ -273,8 +276,14 @@ class FakeMonitorRepository implements MonitorRepository {
       effectiveRole: this.user.role,
       canCount: this.participantsData.participants.some((participant) => participant.canCount),
       lineCount: draft.lineIds.length,
+      version: result.version,
+      canClose: this.user.role === "ADMINISTRADOR" || draft.creatorUserId === this.user.id,
     }];
     return result;
+  }
+  async closeJourney(journeyId: string, expectedVersion: number, key: string): Promise<void> {
+    this.closedJourneys.push({journeyId, expectedVersion, key});
+    this.journeys = this.journeys.filter((journey) => journey.id !== journeyId);
   }
   async approveCount(countId: string, key: string, reason?: string): Promise<void> {
     this.approved.push({countId, key, ...(reason === undefined ? {} : {reason})});
@@ -329,6 +338,8 @@ describe("bandeja de revisión de Vivero Maestro", () => {
       effectiveRole: "SUPERVISOR",
       canCount: true,
       lineCount: 1,
+      version: 2,
+      canClose: true,
     };
     const secondSnapshot: MonitorSnapshot = {
       journeyId: secondJourney.id,
@@ -377,6 +388,44 @@ describe("bandeja de revisión de Vivero Maestro", () => {
     await signIn(repository);
     act(() => repository.publish({...snapshot, lines: []}));
     await screen.findByText("No hay líneas que coincidan con el filtro.");
+  });
+
+  it("bloquea el cierre y muestra el motivo exacto mientras existe trabajo pendiente", async () => {
+    await signIn(new FakeMonitorRepository());
+    const closeButton = screen.getByRole("button", {name: "Cerrar jornada"});
+    expect(closeButton).toBeDisabled();
+    expect(screen.getByText("1 línea(s) todavía no tienen estado APROBADA.")).toBeInTheDocument();
+  });
+
+  it("confirma el cierre aprobado, usa la version observada y retira la jornada activa", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.currentSnapshot = {
+      ...snapshot,
+      lines: [{...pendingLine, state: "APROBADA", reservation: undefined}],
+    };
+    await signIn(repository);
+    const closeButton = screen.getByRole("button", {name: "Cerrar jornada"});
+    expect(closeButton).toBeEnabled();
+    fireEvent.click(closeButton);
+    expect(screen.getByLabelText("Resumen del cierre")).toHaveTextContent("Líneas aprobadas: 1");
+    expect(screen.getByText(/dejará de estar disponible en Vivero Campo/)).toBeInTheDocument();
+    const confirmation = screen.getByRole("checkbox", {name: /Confirmo que deseo cerrar/});
+    fireEvent.click(confirmation);
+    fireEvent.click(screen.getByRole("button", {name: "Confirmar cierre"}));
+    await waitFor(() => expect(repository.closedJourneys).toHaveLength(1));
+    expect(repository.closedJourneys[0]).toMatchObject({
+      journeyId: journeyOne.id,
+      expectedVersion: journeyOne.version,
+    });
+    expect(await screen.findByText(/Jornada cerrada/)).toHaveTextContent("líneas quedaron liberadas");
+    expect(screen.getByLabelText("Jornada activa")).toHaveValue("");
+  });
+
+  it("no ofrece cerrar al supervisor que no creo la jornada", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.journeys = [{...journeyOne, canClose: false}];
+    await signIn(repository);
+    expect(screen.queryByRole("button", {name: "Cerrar jornada"})).not.toBeInTheDocument();
   });
 
   it("muestra historial, motivo de devolución y marca la versión vigente", async () => {

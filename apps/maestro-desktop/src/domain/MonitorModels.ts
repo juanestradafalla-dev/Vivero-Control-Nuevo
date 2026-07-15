@@ -17,6 +17,8 @@ export interface MonitorJourney {
   readonly effectiveRole: MonitorRole;
   readonly canCount: boolean;
   readonly lineCount: number;
+  readonly version: number;
+  readonly canClose: boolean;
 }
 
 export interface MonitorLocation {
@@ -192,6 +194,7 @@ export interface MonitorRepository {
     versions: DraftActivationVersions,
     idempotencyKey: string,
   ): Promise<DraftActivationResult>;
+  closeJourney(journeyId: string, expectedVersion: number, idempotencyKey: string): Promise<void>;
   approveCount(countId: string, idempotencyKey: string, exceptionReason?: string): Promise<void>;
   returnCount(countId: string, reason: string, idempotencyKey: string): Promise<void>;
   reassignCountCorrection(countId: string, newUserId: string, reason: string, idempotencyKey: string): Promise<void>;

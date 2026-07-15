@@ -84,6 +84,34 @@ export const domainErrors = {
     "ACTIVATION_LINE_OCCUPIED",
     "Una linea seleccionada ya pertenece a otra jornada activa."
   ),
+  journeyCloseAccessDenied: () => new DomainError(
+    "JOURNEY_CLOSE_ACCESS_DENIED",
+    "La cuenta no puede cerrar esta jornada."
+  ),
+  journeyCloseStaleVersion: () => new DomainError(
+    "JOURNEY_CLOSE_STALE_VERSION",
+    "La jornada cambio. Actualiza el resumen antes de cerrar."
+  ),
+  journeyClosePendingLines: () => new DomainError(
+    "JOURNEY_CLOSE_PENDING_LINES",
+    "Todas las lineas deben estar APROBADA antes de cerrar la jornada."
+  ),
+  journeyCloseActiveReservations: () => new DomainError(
+    "JOURNEY_CLOSE_ACTIVE_RESERVATIONS",
+    "La jornada conserva al menos una reserva activa."
+  ),
+  journeyClosePendingCorrections: () => new DomainError(
+    "JOURNEY_CLOSE_PENDING_CORRECTIONS",
+    "La jornada conserva correcciones o reasignaciones pendientes."
+  ),
+  journeyCloseLimitExceeded: () => new DomainError(
+    "JOURNEY_CLOSE_LIMIT_EXCEEDED",
+    "La jornada supera el maximo tecnico combinado de 200 lineas y autorizaciones para un cierre atomico."
+  ),
+  journeyCloseOccupationMismatch: () => new DomainError(
+    "JOURNEY_CLOSE_OCCUPATION_MISMATCH",
+    "Una linea no conserva el bloqueo activo de esta jornada."
+  ),
   unauthenticated: () => new DomainError("UNAUTHENTICATED", "Debes iniciar sesión."),
   invalidArgument: () => new DomainError("INVALID_ARGUMENT", "La solicitud no tiene un formato válido."),
   userNotFound: () => new DomainError("USER_NOT_FOUND", "La cuenta no tiene un perfil operativo."),

@@ -41,6 +41,11 @@ interface ReleaseDialog {
   readonly attempted: boolean;
 }
 
+interface CloseDialog {
+  readonly idempotencyKey: string;
+  readonly attempted: boolean;
+}
+
 function formatTime(value: string): string {
   const date = new Date(value);
   return Number.isNaN(date.valueOf())
@@ -75,6 +80,9 @@ export function App({repository}: AppProps) {
   const [reassigning, setReassigning] = useState(false);
   const [releaseDialog, setReleaseDialog] = useState<ReleaseDialog>();
   const [releasing, setReleasing] = useState(false);
+  const [closeDialog, setCloseDialog] = useState<CloseDialog>();
+  const [closing, setClosing] = useState(false);
+  const [draftRefreshVersion, setDraftRefreshVersion] = useState(0);
   const unsubscribeRef = useRef<MonitorUnsubscribe | undefined>(undefined);
 
   useEffect(() => () => unsubscribeRef.current?.(), []);
@@ -86,6 +94,7 @@ export function App({repository}: AppProps) {
     setReviewDialog(undefined);
     setReassignmentDialog(undefined);
     setReleaseDialog(undefined);
+    setCloseDialog(undefined);
     setError(undefined);
     unsubscribeRef.current = repository.observeMonitor(
       monitorUser,
@@ -136,6 +145,7 @@ export function App({repository}: AppProps) {
     setReviewDialog(undefined);
     setReassignmentDialog(undefined);
     setReleaseDialog(undefined);
+    setCloseDialog(undefined);
   };
 
   const openReview = (kind: ReviewDialog["kind"], line: MonitorLine) => {
@@ -310,6 +320,55 @@ export function App({repository}: AppProps) {
     }
   };
 
+  const selectedJourney = journeys.find((journey) => journey.id === selectedJourneyId);
+  const closeStateCounts = (snapshot?.lines ?? []).reduce<Record<string, number>>((counts, line) => ({
+    ...counts,
+    [line.state]: (counts[line.state] ?? 0) + 1,
+  }), {});
+  const approvedCount = closeStateCounts.APROBADA ?? 0;
+  const pendingCount = (snapshot?.lines.length ?? 0) - approvedCount;
+  const activeReservationCount = (snapshot?.lines ?? []).filter((line) => line.reservation !== undefined).length;
+  const pendingCorrectionCount = (snapshot?.lines ?? []).filter((line) =>
+    line.state === "DEVUELTA" || line.activeReassignmentId !== undefined || line.correctionResponsibility !== undefined
+  ).length;
+  const canCloseSelectedJourney = Boolean(
+    user && selectedJourney?.canClose
+  );
+  const closeBlockers = snapshot === undefined
+    ? ["Esperando el estado central de la jornada."]
+    : [
+        ...(pendingCount > 0 ? [`${pendingCount} línea(s) todavía no tienen estado APROBADA.`] : []),
+        ...(activeReservationCount > 0 ? [`${activeReservationCount} reserva(s) activa(s).`] : []),
+        ...(pendingCorrectionCount > 0 ? [`${pendingCorrectionCount} corrección(es) o reasignación(es) pendiente(s).`] : []),
+      ];
+
+  const submitCloseJourney = async () => {
+    if (!closeDialog || !selectedJourney || closeBlockers.length > 0 || closing) return;
+    setClosing(true);
+    setError(undefined);
+    setCloseDialog({...closeDialog, attempted: true});
+    try {
+      await repository.closeJourney(selectedJourney.id, selectedJourney.version, closeDialog.idempotencyKey);
+      unsubscribeRef.current?.();
+      unsubscribeRef.current = undefined;
+      setSelectedJourneyId(undefined);
+      setSnapshot(undefined);
+      setCloseDialog(undefined);
+      setDraftRefreshVersion((version) => version + 1);
+      setNotice("Jornada cerrada. Ya no está disponible en Campo y sus líneas quedaron liberadas.");
+      try {
+        setJourneys(await repository.listActiveJourneys());
+      } catch {
+        setJourneys((current) => current.filter((journey) => journey.id !== selectedJourney.id));
+        setError("La jornada se cerró, pero no fue posible refrescar la lista activa.");
+      }
+    } catch (closeError) {
+      setError(closeError instanceof Error ? closeError.message : "No fue posible cerrar la jornada.");
+    } finally {
+      setClosing(false);
+    }
+  };
+
   const visibleLines = sortMonitorLines(snapshot?.lines ?? []).filter((line) => {
     const haystack = Object.values(line.location).join(" ").toLocaleLowerCase("es");
     return (stateFilter === "TODOS" || line.state === stateFilter) &&
@@ -386,6 +445,7 @@ export function App({repository}: AppProps) {
         </section>
       ) : activeSection === "JOURNEYS" ? (
         <DraftJourneysSection
+          key={draftRefreshVersion}
           repository={repository}
           user={user}
           onActiveJourneysChanged={refreshActiveJourneys}
@@ -398,7 +458,7 @@ export function App({repository}: AppProps) {
               <select
                 aria-label="Jornada activa"
                 value={selectedJourneyId ?? ""}
-                disabled={reviewing || reassigning || releasing}
+                disabled={reviewing || reassigning || releasing || closing}
                 onChange={(event) => {
                   if (user && event.target.value) startMonitoring(user, event.target.value);
                 }}
@@ -421,6 +481,35 @@ export function App({repository}: AppProps) {
             </div>
             {selectedJourneyId && <span className="live-indicator"><i aria-hidden="true" /> Actualización en vivo</span>}
           </div>
+
+          {canCloseSelectedJourney && selectedJourney && (
+            <section className="journey-close-panel" aria-label="Cierre seguro de jornada">
+              <div>
+                <strong>Cierre seguro</strong>
+                <span>{approvedCount} aprobada(s) · {pendingCount} pendiente(s)</span>
+                <span>
+                  Estados: {Object.entries(closeStateCounts).map(([state, count]) => `${state} ${count}`).join(" · ") || "sin líneas"}
+                </span>
+              </div>
+              <button
+                className="button"
+                type="button"
+                disabled={closeBlockers.length > 0 || closing}
+                onClick={() => {
+                  setError(undefined);
+                  setNotice(undefined);
+                  setCloseDialog({idempotencyKey: crypto.randomUUID(), attempted: false});
+                }}
+              >
+                Cerrar jornada
+              </button>
+              {closeBlockers.length > 0 && (
+                <ul className="close-blockers">
+                  {closeBlockers.map((blocker) => <li key={blocker}>{blocker}</li>)}
+                </ul>
+              )}
+            </section>
+          )}
 
           {error && <p className="alert" role="alert">{error}</p>}
           {notice && <p className="notice" role="status">{notice}</p>}
@@ -732,6 +821,45 @@ export function App({repository}: AppProps) {
                   Revisar liberación
                 </button>
               )}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {activeSection === "MONITOR" && closeDialog && selectedJourney && snapshot && user && (
+        <div className="dialog-backdrop" role="presentation">
+          <section className="review-dialog" role="dialog" aria-modal="true" aria-labelledby="close-journey-title">
+            <p className="eyebrow">CIERRE TRANSACCIONAL</p>
+            <h2 id="close-journey-title">Cerrar jornada</h2>
+            <div className="inventory-summary" aria-label="Resumen del cierre">
+              <strong>{selectedJourney.displayName}</strong>
+              <span>Líneas aprobadas: {approvedCount}</span>
+              <span>Líneas pendientes: {pendingCount}</span>
+              <span>Reservas activas: {activeReservationCount}</span>
+              <span>Correcciones o reasignaciones pendientes: {pendingCorrectionCount}</span>
+              {Object.entries(closeStateCounts).map(([state, count]) => (
+                <span key={state}>{state.replaceAll("_", " ")}: {count}</span>
+              ))}
+            </div>
+            <p className="warning">
+              Al confirmar, esta jornada dejará de estar disponible en Vivero Campo. El historial local y central no se eliminará.
+            </p>
+            <label className="explicit-confirmation">
+              <input
+                type="checkbox"
+                checked={closeDialog.attempted}
+                disabled={closing}
+                onChange={(event) => setCloseDialog({...closeDialog, attempted: event.target.checked})}
+              />
+              Confirmo que deseo cerrar esta jornada.
+            </label>
+            <div className="dialog-actions">
+              <button className="button button--secondary" type="button" disabled={closing} onClick={() => setCloseDialog(undefined)}>
+                Cancelar
+              </button>
+              <button className="button" type="button" disabled={closing || !closeDialog.attempted} onClick={submitCloseJourney}>
+                {closing ? "Cerrando..." : "Confirmar cierre"}
+              </button>
             </div>
           </section>
         </div>

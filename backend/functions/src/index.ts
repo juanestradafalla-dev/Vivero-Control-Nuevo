@@ -3,6 +3,7 @@ import {HttpsError, onCall} from "firebase-functions/v2/https";
 
 import type {ControlledErrorCode} from "./domain/contracts.js";
 import {ActivateJourneyService} from "./domain/activateJourney.js";
+import {CloseJourneyService} from "./domain/closeJourney.js";
 import {DomainError, domainErrors} from "./domain/errors.js";
 import {InitiateCountCorrectionService} from "./domain/correctCount.js";
 import {
@@ -24,6 +25,7 @@ import {
   parseApproveCountRequest,
   parseActivateJourneyRequest,
   parseCreateDraftJourneyRequest,
+  parseCloseJourneyRequest,
   parseInitiateCountCorrectionRequest,
   parseListActiveJourneysRequest,
   parseListDraftJourneyParticipantsRequest,
@@ -66,7 +68,14 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
     "ACTIVATION_PARTICIPANT_INACTIVE",
     "ACTIVATION_PARTICIPANT_ROLE_CHANGED",
     "ACTIVATION_LINE_INACTIVE",
-    "ACTIVATION_LINE_OCCUPIED"
+    "ACTIVATION_LINE_OCCUPIED",
+    "JOURNEY_NOT_ACTIVE",
+    "JOURNEY_CLOSE_STALE_VERSION",
+    "JOURNEY_CLOSE_PENDING_LINES",
+    "JOURNEY_CLOSE_ACTIVE_RESERVATIONS",
+    "JOURNEY_CLOSE_PENDING_CORRECTIONS",
+    "JOURNEY_CLOSE_LIMIT_EXCEEDED",
+    "JOURNEY_CLOSE_OCCUPATION_MISMATCH"
   ].includes(code)) return "failed-precondition";
   if (["RESERVATION_NOT_ACTIVE", "LINE_RESERVATION_MISMATCH", "LINE_NOT_IN_COUNT"].includes(code)) {
     return "failed-precondition";
@@ -121,6 +130,22 @@ const listManageableJourneysService = new ListManageableJourneysService(firestor
 const listDraftJourneyParticipantsService = new ListDraftJourneyParticipantsService(firestore);
 const updateDraftJourneyParticipantsService = new UpdateDraftJourneyParticipantsService(firestore);
 const activateJourneyService = new ActivateJourneyService(firestore);
+const closeJourneyService = new CloseJourneyService(firestore);
+
+export const cerrarJornada = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    const payload = parseCloseJourneyRequest(request.data);
+    return await closeJourneyService.execute(payload, {actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en cerrarJornada", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
 
 export const activarJornada = onCall({region: "us-central1"}, async (request) => {
   try {

@@ -215,7 +215,9 @@ export class FirebaseMonitorRepository implements MonitorRepository {
           journey.estado !== "ACTIVA" ||
           !isRole(journey.rolEfectivo) ||
           typeof journey.puedeContar !== "boolean" ||
-          !Number.isSafeInteger(journey.cantidadLineas)
+          !Number.isSafeInteger(journey.cantidadLineas) ||
+          !Number.isSafeInteger(journey.version) ||
+          typeof journey.puedeCerrar !== "boolean"
         ) throw new Error("Una jornada no tiene formato válido.");
         return {
           id: journey.jornadaId,
@@ -224,6 +226,8 @@ export class FirebaseMonitorRepository implements MonitorRepository {
           effectiveRole: journey.rolEfectivo,
           canCount: journey.puedeContar,
           lineCount: journey.cantidadLineas as number,
+          version: journey.version as number,
+          canClose: journey.puedeCerrar,
         };
       });
     } catch (error) {
@@ -380,6 +384,26 @@ export class FirebaseMonitorRepository implements MonitorRepository {
       });
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : "No fue posible aprobar el conteo.", {cause: error});
+    }
+  }
+
+  async closeJourney(journeyId: string, expectedVersion: number, idempotencyKey: string): Promise<void> {
+    const callable = httpsCallable(this.functions, "cerrarJornada");
+    try {
+      const response = await callable({
+        jornadaId: journeyId,
+        versionEsperada: expectedVersion,
+        claveIdempotencia: idempotencyKey,
+      });
+      if (typeof response.data !== "object" || response.data === null) {
+        throw new Error("La respuesta de cierre no tiene formato válido.");
+      }
+      const data = response.data as Record<string, unknown>;
+      if (data.jornadaId !== journeyId || data.estado !== "INACTIVA" || !Number.isSafeInteger(data.version)) {
+        throw new Error("La respuesta de cierre no tiene formato válido.");
+      }
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible cerrar la jornada.", {cause: error});
     }
   }
 
@@ -739,6 +763,10 @@ export class DisabledMonitorRepository implements MonitorRepository {
   }
 
   async activateDraftJourney(): Promise<DraftActivationResult> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
+  }
+
+  async closeJourney(): Promise<void> {
     throw new Error("Firebase de produccion permanece deshabilitado.");
   }
 

@@ -112,7 +112,9 @@ describe("listarJornadasActivas mediante Auth, Functions y Firestore Emulator", 
         estado: "ACTIVA",
         rolEfectivo: "AUXILIAR",
         puedeContar: true,
-        cantidadLineas: 2
+        cantidadLineas: 2,
+        version: 1,
+        puedeCerrar: false
       },
       {
         jornadaId: ACTIVE_JOURNEY_ID,
@@ -120,7 +122,9 @@ describe("listarJornadasActivas mediante Auth, Functions y Firestore Emulator", 
         estado: "ACTIVA",
         rolEfectivo: "AUXILIAR",
         puedeContar: true,
-        cantidadLineas: 3
+        cantidadLineas: 3,
+        version: 1,
+        puedeCerrar: false
       }
     ]);
   });
@@ -130,6 +134,16 @@ describe("listarJornadasActivas mediante Auth, Functions y Firestore Emulator", 
     const result = await list(client.functions);
     expect(result.jornadas).toHaveLength(1);
     expect(result.jornadas[0]?.jornadaId).toBe(ACTIVE_JOURNEY_ID);
+  });
+
+  it("calcula el permiso de cierre sin exponer la identidad del creador", async () => {
+    const supervisor = await authenticatedClient("supervisor@prueba.local", "journeys-close-supervisor");
+    const administrator = await authenticatedClient("administrador@prueba.local", "journeys-close-admin");
+    const supervisorResult = await list(supervisor.functions);
+    const administratorResult = await list(administrator.functions);
+    expect(supervisorResult.jornadas.every((journey) => journey.puedeCerrar === false)).toBe(true);
+    expect(administratorResult.jornadas.every((journey) => journey.puedeCerrar === true)).toBe(true);
+    expect(administratorResult.jornadas.some((journey) => Object.hasOwn(journey, "creadorUsuarioId"))).toBe(false);
   });
 
   it("reserva en la jornada seleccionada sin afectar otra jornada ni inventario", async () => {

@@ -275,6 +275,15 @@ describe("lecturas mínimas y escrituras críticas cerradas en la ETAPA 5", () =
   it("rechaza todas las escrituras directas de estado, reserva, auditoría e idempotencia", async () => {
     const database = testEnvironment.authenticatedContext("uid-administrador").firestore();
     await assertFails(setDoc(doc(database, `jornadaLineas/${journeyLineId(1)}`), {estadoCentral: "EN_CONTEO"}));
+    await assertFails(updateDoc(doc(database, `jornadas/${ACTIVE_JOURNEY_ID}`), {
+      estadoAdministrativo: "INACTIVA"
+    }));
+    await assertFails(updateDoc(doc(database, `jornadaLineas/${journeyLineId(1)}`), {activa: false}));
+    await assertFails(updateDoc(
+      doc(database, `jornadas/${ACTIVE_JOURNEY_ID}/autorizaciones/uid-administrador`),
+      {activa: false}
+    ));
+    await assertFails(deleteDoc(doc(database, "ocupacionesLineasActivas/LINEA-PRUEBA-1")));
     await assertFails(setDoc(doc(database, "reservas/reserva-directa"), {usuarioId: "uid-administrador"}));
     await assertFails(setDoc(doc(database, "auditoria/evento-directo"), {tipo: "NO_PERMITIDO"}));
     await assertFails(setDoc(doc(database, "idempotencia/resultado-directo"), {operacion: "NO_PERMITIDA"}));

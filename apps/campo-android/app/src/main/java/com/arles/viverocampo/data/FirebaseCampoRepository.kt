@@ -113,6 +113,13 @@ class FirebaseCampoRepository(
                 if (error != null) {
                     close(CampoRepositoryException("NETWORK_ERROR", "No fue posible leer la jornada de prueba.", error))
                 } else if (snapshot?.exists() == true) {
+                    if (snapshot.getString("estadoAdministrativo") != "ACTIVA") {
+                        close(CampoRepositoryException(
+                            "JOURNEY_NOT_ACTIVE",
+                            "La jornada fue cerrada por supervisión.",
+                        ))
+                        return@addSnapshotListener
+                    }
                     journeyName = snapshot.getString("nombreVisible") ?: journeyId
                     publishWhenReady()
                 }
@@ -123,7 +130,9 @@ class FirebaseCampoRepository(
                 if (error != null) {
                     close(CampoRepositoryException("NETWORK_ERROR", "No fue posible leer las líneas de prueba.", error))
                 } else if (snapshot != null) {
-                    lines = snapshot.documents.mapNotNull { document ->
+                    lines = snapshot.documents.filter { document ->
+                        document.getBoolean("activa") == true
+                    }.mapNotNull { document ->
                         JourneyLine(
                             id = document.id,
                             state = document.getString("estadoCentral") ?: return@mapNotNull null,

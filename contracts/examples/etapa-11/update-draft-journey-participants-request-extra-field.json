@@ -1,0 +1,11 @@
+{
+  "jornadaId": "JORNADA-BORRADOR-SUPERVISOR",
+  "participantes": [
+    {
+      "usuarioId": "uid-auxiliar-1",
+      "nombreVisible": "Nombre no confiable",
+      "puedeContar": true
+    }
+  ],
+  "claveIdempotencia": "participantes-etapa-11-0003"
+}

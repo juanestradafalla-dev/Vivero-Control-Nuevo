@@ -24,6 +24,9 @@ export type ControlledErrorCode =
   | "LINE_INACTIVE"
   | "LINE_ALREADY_IN_ACTIVE_JOURNEY"
   | "DUPLICATE_LINE_IDS"
+  | "PARTICIPANT_NOT_FOUND"
+  | "PARTICIPANT_INACTIVE"
+  | "DUPLICATE_PARTICIPANT_IDS"
   | "LINE_NOT_AVAILABLE"
   | "RESERVATION_NOT_FOUND"
   | "RESERVATION_NOT_ACTIVE"
@@ -212,6 +215,49 @@ export interface DraftCatalogLine {
 export interface ListManageableJourneysResult {
   readonly jornadas: readonly DraftJourneySummary[];
   readonly lineasCatalogo: readonly DraftCatalogLine[];
+}
+
+export interface ListDraftJourneyParticipantsRequest {
+  readonly jornadaId: string;
+}
+
+export interface DraftParticipantInput {
+  readonly usuarioId: string;
+  readonly puedeContar: boolean;
+}
+
+export interface DraftParticipant extends DraftParticipantInput {
+  readonly nombreVisible: string;
+  readonly rol: UserRole;
+}
+
+export interface DraftParticipantCatalogEntry {
+  readonly usuarioId: string;
+  readonly nombreVisible: string;
+  readonly rol: UserRole;
+}
+
+export interface ListDraftJourneyParticipantsResult {
+  readonly jornadaId: string;
+  readonly estado: "BORRADOR";
+  readonly version: number;
+  readonly participantes: readonly DraftParticipant[];
+  readonly usuariosActivos: readonly DraftParticipantCatalogEntry[];
+}
+
+export interface UpdateDraftJourneyParticipantsRequest {
+  readonly jornadaId: string;
+  readonly participantes: readonly DraftParticipantInput[];
+  readonly claveIdempotencia: string;
+}
+
+export interface UpdateDraftJourneyParticipantsResult {
+  readonly jornadaId: string;
+  readonly estado: "BORRADOR";
+  readonly version: number;
+  readonly cantidadParticipantes: number;
+  readonly participantes: readonly DraftParticipant[];
+  readonly actualizadaEn: string;
 }
 
 /** Contrato de frontera reservado para una futura operación de revisión; no es enviarConteo. */

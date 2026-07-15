@@ -24,8 +24,8 @@ async function assertInvalid(schemaFilename, exampleFilename) {
 }
 
 test("compila todos los esquemas Draft 2020-12 y resuelve sus referencias", () => {
-  assert.equal(registry.entityCount, 41);
-  assert.equal(registry.schemaCount, 42);
+  assert.equal(registry.entityCount, 49);
+  assert.equal(registry.schemaCount, 50);
   assert.equal(registry.enumCount, 5);
 });
 
@@ -269,4 +269,45 @@ test("acepta seleccion preparatoria de lineas separada del estado operativo", as
     "etapa-10/draft-journey-line-selection.json"
   );
   await assertValid("jornada.schema.json", "etapa-10/draft-journey.json");
+});
+
+test("acepta listar y actualizar participantes de un borrador", async () => {
+  await assertValid(
+    "list-draft-journey-participants-request.schema.json",
+    "etapa-11/list-draft-journey-participants-request.json"
+  );
+  await assertValid(
+    "list-draft-journey-participants-result.schema.json",
+    "etapa-11/list-draft-journey-participants-result.json"
+  );
+  await assertValid(
+    "update-draft-journey-participants-request.schema.json",
+    "etapa-11/update-draft-journey-participants-request.json"
+  );
+  await assertValid(
+    "update-draft-journey-participants-result.schema.json",
+    "etapa-11/update-draft-journey-participants-result.json"
+  );
+});
+
+test("rechaza participantes duplicados y datos centrales agregados por el cliente", async () => {
+  await assertInvalid(
+    "update-draft-journey-participants-request.schema.json",
+    "etapa-11/update-draft-journey-participants-request-duplicates.json"
+  );
+  await assertInvalid(
+    "update-draft-journey-participants-request.schema.json",
+    "etapa-11/update-draft-journey-participants-request-extra-field.json"
+  );
+});
+
+test("acepta seleccion preparatoria e idempotencia de participantes", async () => {
+  await assertValid(
+    "draft-journey-participant-selection.schema.json",
+    "etapa-11/draft-journey-participant-selection.json"
+  );
+  await assertValid(
+    "resultado-idempotente.schema.json",
+    "etapa-11/idempotent-draft-participants-result.json"
+  );
 });

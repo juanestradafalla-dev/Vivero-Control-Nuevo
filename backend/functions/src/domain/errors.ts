@@ -24,6 +24,18 @@ export const domainErrors = {
     "Una de las lineas seleccionadas ya pertenece a una jornada activa."
   ),
   duplicateLineIds: () => new DomainError("DUPLICATE_LINE_IDS", "La seleccion contiene lineas repetidas."),
+  participantNotFound: () => new DomainError(
+    "PARTICIPANT_NOT_FOUND",
+    "Una de las cuentas seleccionadas no existe."
+  ),
+  participantInactive: () => new DomainError(
+    "PARTICIPANT_INACTIVE",
+    "Una de las cuentas seleccionadas esta inactiva."
+  ),
+  duplicateParticipantIds: () => new DomainError(
+    "DUPLICATE_PARTICIPANT_IDS",
+    "La seleccion contiene participantes repetidos."
+  ),
   unauthenticated: () => new DomainError("UNAUTHENTICATED", "Debes iniciar sesión."),
   invalidArgument: () => new DomainError("INVALID_ARGUMENT", "La solicitud no tiene un formato válido."),
   userNotFound: () => new DomainError("USER_NOT_FOUND", "La cuenta no tiene un perfil operativo."),

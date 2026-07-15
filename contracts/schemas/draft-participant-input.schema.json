@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/draft-participant-input.schema.json",
+  "title": "Participante solicitado para una jornada en borrador",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["usuarioId", "puedeContar"],
+  "properties": {
+    "usuarioId": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+    "puedeContar": {"type": "boolean"}
+  }
+}

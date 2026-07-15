@@ -88,7 +88,8 @@ export async function seedEmulator() {
     "auditoria",
     "jornadaLineas",
     "jornadas",
-    "seleccionesLineasJornada"
+    "seleccionesLineasJornada",
+    "seleccionesParticipantesJornada"
   ]) {
     await clearCollection(database, collectionName);
   }
@@ -248,6 +249,7 @@ export async function seedEmulator() {
       estadoAdministrativo: "BORRADOR",
       version: 1,
       cantidadLineasSeleccionadas: draft.lineIds.length,
+      cantidadParticipantesSeleccionados: draft.id === DRAFT_JOURNEY_ID ? 1 : 0,
       entorno: "FICTICIO_EMULADOR",
       creadaEn: draftCreatedAt,
       actualizadaEn: draftCreatedAt
@@ -257,6 +259,23 @@ export async function seedEmulator() {
       jornadaId: draft.id,
       lineaIds: draft.lineIds,
       cantidadLineas: draft.lineIds.length,
+      versionJornada: 1,
+      actualizadaPorUsuarioId: draft.creatorId,
+      actualizadaEn: draftCreatedAt
+    });
+    const participants = draft.id === DRAFT_JOURNEY_ID
+      ? [{
+          usuarioId: "uid-auxiliar-1",
+          nombreVisible: "Auxiliar ficticio 1",
+          rol: "AUXILIAR",
+          puedeContar: true
+        }]
+      : [];
+    batch.set(database.collection("seleccionesParticipantesJornada").doc(draft.id), {
+      id: draft.id,
+      jornadaId: draft.id,
+      participantes: participants,
+      cantidadParticipantes: participants.length,
       versionJornada: 1,
       actualizadaPorUsuarioId: draft.creatorId,
       actualizadaEn: draftCreatedAt

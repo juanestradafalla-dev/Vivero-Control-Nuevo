@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/draft-participant-catalog-entry.schema.json",
+  "title": "Usuario central activo seleccionable",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["usuarioId", "nombreVisible", "rol"],
+  "properties": {
+    "usuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "nombreVisible": {"type": "string", "minLength": 1, "maxLength": 200},
+    "rol": {"$ref": "../enums/roles.json"}
+  }
+}

@@ -78,6 +78,10 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /seleccionesParticipantesJornada/{jornadaId} {
+      allow read, write: if false;
+    }
+
     match /reservas/{reservaId} {
       allow read: if activeUser() &&
         (resource.data.usuarioId == request.auth.uid || canSupervise(resource.data.jornadaId));

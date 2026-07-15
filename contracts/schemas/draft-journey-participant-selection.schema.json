@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/draft-journey-participant-selection.schema.json",
+  "title": "Selección preparatoria de participantes",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "jornadaId", "participantes", "cantidadParticipantes", "versionJornada", "actualizadaPorUsuarioId", "actualizadaEn"],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "participantes": {
+      "type": "array",
+      "maxItems": 200,
+      "items": {"$ref": "draft-participant.schema.json"}
+    },
+    "cantidadParticipantes": {"type": "integer", "minimum": 0, "maximum": 200},
+    "versionJornada": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "actualizadaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "actualizadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

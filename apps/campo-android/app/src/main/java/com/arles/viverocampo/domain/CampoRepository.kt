@@ -11,9 +11,17 @@ interface CampoRepository {
 
     fun observeActiveJourney(): Flow<JourneySnapshot>
 
+    fun observeReturnedCounts(userId: String): Flow<List<ReturnedCount>>
+
     suspend fun reserveLine(
         payload: ReserveLinePayload,
         userId: String,
+    ): ConfirmedReservation
+
+    suspend fun initiateCountCorrection(
+        payload: InitiateCountCorrectionPayload,
+        userId: String,
+        initialInput: CountInput,
     ): ConfirmedReservation
 
     suspend fun latestActiveReservation(userId: String, deviceId: String): ConfirmedReservation?

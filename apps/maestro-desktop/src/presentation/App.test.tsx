@@ -98,6 +98,29 @@ describe("bandeja de revisión de Vivero Maestro", () => {
     await screen.findByText("No hay líneas que coincidan con el filtro.");
   });
 
+  it("muestra historial, motivo de devolución y marca la versión vigente", async () => {
+    const repository = new FakeMonitorRepository();
+    const previous = {
+      ...pendingLine.count,
+      id: "CONTEO-002",
+      version: 1,
+      total: 990,
+      returnReason: "Recontar patrones.",
+    };
+    const current = {...pendingLine.count, version: 2, previousCountId: previous.id};
+    repository.currentSnapshot = {
+      ...snapshot,
+      lines: [{...pendingLine, count: current, countHistory: [previous, current]}],
+    };
+
+    await signIn(repository);
+
+    expect(screen.getByText("Versión 1 · Anterior inmutable")).toBeInTheDocument();
+    expect(screen.getByText("Versión 2 · Vigente")).toBeInTheDocument();
+    expect(screen.getByText("Motivo de devolución: Recontar patrones.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: /Editar versión/i})).not.toBeInTheDocument();
+  });
+
   it("muestra resumen no editable y confirma una aprobación", async () => {
     const repository = new FakeMonitorRepository();
     await signIn(repository);

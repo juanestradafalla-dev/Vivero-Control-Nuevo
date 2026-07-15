@@ -12,8 +12,10 @@ import com.arles.viverocampo.domain.CountFormValidator
 import com.arles.viverocampo.domain.CountInput
 import com.arles.viverocampo.domain.JourneyLine
 import com.arles.viverocampo.domain.JourneySnapshot
+import com.arles.viverocampo.domain.InitiateCountCorrectionPayload
 import com.arles.viverocampo.domain.LocalCountDraft
 import com.arles.viverocampo.domain.ReserveLinePayload
+import com.arles.viverocampo.domain.ReturnedCount
 import com.arles.viverocampo.domain.SyncState
 import com.arles.viverocampo.domain.UserProfile
 import java.text.SimpleDateFormat
@@ -37,9 +39,11 @@ data class CampoUiState(
     val signingIn: Boolean = false,
     val user: UserProfile? = null,
     val journey: JourneySnapshot? = null,
+    val returnedCounts: List<ReturnedCount> = emptyList(),
     val connectionStatus: String = "DESCONECTADO",
     val selectedLine: JourneyLine? = null,
     val reserving: Boolean = false,
+    val correctingCountId: String? = null,
     val confirmedReservation: ConfirmedReservation? = null,
     val countInput: CountInput = CountInput(),
     val countErrors: CountFieldErrors = CountFieldErrors(),
@@ -65,7 +69,9 @@ class CampoViewModel(
     private val mutableState = MutableStateFlow(CampoUiState(emulatorEnabled = repository.emulatorEnabled))
     val uiState: StateFlow<CampoUiState> = mutableState.asStateFlow()
     private val pendingReservationKeys = mutableMapOf<String, String>()
+    private val pendingCorrectionKeys = mutableMapOf<String, String>()
     private var journeyJob: Job? = null
+    private var returnedCountsJob: Job? = null
     private var draftJob: Job? = null
     private var countSaveJob: Job? = null
 
@@ -98,6 +104,7 @@ class CampoViewModel(
                     connectionStatus = "CONECTANDO",
                 )
                 observeJourney()
+                observeReturnedCounts(user)
                 if (reservation != null && reservation.deviceId == deviceId) observeDraft(user, reservation)
             } catch (error: CampoRepositoryException) {
                 mutableState.value = mutableState.value.copy(
@@ -114,9 +121,11 @@ class CampoViewModel(
         viewModelScope.launch {
             repository.signOut()
             journeyJob?.cancel()
+            returnedCountsJob?.cancel()
             draftJob?.cancel()
             countSaveJob?.cancel()
             pendingReservationKeys.clear()
+            pendingCorrectionKeys.clear()
             mutableState.value = CampoUiState(emulatorEnabled = repository.emulatorEnabled)
         }
     }
@@ -159,6 +168,39 @@ class CampoViewModel(
                     reserving = false,
                     selectedLine = if (conflict) null else line,
                     message = if (conflict) "Esta línea acaba de ser tomada por otro usuario" else error.message,
+                )
+            }
+        }
+    }
+
+    fun correctCount(returnedCount: ReturnedCount) {
+        val state = mutableState.value
+        val user = state.user ?: return
+        if (state.correctingCountId != null || state.confirmedReservation != null) return
+        val key = pendingCorrectionKeys.getOrPut(returnedCount.countId, keyFactory)
+        viewModelScope.launch {
+            mutableState.value = mutableState.value.copy(correctingCountId = returnedCount.countId, message = null)
+            try {
+                val reservation = repository.initiateCountCorrection(
+                    InitiateCountCorrectionPayload(returnedCount.countId, deviceId, key),
+                    user.id,
+                    returnedCount.input,
+                )
+                pendingCorrectionKeys.remove(returnedCount.countId)
+                mutableState.value = mutableState.value.copy(
+                    correctingCountId = null,
+                    confirmedReservation = reservation,
+                    countInput = returnedCount.input,
+                    message = "Corrección iniciada. Revisa los valores de la versión anterior.",
+                )
+                observeDraft(user, reservation)
+            } catch (error: CampoRepositoryException) {
+                if (error.code != "NETWORK_ERROR" && error.code != "INTERNAL_ERROR") {
+                    pendingCorrectionKeys.remove(returnedCount.countId)
+                }
+                mutableState.value = mutableState.value.copy(
+                    correctingCountId = null,
+                    message = error.message,
                 )
             }
         }
@@ -273,7 +315,11 @@ class CampoViewModel(
             countDraft = null,
             showCountSummary = false,
             confirmingCount = false,
-            message = "Conteo enviado y conservado en el historial local. Ya puedes tomar otra línea.",
+            message = if (state.confirmedReservation?.reservationType == "CORRECCION") {
+                "Nueva versión enviada y pendiente de revisión. El historial anterior permanece intacto."
+            } else {
+                "Conteo enviado y conservado en el historial local. Ya puedes tomar otra línea."
+            },
         )
     }
 
@@ -313,6 +359,21 @@ class CampoViewModel(
                 }
                 .collect { journey ->
                     mutableState.value = mutableState.value.copy(journey = journey, connectionStatus = "CONECTADO")
+                }
+        }
+    }
+
+    private fun observeReturnedCounts(user: UserProfile) {
+        returnedCountsJob?.cancel()
+        returnedCountsJob = viewModelScope.launch {
+            repository.observeReturnedCounts(user.id)
+                .catch { error ->
+                    mutableState.value = mutableState.value.copy(
+                        message = error.message ?: "No fue posible leer los conteos devueltos.",
+                    )
+                }
+                .collect { returnedCounts ->
+                    mutableState.value = mutableState.value.copy(returnedCounts = returnedCounts)
                 }
         }
     }

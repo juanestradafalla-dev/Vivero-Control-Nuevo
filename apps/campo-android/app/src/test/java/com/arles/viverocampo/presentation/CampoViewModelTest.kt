@@ -10,8 +10,10 @@ import com.arles.viverocampo.domain.CountSyncOutcome
 import com.arles.viverocampo.domain.FrozenCountPayload
 import com.arles.viverocampo.domain.JourneyLine
 import com.arles.viverocampo.domain.JourneySnapshot
+import com.arles.viverocampo.domain.InitiateCountCorrectionPayload
 import com.arles.viverocampo.domain.LocalCountDraft
 import com.arles.viverocampo.domain.ReserveLinePayload
+import com.arles.viverocampo.domain.ReturnedCount
 import com.arles.viverocampo.domain.SyncState
 import com.arles.viverocampo.domain.UserProfile
 import com.arles.viverocampo.domain.VisibleLocation
@@ -207,6 +209,27 @@ class CampoViewModelTest {
         assertEquals(setOf("jornadaLineaId", "dispositivoId", "claveIdempotencia"), payload.toWireMap().keys)
     }
 
+    @Test
+    fun `inicia corrección restaura borrador offline y conserva referencia de versión`() = runTest {
+        login()
+        repository.returnedCounts.value = listOf(returnedCount)
+        advanceUntilIdle()
+
+        viewModel.correctCount(returnedCount)
+        advanceUntilIdle()
+
+        assertEquals("CORRECCION", viewModel.uiState.value.confirmedReservation?.reservationType)
+        assertEquals(2, viewModel.uiState.value.confirmedReservation?.nextCountVersion)
+        assertEquals(returnedCount.input, viewModel.uiState.value.countInput)
+        assertEquals(returnedCount.countId, repository.correctionPayloads.single().conteoId)
+
+        viewModel.signOut()
+        advanceUntilIdle()
+        login()
+        assertEquals(correctionReservation.reservationId, viewModel.uiState.value.confirmedReservation?.reservationId)
+        assertEquals(returnedCount.input, viewModel.uiState.value.countDraft?.input)
+    }
+
     private suspend fun kotlinx.coroutines.test.TestScope.login() {
         viewModel.updateEmail("auxiliar1@prueba.local")
         viewModel.updatePassword("SoloEmulador-Etapa3!")
@@ -243,8 +266,10 @@ class CampoViewModelTest {
     private class FakeCampoRepository : CampoRepository {
         override val emulatorEnabled = true
         private val journey = MutableStateFlow(journeySnapshot)
+        val returnedCounts = MutableStateFlow<List<ReturnedCount>>(emptyList())
         private val drafts = mutableMapOf<Triple<String, String, String>, MutableStateFlow<LocalCountDraft?>>()
         val reservePayloads = mutableListOf<ReserveLinePayload>()
+        val correctionPayloads = mutableListOf<InitiateCountCorrectionPayload>()
         var reserveBehavior: suspend () -> ConfirmedReservation = { confirmedReservation }
         var latestReservation: ConfirmedReservation? = null
         private val consumedReservations = mutableSetOf<String>()
@@ -252,9 +277,20 @@ class CampoViewModelTest {
         override suspend fun signIn(email: String, password: String) = UserProfile("uid-auxiliar-1", "Auxiliar ficticio", "AUXILIAR")
         override suspend fun signOut() = Unit
         override fun observeActiveJourney(): Flow<JourneySnapshot> = journey
+        override fun observeReturnedCounts(userId: String): Flow<List<ReturnedCount>> = returnedCounts
         override suspend fun reserveLine(payload: ReserveLinePayload, userId: String): ConfirmedReservation {
             reservePayloads += payload
             return reserveBehavior().also { latestReservation = it }
+        }
+        override suspend fun initiateCountCorrection(
+            payload: InitiateCountCorrectionPayload,
+            userId: String,
+            initialInput: CountInput,
+        ): ConfirmedReservation {
+            correctionPayloads += payload
+            latestReservation = correctionReservation
+            saveCountInput(correctionReservation.reservationId, userId, DEVICE_ID, initialInput)
+            return correctionReservation
         }
         override suspend fun latestActiveReservation(userId: String, deviceId: String): ConfirmedReservation? = latestReservation?.takeIf {
             it.userId == userId && it.deviceId == deviceId && it.reservationId !in consumedReservations
@@ -333,6 +369,18 @@ class CampoViewModelTest {
         val secondConfirmedReservation = ConfirmedReservation(
             "reserva-prueba-2", "uid-auxiliar-1", DEVICE_ID, "jornada-prueba", secondAvailableLine.id, "EN_CONTEO",
             "2026-07-13T12:10:00.000Z", 1, secondLocation,
+        )
+        val returnedCount = ReturnedCount(
+            countId = "conteo-version-1",
+            journeyLineId = availableLine.id,
+            version = 1,
+            reason = "Recontar la línea completa.",
+            input = CountInput("450", "320", "210", "Conteo original"),
+            location = location,
+        )
+        val correctionReservation = ConfirmedReservation(
+            "reserva-correccion", "uid-auxiliar-1", DEVICE_ID, "jornada-prueba", availableLine.id, "EN_CONTEO",
+            "2026-07-15T13:00:00.000Z", 4, location, "CORRECCION", returnedCount.countId, 2,
         )
     }
 }

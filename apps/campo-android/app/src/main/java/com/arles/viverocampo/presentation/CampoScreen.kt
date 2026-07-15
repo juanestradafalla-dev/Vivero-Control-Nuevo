@@ -30,6 +30,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.arles.viverocampo.domain.JourneyLine
+import com.arles.viverocampo.domain.ReturnedCount
 import com.arles.viverocampo.domain.SyncState
 
 private val ViveroGreen = Color(0xFF1B5E20)
@@ -60,6 +61,7 @@ fun CampoRoute(viewModel: CampoViewModel) {
         onSelectLine = viewModel::selectLine,
         onCancelSelection = viewModel::cancelSelection,
         onConfirmReservation = viewModel::confirmReservation,
+        onCorrectCount = viewModel::correctCount,
         onFemalesChange = viewModel::updateFemales,
         onMalesChange = viewModel::updateMales,
         onRootstocksChange = viewModel::updateRootstocks,
@@ -82,6 +84,7 @@ private fun CampoScreen(
     onSelectLine: (JourneyLine) -> Unit,
     onCancelSelection: () -> Unit,
     onConfirmReservation: () -> Unit,
+    onCorrectCount: (ReturnedCount) -> Unit,
     onFemalesChange: (String) -> Unit,
     onMalesChange: (String) -> Unit,
     onRootstocksChange: (String) -> Unit,
@@ -113,7 +116,7 @@ private fun CampoScreen(
                     onRetry,
                     onFinishAndTakeAnotherLine,
                 )
-                else -> JourneyContent(state, onSignOut, onSelectLine)
+                else -> JourneyContent(state, onSignOut, onSelectLine, onCorrectCount)
             }
         }
     }
@@ -250,6 +253,12 @@ private fun CountContent(
                     Text("Módulo: ${reservation.location.module}")
                     Text("Cama: ${reservation.location.bed}")
                     Text("Línea: ${reservation.location.line}", fontWeight = FontWeight.Bold)
+                    if (reservation.reservationType == "CORRECCION") {
+                        Text(
+                            "Corrección versionada · nueva versión ${reservation.nextCountVersion}",
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                 }
             }
         }
@@ -286,7 +295,11 @@ private fun CountContent(
             when (syncState) {
                 SyncState.ENVIADA -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        "Conteo confirmado por el servidor y pendiente de revisión.",
+                        if (reservation.reservationType == "CORRECCION") {
+                            "Versión ${reservation.nextCountVersion} confirmada y pendiente de revisión."
+                        } else {
+                            "Conteo confirmado por el servidor y pendiente de revisión."
+                        },
                         color = ViveroGreen,
                         fontWeight = FontWeight.Bold,
                     )
@@ -328,7 +341,12 @@ private fun QuantityField(
 }
 
 @Composable
-private fun JourneyContent(state: CampoUiState, onSignOut: () -> Unit, onSelectLine: (JourneyLine) -> Unit) {
+private fun JourneyContent(
+    state: CampoUiState,
+    onSignOut: () -> Unit,
+    onSelectLine: (JourneyLine) -> Unit,
+    onCorrectCount: (ReturnedCount) -> Unit,
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -351,6 +369,45 @@ private fun JourneyContent(state: CampoUiState, onSignOut: () -> Unit, onSelectL
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
             )
+        }
+        if (state.returnedCounts.isNotEmpty()) {
+            item {
+                Text(
+                    "Conteos devueltos para corregir",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            items(state.returnedCounts, key = { "returned-${it.countId}" }) { returned ->
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(returned.location.displayName, fontWeight = FontWeight.Bold)
+                        Text("Versión ${returned.version} devuelta")
+                        Text("Motivo: ${returned.reason}", color = MaterialTheme.colorScheme.error)
+                        Text(
+                            "Referencia editable · H ${returned.input.females} · M ${returned.input.males} · " +
+                                "P ${returned.input.rootstocks}",
+                        )
+                        Button(
+                            onClick = { onCorrectCount(returned) },
+                            enabled = state.correctingCountId == null,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                if (state.correctingCountId == returned.countId) {
+                                    "Iniciando corrección…"
+                                } else {
+                                    "Corregir conteo"
+                                },
+                            )
+                        }
+                    }
+                }
+            }
         }
         items(state.journey?.lines.orEmpty(), key = { it.id }) { line ->
             Card(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {

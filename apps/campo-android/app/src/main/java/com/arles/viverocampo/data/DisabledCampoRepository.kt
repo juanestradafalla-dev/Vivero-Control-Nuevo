@@ -4,11 +4,13 @@ import com.arles.viverocampo.domain.CampoRepository
 import com.arles.viverocampo.domain.CampoRepositoryException
 import com.arles.viverocampo.domain.ConfirmedReservation
 import com.arles.viverocampo.domain.JourneySnapshot
+import com.arles.viverocampo.domain.InitiateCountCorrectionPayload
 import com.arles.viverocampo.domain.ReserveLinePayload
 import com.arles.viverocampo.domain.UserProfile
 import com.arles.viverocampo.domain.CountInput
 import com.arles.viverocampo.domain.CountSyncOutcome
 import com.arles.viverocampo.domain.LocalCountDraft
+import com.arles.viverocampo.domain.ReturnedCount
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 
@@ -21,9 +23,17 @@ class DisabledCampoRepository : CampoRepository {
 
     override fun observeActiveJourney(): Flow<JourneySnapshot> = emptyFlow()
 
+    override fun observeReturnedCounts(userId: String): Flow<List<ReturnedCount>> = emptyFlow()
+
     override suspend fun reserveLine(
         payload: ReserveLinePayload,
         userId: String,
+    ): ConfirmedReservation = unavailable()
+
+    override suspend fun initiateCountCorrection(
+        payload: InitiateCountCorrectionPayload,
+        userId: String,
+        initialInput: CountInput,
     ): ConfirmedReservation = unavailable()
 
     override suspend fun latestActiveReservation(userId: String, deviceId: String): ConfirmedReservation? = null

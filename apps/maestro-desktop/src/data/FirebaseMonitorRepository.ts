@@ -16,6 +16,9 @@ import {
 
 import {loadEmulatorConfig} from "../core/emulatorConfig";
 import type {
+  DraftCatalogLine,
+  ManageableDraftJourney,
+  ManageableJourneysData,
   MonitorCount,
   MonitorCorrectionCandidate,
   MonitorCorrectionResponsibility,
@@ -56,6 +59,60 @@ function parseLocation(value: unknown): MonitorLocation | undefined {
     line: location.linea,
     displayName: location.nombreVisible,
     order: location.orden,
+  };
+}
+
+function parseDraftJourney(value: unknown): ManageableDraftJourney {
+  if (typeof value !== "object" || value === null) throw new Error("Un borrador no tiene formato vÃ¡lido.");
+  const journey = value as Record<string, unknown>;
+  if (
+    typeof journey.jornadaId !== "string" ||
+    typeof journey.nombreVisible !== "string" ||
+    journey.estado !== "BORRADOR" ||
+    typeof journey.creadorUsuarioId !== "string" ||
+    typeof journey.creadorNombreVisible !== "string" ||
+    !Number.isSafeInteger(journey.version) ||
+    !Array.isArray(journey.lineaIds) ||
+    journey.lineaIds.some((lineId) => typeof lineId !== "string") ||
+    typeof journey.creadaEn !== "string" ||
+    typeof journey.actualizadaEn !== "string"
+  ) {
+    throw new Error("Un borrador no tiene formato vÃ¡lido.");
+  }
+  return {
+    id: journey.jornadaId,
+    displayName: journey.nombreVisible,
+    state: "BORRADOR",
+    creatorUserId: journey.creadorUsuarioId,
+    creatorDisplayName: journey.creadorNombreVisible,
+    version: journey.version as number,
+    lineIds: journey.lineaIds as string[],
+    createdAt: journey.creadaEn,
+    updatedAt: journey.actualizadaEn,
+  };
+}
+
+function parseDraftCatalogLine(value: unknown): DraftCatalogLine {
+  if (typeof value !== "object" || value === null) throw new Error("Una lÃ­nea de catÃ¡logo no es vÃ¡lida.");
+  const line = value as Record<string, unknown>;
+  const location = parseLocation(line.ubicacion);
+  if (
+    typeof line.lineaId !== "string" ||
+    typeof line.nombreVisible !== "string" ||
+    typeof line.seleccionable !== "boolean" ||
+    !location ||
+    (line.motivoNoSeleccionable !== undefined && line.motivoNoSeleccionable !== "JORNADA_ACTIVA")
+  ) {
+    throw new Error("Una lÃ­nea de catÃ¡logo no es vÃ¡lida.");
+  }
+  return {
+    id: line.lineaId,
+    displayName: line.nombreVisible,
+    selectable: line.seleccionable,
+    ...(line.motivoNoSeleccionable === "JORNADA_ACTIVA"
+      ? {unavailableReason: "JORNADA_ACTIVA" as const}
+      : {}),
+    location,
   };
 }
 
@@ -105,6 +162,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
         canViewReservationDetails: role === "SUPERVISOR" || role === "ADMINISTRADOR",
         canReview: role === "SUPERVISOR" || role === "ADMINISTRADOR",
         canRelease: role === "SUPERVISOR" || role === "ADMINISTRADOR",
+        canManageDraftJourneys: role === "SUPERVISOR" || role === "ADMINISTRADOR",
       };
     } catch (error) {
       await this.auth.signOut();
@@ -143,6 +201,51 @@ export class FirebaseMonitorRepository implements MonitorRepository {
       });
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : "No fue posible consultar las jornadas activas.", {cause: error});
+    }
+  }
+
+  async listManageableJourneys(): Promise<ManageableJourneysData> {
+    const callable = httpsCallable<Record<string, never>, {jornadas: unknown[]; lineasCatalogo: unknown[]}>(
+      this.functions,
+      "listarJornadasAdministrables",
+    );
+    try {
+      const response = await callable({});
+      if (!Array.isArray(response.data.jornadas) || !Array.isArray(response.data.lineasCatalogo)) {
+        throw new Error("La respuesta administrativa no tiene formato vÃ¡lido.");
+      }
+      return {
+        journeys: response.data.jornadas.map(parseDraftJourney),
+        catalogLines: response.data.lineasCatalogo.map(parseDraftCatalogLine),
+      };
+    } catch (error) {
+      throw new Error(
+        error instanceof Error ? error.message : "No fue posible consultar los borradores.",
+        {cause: error},
+      );
+    }
+  }
+
+  async createDraftJourney(displayName: string, idempotencyKey: string): Promise<ManageableDraftJourney> {
+    const callable = httpsCallable(this.functions, "crearJornadaBorrador");
+    try {
+      const response = await callable({nombreVisible: displayName, claveIdempotencia: idempotencyKey});
+      return parseDraftJourney(response.data);
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible crear el borrador.", {cause: error});
+    }
+  }
+
+  async updateDraftJourneyLines(
+    journeyId: string,
+    lineIds: readonly string[],
+    idempotencyKey: string,
+  ): Promise<void> {
+    const callable = httpsCallable(this.functions, "actualizarLineasJornadaBorrador");
+    try {
+      await callable({jornadaId: journeyId, lineaIds: lineIds, claveIdempotencia: idempotencyKey});
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible guardar la selecciÃ³n.", {cause: error});
     }
   }
 
@@ -492,6 +595,18 @@ export class DisabledMonitorRepository implements MonitorRepository {
 
   async listActiveJourneys(): Promise<readonly MonitorJourney[]> {
     throw new Error("Firebase de producción permanece deshabilitado.");
+  }
+
+  async listManageableJourneys(): Promise<ManageableJourneysData> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
+  }
+
+  async createDraftJourney(): Promise<ManageableDraftJourney> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
+  }
+
+  async updateDraftJourneyLines(): Promise<void> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
   }
 
   async approveCount(): Promise<void> {

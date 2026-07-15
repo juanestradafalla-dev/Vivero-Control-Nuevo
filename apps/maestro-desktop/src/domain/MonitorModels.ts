@@ -48,22 +48,43 @@ export interface MonitorInventory {
   readonly version: number;
 }
 
+export interface MonitorCorrectionCandidate {
+  readonly id: string;
+  readonly displayName: string;
+  readonly role: MonitorRole;
+}
+
+export interface MonitorCorrectionResponsibility {
+  readonly reassignmentId: string;
+  readonly originalAuthorUserId: string;
+  readonly originalAuthorDisplayName: string;
+  readonly responsibleUserId: string;
+  readonly responsibleDisplayName: string;
+  readonly assignedByUserId: string;
+  readonly assignedByDisplayName: string;
+  readonly reason: string;
+  readonly assignedAt: string;
+}
+
 export interface MonitorLine {
   readonly id: string;
   readonly lineId: string;
   readonly state: "DISPONIBLE" | "EN_CONTEO" | "PENDIENTE_REVISION" | "DEVUELTA" | "APROBADA";
   readonly location: MonitorLocation;
   readonly currentCountId?: string;
+  readonly activeReassignmentId?: string;
   readonly reservation?: MonitorReservation;
   readonly count?: MonitorCount;
   readonly countHistory?: readonly MonitorCount[];
   readonly inventory?: MonitorInventory;
+  readonly correctionResponsibility?: MonitorCorrectionResponsibility;
 }
 
 export interface MonitorSnapshot {
   readonly journeyId: string;
   readonly journeyDisplayName: string;
   readonly lines: readonly MonitorLine[];
+  readonly correctionCandidates: readonly MonitorCorrectionCandidate[];
 }
 
 export type MonitorUnsubscribe = () => void;
@@ -74,6 +95,7 @@ export interface MonitorRepository {
   signOut(): Promise<void>;
   approveCount(countId: string, idempotencyKey: string, exceptionReason?: string): Promise<void>;
   returnCount(countId: string, reason: string, idempotencyKey: string): Promise<void>;
+  reassignCountCorrection(countId: string, newUserId: string, reason: string, idempotencyKey: string): Promise<void>;
   observeMonitor(
     user: MonitorUser,
     onSnapshot: (snapshot: MonitorSnapshot) => void,

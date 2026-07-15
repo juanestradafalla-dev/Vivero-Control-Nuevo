@@ -373,7 +373,7 @@ private fun JourneyContent(
         if (state.returnedCounts.isNotEmpty()) {
             item {
                 Text(
-                    "Conteos devueltos para corregir",
+                    "Correcciones pendientes",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )
@@ -388,11 +388,18 @@ private fun JourneyContent(
                         Text(returned.location.displayName, fontWeight = FontWeight.Bold)
                         Text("Versión ${returned.version} devuelta")
                         Text("Motivo: ${returned.reason}", color = MaterialTheme.colorScheme.error)
+                        Text("Autor original: ${returned.originalAuthorName}")
+                        Text("Responsable actual: ${returned.correctionResponsibleName}", fontWeight = FontWeight.Bold)
+                        if (returned.isReassigned) {
+                            Text("Reasignada por: ${returned.reassignedByName ?: "Supervisor de prueba"}")
+                            Text("Motivo de reasignacion: ${returned.reassignmentReason.orEmpty()}")
+                        }
                         Text(
                             "Referencia editable · H ${returned.input.females} · M ${returned.input.males} · " +
                                 "P ${returned.input.rootstocks}",
                         )
-                        Button(
+                        if (returned.canCorrect) {
+                            Button(
                             onClick = { onCorrectCount(returned) },
                             enabled = state.correctingCountId == null,
                             modifier = Modifier.fillMaxWidth(),
@@ -403,6 +410,12 @@ private fun JourneyContent(
                                 } else {
                                     "Corregir conteo"
                                 },
+                            )
+                            }
+                        } else {
+                            Text(
+                                "Solo lectura: la correccion fue asignada a ${returned.correctionResponsibleName}.",
+                                color = MaterialTheme.colorScheme.secondary,
                             )
                         }
                     }

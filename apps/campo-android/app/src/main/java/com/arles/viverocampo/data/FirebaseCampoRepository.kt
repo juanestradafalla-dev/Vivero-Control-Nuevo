@@ -109,16 +109,37 @@ class FirebaseCampoRepository(
     }
 
     override fun observeReturnedCounts(userId: String): Flow<List<ReturnedCount>> = callbackFlow {
-        var lineStates = emptyMap<String, Pair<String, String?>>()
-        var counts = emptyMap<String, ReturnedCount>()
+        data class LineState(
+            val state: String,
+            val currentCountId: String?,
+            val responsibleUserId: String?,
+            val responsibleName: String?,
+            val reassignmentId: String?,
+            val reassignedByName: String?,
+            val reassignmentReason: String?,
+        )
+
+        var lineStates = emptyMap<String, LineState>()
+        var ownCounts = emptyMap<String, ReturnedCount>()
+        var assignedCounts = emptyMap<String, ReturnedCount>()
         var reasons = emptyMap<String, String>()
 
         fun publish() {
-            val returned = counts.values.filter { count ->
+            val returned = (ownCounts + assignedCounts).values.mapNotNull { count ->
                 val line = lineStates[count.journeyLineId]
-                line?.first == "DEVUELTA" && line.second == count.countId && reasons.containsKey(count.countId)
-            }.map { count ->
-                count.copy(reason = reasons.getValue(count.countId))
+                if (line?.state != "DEVUELTA" || line.currentCountId != count.countId) return@mapNotNull null
+                val responsibleUserId = line.responsibleUserId ?: count.originalAuthorUserId
+                val reason = reasons[count.countId] ?: count.reason
+                if (reason.isBlank()) return@mapNotNull null
+                count.copy(
+                    reason = reason,
+                    correctionResponsibleUserId = responsibleUserId,
+                    correctionResponsibleName = line.responsibleName ?: count.correctionResponsibleName,
+                    reassignedByName = line.reassignedByName ?: count.reassignedByName,
+                    reassignmentReason = line.reassignmentReason ?: count.reassignmentReason,
+                    isReassigned = line.reassignmentId != null,
+                    canCorrect = responsibleUserId == userId,
+                )
             }.sortedBy { it.location.order }
             trySend(returned)
         }
@@ -130,7 +151,15 @@ class FirebaseCampoRepository(
                     close(CampoRepositoryException("NETWORK_ERROR", "No fue posible leer conteos devueltos.", error))
                 } else if (snapshot != null) {
                     lineStates = snapshot.documents.associate { document ->
-                        document.id to ((document.getString("estadoCentral") ?: "") to document.getString("conteoVigenteId"))
+                        document.id to LineState(
+                            state = document.getString("estadoCentral") ?: "",
+                            currentCountId = document.getString("conteoVigenteId"),
+                            responsibleUserId = document.getString("responsableCorreccionUsuarioId"),
+                            responsibleName = document.getString("responsableCorreccionNombreVisible"),
+                            reassignmentId = document.getString("reasignacionActivaId"),
+                            reassignedByName = document.getString("reasignadaPorNombreVisible"),
+                            reassignmentReason = document.getString("motivoReasignacion"),
+                        )
                     }
                     publish()
                 }
@@ -141,13 +170,15 @@ class FirebaseCampoRepository(
                 if (error != null) {
                     close(CampoRepositoryException("NETWORK_ERROR", "No fue posible leer tus conteos.", error))
                 } else if (snapshot != null) {
-                    counts = snapshot.documents.mapNotNull { document ->
+                    ownCounts = snapshot.documents.mapNotNull { document ->
                         val journeyLineId = document.getString("jornadaLineaId") ?: return@mapNotNull null
                         val location = parseLocation(document.get("ubicacion")) ?: return@mapNotNull null
                         val females = document.getLong("hembras") ?: return@mapNotNull null
                         val males = document.getLong("machos") ?: return@mapNotNull null
                         val rootstocks = document.getLong("patrones") ?: return@mapNotNull null
                         val version = document.getLong("versionNumero")?.toInt() ?: return@mapNotNull null
+                        val authorId = document.getString("autorUsuarioId") ?: return@mapNotNull null
+                        val authorName = document.getString("autorNombreVisible") ?: "Usuario de prueba"
                         document.id to ReturnedCount(
                             countId = document.id,
                             journeyLineId = journeyLineId,
@@ -160,6 +191,51 @@ class FirebaseCampoRepository(
                                 observations = document.getString("observaciones").orEmpty(),
                             ),
                             location = location,
+                            originalAuthorUserId = authorId,
+                            originalAuthorName = authorName,
+                            correctionResponsibleUserId = authorId,
+                            correctionResponsibleName = authorName,
+                        )
+                    }.toMap()
+                    publish()
+                }
+            }
+        val reassignmentsRegistration = services.firestore.collection("reasignacionesCorreccion")
+            .whereEqualTo("nuevoUsuarioId", userId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(CampoRepositoryException("NETWORK_ERROR", "No fue posible leer correcciones reasignadas.", error))
+                } else if (snapshot != null) {
+                    assignedCounts = snapshot.documents.mapNotNull { document ->
+                        val countId = document.getString("conteoId") ?: return@mapNotNull null
+                        val journeyLineId = document.getString("jornadaLineaId") ?: return@mapNotNull null
+                        val originalAuthorId = document.getString("autorOriginalUsuarioId") ?: return@mapNotNull null
+                        val reference = document.get("conteoReferencia") as? Map<*, *> ?: return@mapNotNull null
+                        val location = parseLocation(reference["ubicacion"]) ?: return@mapNotNull null
+                        val females = reference["hembras"] as? Long ?: return@mapNotNull null
+                        val males = reference["machos"] as? Long ?: return@mapNotNull null
+                        val rootstocks = reference["patrones"] as? Long ?: return@mapNotNull null
+                        val version = (reference["versionNumero"] as? Long)?.toInt() ?: return@mapNotNull null
+                        countId to ReturnedCount(
+                            countId = countId,
+                            journeyLineId = journeyLineId,
+                            version = version,
+                            reason = document.getString("motivoDevolucion").orEmpty(),
+                            input = CountInput(
+                                females = females.toString(),
+                                males = males.toString(),
+                                rootstocks = rootstocks.toString(),
+                                observations = reference["observaciones"] as? String ?: "",
+                            ),
+                            location = location,
+                            originalAuthorUserId = originalAuthorId,
+                            originalAuthorName = document.getString("autorOriginalNombreVisible") ?: "Usuario de prueba",
+                            correctionResponsibleUserId = userId,
+                            correctionResponsibleName = document.getString("nuevoUsuarioNombreVisible") ?: "Usuario de prueba",
+                            reassignedByName = document.getString("actorNombreVisible"),
+                            reassignmentReason = document.getString("motivo"),
+                            isReassigned = true,
+                            canCorrect = true,
                         )
                     }.toMap()
                     publish()
@@ -183,6 +259,7 @@ class FirebaseCampoRepository(
         awaitClose {
             linesRegistration.remove()
             countsRegistration.remove()
+            reassignmentsRegistration.remove()
             decisionsRegistration.remove()
         }
     }

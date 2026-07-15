@@ -176,7 +176,7 @@ class CampoViewModel(
     fun correctCount(returnedCount: ReturnedCount) {
         val state = mutableState.value
         val user = state.user ?: return
-        if (state.correctingCountId != null || state.confirmedReservation != null) return
+        if (!returnedCount.canCorrect || state.correctingCountId != null || state.confirmedReservation != null) return
         val key = pendingCorrectionKeys.getOrPut(returnedCount.countId, keyFactory)
         viewModelScope.launch {
             mutableState.value = mutableState.value.copy(correctingCountId = returnedCount.countId, message = null)

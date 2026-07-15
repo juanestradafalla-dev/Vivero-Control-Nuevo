@@ -22,6 +22,15 @@ interface ReviewDialog {
   readonly reason: string;
 }
 
+interface ReassignmentDialog {
+  readonly line: MonitorLine;
+  readonly idempotencyKey: string;
+  readonly targetUserId: string;
+  readonly reason: string;
+  readonly showSummary: boolean;
+  readonly attempted: boolean;
+}
+
 function formatTime(value: string): string {
   const date = new Date(value);
   return Number.isNaN(date.valueOf())
@@ -49,6 +58,8 @@ export function App({repository}: AppProps) {
   const [stateFilter, setStateFilter] = useState("PENDIENTE_REVISION");
   const [reviewDialog, setReviewDialog] = useState<ReviewDialog>();
   const [reviewing, setReviewing] = useState(false);
+  const [reassignmentDialog, setReassignmentDialog] = useState<ReassignmentDialog>();
+  const [reassigning, setReassigning] = useState(false);
   const unsubscribeRef = useRef<MonitorUnsubscribe | undefined>(undefined);
 
   useEffect(() => () => unsubscribeRef.current?.(), []);
@@ -87,6 +98,7 @@ export function App({repository}: AppProps) {
     setSearch("");
     setStateFilter("PENDIENTE_REVISION");
     setReviewDialog(undefined);
+    setReassignmentDialog(undefined);
   };
 
   const openReview = (kind: ReviewDialog["kind"], line: MonitorLine) => {
@@ -139,6 +151,64 @@ export function App({repository}: AppProps) {
     }
   };
 
+  const openReassignment = (line: MonitorLine) => {
+    setError(undefined);
+    setNotice(undefined);
+    setReassignmentDialog({
+      line,
+      idempotencyKey: crypto.randomUUID(),
+      targetUserId: "",
+      reason: "",
+      showSummary: false,
+      attempted: false,
+    });
+  };
+
+  const updateReassignment = (changes: Partial<Pick<ReassignmentDialog, "targetUserId" | "reason">>) => {
+    setReassignmentDialog((current) => current && ({
+      ...current,
+      ...changes,
+      idempotencyKey: current.attempted ? crypto.randomUUID() : current.idempotencyKey,
+      showSummary: false,
+      attempted: false,
+    }));
+  };
+
+  const reviewReassignment = () => {
+    if (!reassignmentDialog) return;
+    if (!reassignmentDialog.targetUserId) {
+      setError("Selecciona una persona activa y autorizada.");
+      return;
+    }
+    if (!reassignmentDialog.reason.trim()) {
+      setError("Escribe el motivo de la reasignación.");
+      return;
+    }
+    setError(undefined);
+    setReassignmentDialog({...reassignmentDialog, reason: reassignmentDialog.reason.trim(), showSummary: true});
+  };
+
+  const submitReassignment = async () => {
+    if (!reassignmentDialog?.line.count || !reassignmentDialog.showSummary || reassigning) return;
+    setReassigning(true);
+    setError(undefined);
+    setReassignmentDialog({...reassignmentDialog, attempted: true});
+    try {
+      await repository.reassignCountCorrection(
+        reassignmentDialog.line.count.id,
+        reassignmentDialog.targetUserId,
+        reassignmentDialog.reason,
+        reassignmentDialog.idempotencyKey,
+      );
+      setNotice("Corrección reasignada mediante transacción central.");
+      setReassignmentDialog(undefined);
+    } catch (reassignmentError) {
+      setError(reassignmentError instanceof Error ? reassignmentError.message : "No fue posible reasignar la corrección.");
+    } finally {
+      setReassigning(false);
+    }
+  };
+
   const visibleLines = sortMonitorLines(snapshot?.lines ?? []).filter((line) => {
     const haystack = Object.values(line.location).join(" ").toLocaleLowerCase("es");
     return (stateFilter === "TODOS" || line.state === stateFilter) &&
@@ -171,7 +241,7 @@ export function App({repository}: AppProps) {
 
       {!user ? (
         <section className="login-panel" aria-labelledby="login-title">
-          <p className="eyebrow">ETAPA 6</p>
+          <p className="eyebrow">ETAPA 7</p>
           <h1 id="login-title">Acceso a revisión</h1>
           <p>Use únicamente una cuenta ficticia cargada en Firebase Emulator Suite.</p>
           <form onSubmit={handleSignIn}>
@@ -281,6 +351,28 @@ export function App({repository}: AppProps) {
                         </>
                       ) : <p className="reservation-private">Conteo pendiente de revisión · detalle restringido</p>
                     )}
+                    {line.state === "DEVUELTA" && count && user.canViewReservationDetails && (
+                      <section className="correction-responsibility" aria-label={`Responsabilidad de corrección de ${line.location.displayName}`}>
+                        <h3>Corrección pendiente</h3>
+                        <span>Autor original: {line.correctionResponsibility?.originalAuthorDisplayName ?? count.authorDisplayName}</span>
+                        <span>
+                          Responsable actual: {line.correctionResponsibility?.responsibleDisplayName ?? count.authorDisplayName}
+                        </span>
+                        <span>Motivo de devolución: {count.returnReason ?? "No disponible"}</span>
+                        {line.correctionResponsibility && (
+                          <>
+                            <span>Asignada por: {line.correctionResponsibility.assignedByDisplayName}</span>
+                            <span>Motivo de reasignación: {line.correctionResponsibility.reason}</span>
+                            <span>Hora: {formatTime(line.correctionResponsibility.assignedAt)}</span>
+                          </>
+                        )}
+                        {user.canReview && (
+                          <button className="button" type="button" onClick={() => openReassignment(line)}>
+                            Reasignar corrección
+                          </button>
+                        )}
+                      </section>
+                    )}
                     {user.canViewReservationDetails && (line.countHistory?.length ?? 0) > 0 && (
                       <section className="count-history" aria-label={`Historial de versiones de ${line.location.displayName}`}>
                         <h3>Historial de versiones</h3>
@@ -351,6 +443,72 @@ export function App({repository}: AppProps) {
               <button className="button" type="button" disabled={reviewing} onClick={submitReview}>
                 {reviewing ? "Procesando…" : reviewDialog.kind === "APPROVE" ? "Confirmar aprobación" : "Confirmar devolución"}
               </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {reassignmentDialog?.line.count && user && (
+        <div className="dialog-backdrop" role="presentation">
+          <section className="review-dialog" role="dialog" aria-modal="true" aria-labelledby="reassignment-title">
+            <p className="eyebrow">REASIGNACIÓN SUPERVISADA</p>
+            <h2 id="reassignment-title">Reasignar corrección</h2>
+            <p>
+              {reassignmentDialog.line.location.nursery} · {reassignmentDialog.line.location.module} · {reassignmentDialog.line.location.bed} · {reassignmentDialog.line.location.line}
+            </p>
+            {!reassignmentDialog.showSummary ? (
+              <>
+                <label>
+                  Nuevo responsable
+                  <select
+                    value={reassignmentDialog.targetUserId}
+                    onChange={(event) => updateReassignment({targetUserId: event.target.value})}
+                  >
+                    <option value="">Seleccionar usuario</option>
+                    {(snapshot?.correctionCandidates ?? []).filter((candidate) => {
+                      const currentResponsible = reassignmentDialog.line.correctionResponsibility?.responsibleUserId ??
+                        reassignmentDialog.line.count?.authorUserId;
+                      return candidate.id !== currentResponsible;
+                    }).map((candidate) => (
+                      <option key={candidate.id} value={candidate.id}>{candidate.displayName} · {candidate.role}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Motivo obligatorio
+                  <textarea
+                    rows={4}
+                    maxLength={2000}
+                    value={reassignmentDialog.reason}
+                    onChange={(event) => updateReassignment({reason: event.target.value})}
+                  />
+                </label>
+              </>
+            ) : (
+              <div className="inventory-summary" aria-label="Resumen de reasignación">
+                <strong>Confirma la reasignación</strong>
+                <span>Autor original: {reassignmentDialog.line.count.authorDisplayName}</span>
+                <span>
+                  Responsable actual: {reassignmentDialog.line.correctionResponsibility?.responsibleDisplayName ?? reassignmentDialog.line.count.authorDisplayName}
+                </span>
+                <span>
+                  Nuevo responsable: {(snapshot?.correctionCandidates ?? []).find((candidate) => candidate.id === reassignmentDialog.targetUserId)?.displayName}
+                </span>
+                <span>Motivo: {reassignmentDialog.reason}</span>
+                <span>El conteo original y su autor permanecerán intactos.</span>
+              </div>
+            )}
+            <div className="dialog-actions">
+              <button className="button button--secondary" type="button" disabled={reassigning} onClick={() => setReassignmentDialog(undefined)}>
+                Cancelar
+              </button>
+              {reassignmentDialog.showSummary ? (
+                <button className="button" type="button" disabled={reassigning} onClick={submitReassignment}>
+                  {reassigning ? "Procesando…" : "Confirmar reasignación"}
+                </button>
+              ) : (
+                <button className="button" type="button" onClick={reviewReassignment}>Revisar reasignación</button>
+              )}
             </div>
           </section>
         </div>

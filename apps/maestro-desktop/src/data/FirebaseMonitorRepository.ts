@@ -17,6 +17,8 @@ import {
 import {loadEmulatorConfig} from "../core/emulatorConfig";
 import type {
   MonitorCount,
+  MonitorCorrectionCandidate,
+  MonitorCorrectionResponsibility,
   MonitorInventory,
   MonitorLine,
   MonitorLocation,
@@ -136,6 +138,25 @@ export class FirebaseMonitorRepository implements MonitorRepository {
     }
   }
 
+  async reassignCountCorrection(
+    countId: string,
+    newUserId: string,
+    reason: string,
+    idempotencyKey: string,
+  ): Promise<void> {
+    const callable = httpsCallable(this.functions, "reasignarCorreccionConteo");
+    try {
+      await callable({
+        conteoId: countId,
+        nuevoUsuarioId: newUserId,
+        motivo: reason,
+        claveIdempotencia: idempotencyKey,
+      });
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible reasignar la corrección.", {cause: error});
+    }
+  }
+
   observeMonitor(
     user: MonitorUser,
     onMonitorSnapshot: (snapshot: MonitorSnapshot) => void,
@@ -147,6 +168,8 @@ export class FirebaseMonitorRepository implements MonitorRepository {
     let counts = new Map<string, MonitorCount[]>();
     let returnReasons = new Map<string, string>();
     let inventories = new Map<string, MonitorInventory>();
+    let reassignments = new Map<string, MonitorCorrectionResponsibility>();
+    let correctionCandidates: MonitorCorrectionCandidate[] = [];
 
     const publish = () => {
       if (!journeyDisplayName) return;
@@ -163,8 +186,12 @@ export class FirebaseMonitorRepository implements MonitorRepository {
             count: history.find((count) => count.id === line.currentCountId) ?? history.at(-1),
             countHistory: history,
             inventory: inventories.get(line.lineId),
+            ...(line.activeReassignmentId && reassignments.has(line.activeReassignmentId)
+              ? {correctionResponsibility: reassignments.get(line.activeReassignmentId)}
+              : {}),
           };
         })),
+        correctionCandidates,
       });
     };
     const subscriptions = [
@@ -201,6 +228,9 @@ export class FirebaseMonitorRepository implements MonitorRepository {
               state: data.estadoCentral,
               location,
               ...(typeof data.conteoVigenteId === "string" ? {currentCountId: data.conteoVigenteId} : {}),
+              ...(typeof data.reasignacionActivaId === "string"
+                ? {activeReassignmentId: data.reasignacionActivaId}
+                : {}),
             }];
           });
           publish();
@@ -210,6 +240,64 @@ export class FirebaseMonitorRepository implements MonitorRepository {
     ];
 
     if (user.canViewReservationDetails) {
+      subscriptions.push(
+        onSnapshot(
+          query(collection(this.firestore, "reasignacionesCorreccion"), where("jornadaId", "==", activeJourneyId)),
+          (snapshot) => {
+            reassignments = new Map(snapshot.docs.flatMap((documentSnapshot) => {
+              const data = documentSnapshot.data();
+              const assignedAt = data.reasignadaEn;
+              if (
+                typeof data.autorOriginalUsuarioId !== "string" ||
+                typeof data.autorOriginalNombreVisible !== "string" ||
+                typeof data.nuevoUsuarioId !== "string" ||
+                typeof data.nuevoUsuarioNombreVisible !== "string" ||
+                typeof data.actorUsuarioId !== "string" ||
+                typeof data.actorNombreVisible !== "string" ||
+                typeof data.motivo !== "string" ||
+                !(assignedAt instanceof Timestamp)
+              ) return [];
+              return [[documentSnapshot.id, {
+                reassignmentId: documentSnapshot.id,
+                originalAuthorUserId: data.autorOriginalUsuarioId,
+                originalAuthorDisplayName: data.autorOriginalNombreVisible,
+                responsibleUserId: data.nuevoUsuarioId,
+                responsibleDisplayName: data.nuevoUsuarioNombreVisible,
+                assignedByUserId: data.actorUsuarioId,
+                assignedByDisplayName: data.actorNombreVisible,
+                reason: data.motivo,
+                assignedAt: assignedAt.toDate().toISOString(),
+              }] as const];
+            }));
+            publish();
+          },
+          () => onError("No fue posible leer las reasignaciones de corrección."),
+        ),
+      );
+      subscriptions.push(
+        onSnapshot(
+          collection(this.firestore, "jornadas", activeJourneyId, "autorizaciones"),
+          (snapshot) => {
+            correctionCandidates = snapshot.docs.flatMap((documentSnapshot) => {
+              const data = documentSnapshot.data();
+              if (
+                data.activa !== true ||
+                data.usuarioActivo !== true ||
+                data.puedeContar !== true ||
+                typeof data.usuarioNombreVisible !== "string" ||
+                !isRole(data.rolEfectivo)
+              ) return [];
+              return [{
+                id: documentSnapshot.id,
+                displayName: data.usuarioNombreVisible,
+                role: data.rolEfectivo,
+              }];
+            }).sort((left, right) => left.displayName.localeCompare(right.displayName, "es"));
+            publish();
+          },
+          () => onError("No fue posible leer las autorizaciones de la jornada."),
+        ),
+      );
       subscriptions.push(
         onSnapshot(
           query(collection(this.firestore, "reservas"), where("jornadaId", "==", activeJourneyId)),
@@ -357,6 +445,10 @@ export class DisabledMonitorRepository implements MonitorRepository {
   }
 
   async returnCount(): Promise<void> {
+    throw new Error("Firebase de producción permanece deshabilitado.");
+  }
+
+  async reassignCountCorrection(): Promise<void> {
     throw new Error("Firebase de producción permanece deshabilitado.");
   }
 

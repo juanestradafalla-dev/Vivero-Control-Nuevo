@@ -2,7 +2,7 @@
 
 Sistema nuevo para operar inventario por línea mediante Vivero Campo (Android), Vivero Maestro (Windows) y un backend transaccional. Este repositorio no consulta, modifica ni reutiliza el proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 6
+## Estado: ETAPA 7
 
 La vertical disponible funciona exclusivamente con Firebase Emulator Suite y datos ficticios:
 
@@ -15,6 +15,10 @@ La vertical disponible funciona exclusivamente con Firebase Emulator Suite y dat
 7. La devolución conserva el inventario intacto y permite que el autor inicie una reserva `CORRECCION`.
 8. Campo restaura los valores devueltos como un borrador nuevo; el reenvío crea la versión siguiente y conserva las anteriores.
 9. Maestro muestra el historial, el motivo de devolución y cuál versión es vigente; aprobar y devolver siguen operando solo sobre la vigente.
+
+10. Supervisor o administrador autorizado puede reasignar una corrección `DEVUELTA` a otro usuario activo y autorizado.
+11. La reasignación es inmutable, idempotente y auditada; no cambia el conteo original, su autor ni el inventario.
+12. Solo el responsable actual inicia la reserva `CORRECCION`; la nueva versión conserva el enlace anterior y registra como autor a quien corrigió.
 
 > **MODO DE PRUEBA — EMULADOR.** No existe Firebase real configurado, no hay credenciales de producción y ningún comando despliega recursos.
 
@@ -76,7 +80,7 @@ Set-Location backend/functions
 npm run emulator:seed
 ```
 
-Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las cinco Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
+Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las seis Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
 
 | Correo ficticio | Rol |
 |---|---|
@@ -122,14 +126,14 @@ npm run test:emulators
 npm audit --omit=dev --audit-level=high
 ```
 
-## Documentación de la ETAPA 6
+## Documentación de la ETAPA 7
 
-- [Corrección versionada](docs/arquitectura/CORRECCION_VERSIONADA_ETAPA_06.md)
-- [Pruebas y concurrencia](docs/pruebas/PRUEBAS_ETAPA_06.md)
-- [Criterios de aceptación](docs/ETAPA_06_CRITERIOS_DE_ACEPTACION.md)
+- [Reasignación supervisada](docs/arquitectura/REASIGNACION_CORRECCIONES_ETAPA_07.md)
+- [Pruebas y concurrencia](docs/pruebas/PRUEBAS_ETAPA_07.md)
+- [Criterios de aceptación](docs/ETAPA_07_CRITERIOS_DE_ACEPTACION.md)
 - [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
 - [Decisiones pendientes](docs/DECISIONES_PENDIENTES.md)
 
 ## Exclusiones vigentes
 
-No están implementados: reasignación, liberación de reservas, corrección por otro usuario, gestión completa de jornadas, administración de usuarios, datos reales, migración, Firebase de producción, despliegues, APK de producción, instalador Windows definitivo, descartes, despachos, químicos, aplicaciones ni reingresos.
+No están implementados: liberación de reservas o líneas abandonadas, corrección simultánea por varios usuarios, gestión completa de jornadas, administración de usuarios, datos reales, migración, Firebase de producción, despliegues, APK de producción, instalador Windows definitivo, descartes, despachos, químicos, aplicaciones ni reingresos.

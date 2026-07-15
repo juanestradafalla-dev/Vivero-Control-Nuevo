@@ -31,6 +31,30 @@ export const domainErrors = {
   countNotFound: () => new DomainError("COUNT_NOT_FOUND", "El conteo no existe."),
   countNotReturned: () => new DomainError("COUNT_NOT_RETURNED", "El conteo ya no está devuelto para corrección."),
   countAuthorMismatch: () => new DomainError("COUNT_AUTHOR_MISMATCH", "Solo el autor puede corregir este conteo."),
+  correctionResponsibleMismatch: () => new DomainError(
+    "CORRECTION_RESPONSIBLE_MISMATCH",
+    "Solo la persona responsable actual puede iniciar esta corrección."
+  ),
+  correctionReassignmentNotAllowed: () => new DomainError(
+    "CORRECTION_REASSIGNMENT_NOT_ALLOWED",
+    "La cuenta no puede reasignar correcciones en esta jornada."
+  ),
+  correctionAssigneeInactive: () => new DomainError(
+    "CORRECTION_ASSIGNEE_INACTIVE",
+    "La cuenta seleccionada no está activa."
+  ),
+  correctionAssigneeUnauthorized: () => new DomainError(
+    "CORRECTION_ASSIGNEE_UNAUTHORIZED",
+    "La cuenta seleccionada no está autorizada para contar en esta jornada."
+  ),
+  correctionReassignmentReasonRequired: () => new DomainError(
+    "CORRECTION_REASSIGNMENT_REASON_REQUIRED",
+    "La reasignación exige un motivo."
+  ),
+  correctionReassignmentNoChange: () => new DomainError(
+    "CORRECTION_REASSIGNMENT_NO_CHANGE",
+    "Selecciona una persona diferente de la responsable actual."
+  ),
   countNotPendingReview: () => new DomainError("COUNT_NOT_PENDING_REVIEW", "El conteo ya no está pendiente de revisión."),
   countLineMismatch: () => new DomainError("COUNT_LINE_MISMATCH", "El conteo vigente no coincide con la línea."),
   reviewNotAllowed: () => new DomainError("REVIEW_NOT_ALLOWED", "La cuenta no puede revisar conteos en esta jornada."),

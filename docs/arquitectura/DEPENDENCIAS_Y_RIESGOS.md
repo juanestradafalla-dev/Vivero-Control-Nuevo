@@ -18,13 +18,14 @@ altas y 0 críticas.
 
 ## Backend Functions
 
-`npm audit --omit=dev` informó 8 vulnerabilidades moderadas, 0 altas y 0
+`npm audit --omit=dev` informó 9 vulnerabilidades moderadas, 0 altas y 0
 críticas. El aviso raíz es `GHSA-w5hq-g745-h8pq`, una falta de comprobación de
 límites en `uuid` menor que 11.1.1 al usar un búfer con UUID v3, v5 o v6.
 
 | Paquete informado | Relación | Severidad |
 |---|---|---|
 | `firebase-admin` 13.10.0 | Directa | Moderada |
+| `firebase-functions` 7.2.5 | Directa | Moderada |
 | `@google-cloud/firestore` | Transitiva | Moderada |
 | `@google-cloud/storage` | Transitiva | Moderada |
 | `google-gax` | Transitiva | Moderada |
@@ -80,7 +81,7 @@ La revisión agrega dos Callables y lecturas de inventario en Maestro sin incorp
 
 Riesgos vigentes:
 
-- las 8 alertas moderadas transitivas del backend continúan sin altas ni críticas;
+- las 9 alertas moderadas del backend continúan sin altas ni críticas;
 - ningún control local equivale a autorización para producción;
 - la calidad de red, compatibilidad con dispositivos reales y tolerancia del reloj siguen sin validación de campo;
 - el seed de inventario es completamente ficticio y no puede interpretarse como dato migrable;
@@ -94,3 +95,9 @@ Las operaciones de revisión conservan el bloqueo `FUNCTIONS_EMULATOR=true` más
 No se agregan dependencias externas. Room migra de 2 a 3 para conservar metadatos de la reserva de corrección; el token continúa cifrado con Android Keystore y se elimina tras la confirmación central.
 
 Persisten los riesgos de compatibilidad con dispositivos reales, pérdida de claves del Keystore, señal real, retención local y alertas moderadas transitivas del backend. La corrección por un usuario distinto, la reasignación y la liberación permanecen fuera de alcance. Firebase real sigue sin configurarse ni desplegarse.
+
+## Actualización de la ETAPA 7
+
+No se agregan dependencias externas ni migraciones Room. La reasignación reutiliza Functions, transacciones, Auth y contratos existentes. Maestro construye candidatos desde autorizaciones de jornada con nombre, rol y actividad denormalizados por el seed; el backend vuelve a validar el perfil vigente antes de escribir.
+
+Persisten los riesgos de señal y dispositivos reales, retención local, pérdida de claves Keystore y alertas moderadas transitivas del backend. Un usuario seleccionado puede adquirir otra reserva antes de iniciar la corrección; en ese caso el backend rechaza el inicio con `ACTIVE_RESERVATION_EXISTS` y la reasignación permanece visible para decisión supervisada posterior. No se implementa liberación. Firebase real continúa sin configurarse ni desplegarse.

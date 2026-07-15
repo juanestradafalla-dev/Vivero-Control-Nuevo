@@ -2,7 +2,7 @@
 
 Los JSON Schema Draft 2020-12 son el lenguaje común de Campo, Maestro y backend.
 
-La Etapa 6 añade contratos estrictos para `iniciarCorreccionConteo`, reservas `CORRECCION` y cadenas inmutables de versiones.
+La Etapa 7 añade contratos estrictos para `reasignarCorreccionConteo`, su registro inmutable y su resultado idempotente, manteniendo los de reservas `CORRECCION` y versiones.
 
 Reglas de frontera:
 
@@ -17,8 +17,10 @@ Reglas de frontera:
 - una versión 1 usa `conteoAnteriorId = null`; toda versión posterior apunta a su antecesora;
 - iniciar una corrección solo recibe conteo, dispositivo y clave idempotente;
 - reenviar una corrección sigue sin modificar inventario oficial.
+- reasignar solo recibe conteo, nuevo usuario, motivo y clave; identidad y rol del actor proceden de Authentication y datos centrales;
+- la reasignación no edita el conteo original ni cambia su autor.
 
-Los ejemplos ficticios de corrección están en `examples/etapa-06/`.
+Los ejemplos ficticios de reasignación están en `examples/etapa-07/`.
 
 ```powershell
 npm ci

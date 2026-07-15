@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/correction-reassignment.schema.json",
+  "title": "Reasignación inmutable de corrección",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id", "conteoId", "jornadaId", "jornadaLineaId", "lineaId",
+    "autorOriginalUsuarioId", "responsableAnteriorUsuarioId", "nuevoUsuarioId",
+    "actorUsuarioId", "motivo", "motivoDevolucion", "reasignadaEn",
+    "versionLinea", "inmutable"
+  ],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "conteoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaLineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "lineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "autorOriginalUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "responsableAnteriorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "nuevoUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "actorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "motivo": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "motivoDevolucion": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "reasignadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "versionLinea": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "inmutable": {"const": true}
+  }
+}

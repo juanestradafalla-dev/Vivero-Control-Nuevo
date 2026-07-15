@@ -188,6 +188,9 @@ input:focus { outline: 3px solid #9ccca8; border-color: #1b6f3b; }
 .count-history h3 { margin: 0; color: #164c32; font-size: 1rem; }
 .count-version { display: grid; gap: 4px; padding: 11px; border: 1px solid #d6e5d8; border-radius: 10px; background: #f7fbf7; }
 .count-version span { color: #52665a; font-size: .86rem; line-height: 1.4; }
+.correction-responsibility { display: grid; gap: 8px; padding-top: 16px; border-top: 1px solid #e2ebe3; }
+.correction-responsibility h3 { margin: 0; color: #7a2e1f; font-size: 1rem; }
+.correction-responsibility span { color: #52665a; font-size: .9rem; }
 
 .empty-state { padding: 60px; border: 1px dashed #adc7b3; border-radius: 18px; color: #617269; text-align: center; }
 .read-only-note { margin-top: 28px; color: #607168; font-size: .9rem; text-align: center; }

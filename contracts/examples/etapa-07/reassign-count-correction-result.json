@@ -1,0 +1,12 @@
+{
+  "reasignacionId": "reasignacion-ficticia-001",
+  "conteoId": "conteo-ficticio-version-1",
+  "jornadaLineaId": "JORNADA-PRUEBA-ETAPA-3__LINEA-PRUEBA-1",
+  "autorOriginalUsuarioId": "uid-auxiliar-1",
+  "responsableCorreccionUsuarioId": "uid-auxiliar-2",
+  "responsableCorreccionNombreVisible": "Auxiliar ficticio 2",
+  "actorUsuarioId": "uid-supervisor",
+  "motivo": "El autor original no está disponible.",
+  "versionLinea": 4,
+  "reasignadaEn": "2026-07-15T14:00:00.000Z"
+}

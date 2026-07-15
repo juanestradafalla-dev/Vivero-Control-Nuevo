@@ -43,6 +43,8 @@ interface JourneyLineDocument {
   readonly estadoCentral?: string;
   readonly conteoVigenteId?: string;
   readonly reservaActivaId?: string | null;
+  readonly responsableCorreccionUsuarioId?: string;
+  readonly reasignacionActivaId?: string | null;
   readonly version?: number;
   readonly ubicacion?: VisibleLocation;
 }
@@ -117,7 +119,6 @@ export class InitiateCountCorrectionService {
 
       if (!countSnapshot.exists) throw domainErrors.countNotFound();
       const count = countSnapshot.data() as CountDocument;
-      if (count.autorUsuarioId !== context.actorId) throw domainErrors.countAuthorMismatch();
       if (
         typeof count.jornadaId !== "string" ||
         typeof count.jornadaLineaId !== "string" ||
@@ -164,6 +165,13 @@ export class InitiateCountCorrectionService {
       if (line.activa !== true || line.estadoCentral !== "DEVUELTA") {
         throw domainErrors.countNotReturned();
       }
+      const responsibleUserId =
+        typeof line.reasignacionActivaId === "string" && line.reasignacionActivaId !== ""
+          ? line.responsableCorreccionUsuarioId
+          : count.autorUsuarioId;
+      if (typeof responsibleUserId !== "string" || responsibleUserId !== context.actorId) {
+        throw domainErrors.correctionResponsibleMismatch();
+      }
       if (typeof line.reservaActivaId === "string" && line.reservaActivaId !== "") {
         throw domainErrors.activeReservationExists();
       }
@@ -194,6 +202,8 @@ export class InitiateCountCorrectionService {
         id: reservationId,
         tipoReserva: "CORRECCION",
         conteoAnteriorId: request.conteoId,
+        responsableCorreccionUsuarioId: context.actorId,
+        reasignacionOrigenId: line.reasignacionActivaId ?? null,
         jornadaId: count.jornadaId,
         jornadaLineaId: count.jornadaLineaId,
         usuarioId: context.actorId,
@@ -209,6 +219,7 @@ export class InitiateCountCorrectionService {
       transaction.update(lineRef, {
         estadoCentral: "EN_CONTEO",
         reservaActivaId: reservationId,
+        reasignacionActivaId: null,
         version: nextLineVersion,
         actualizadaEn: reservedAt
       });
@@ -228,7 +239,9 @@ export class InitiateCountCorrectionService {
           estadoNuevo: "EN_CONTEO",
           versionLinea: nextLineVersion,
           versionConteoSiguiente: nextCountVersion,
-          dispositivoId: request.dispositivoId
+          dispositivoId: request.dispositivoId,
+          responsableCorreccionUsuarioId: context.actorId,
+          reasignacionOrigenId: line.reasignacionActivaId ?? null
         }
       });
       transaction.create(idempotencyRef, {

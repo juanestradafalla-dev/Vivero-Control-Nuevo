@@ -27,6 +27,7 @@ interface ReservationDocument {
   readonly estadoReserva?: string;
   readonly tipoReserva?: string;
   readonly conteoAnteriorId?: string;
+  readonly responsableCorreccionUsuarioId?: string;
 }
 
 interface CountDocument {
@@ -187,7 +188,10 @@ export class SendCountService {
       let previousCountId: string | null = null;
       let countVersion = 1;
       if (isCorrection) {
-        if (typeof reservation.conteoAnteriorId !== "string") throw domainErrors.internal();
+        if (
+          typeof reservation.conteoAnteriorId !== "string" ||
+          reservation.responsableCorreccionUsuarioId !== context.actorId
+        ) throw domainErrors.internal();
         const previousCountSnapshot = await transaction.get(
           this.firestore.collection("conteos").doc(reservation.conteoAnteriorId)
         );
@@ -197,7 +201,6 @@ export class SendCountService {
           previousCount.jornadaId !== reservation.jornadaId ||
           previousCount.jornadaLineaId !== reservation.jornadaLineaId ||
           previousCount.lineaId !== line.lineaId ||
-          previousCount.autorUsuarioId !== context.actorId ||
           previousCount.inmutable !== true ||
           !Number.isSafeInteger(previousCount.versionNumero) ||
           (previousCount.versionNumero as number) < 1 ||

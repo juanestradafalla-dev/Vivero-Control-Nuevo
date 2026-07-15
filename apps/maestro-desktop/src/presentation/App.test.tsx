@@ -48,6 +48,10 @@ const snapshot: MonitorSnapshot = {
   journeyId: "JORNADA-PRUEBA-ETAPA-3",
   journeyDisplayName: "Jornada ficticia Etapa 5",
   lines: [pendingLine],
+  correctionCandidates: [
+    {id: "uid-auxiliar-1", displayName: "Auxiliar Conteo", role: "AUXILIAR"},
+    {id: "uid-auxiliar-2", displayName: "Auxiliar Reasignado", role: "AUXILIAR"},
+  ],
 };
 
 class FakeMonitorRepository implements MonitorRepository {
@@ -57,6 +61,7 @@ class FakeMonitorRepository implements MonitorRepository {
   currentSnapshot: MonitorSnapshot = snapshot;
   approved: Array<{countId: string; key: string; reason?: string}> = [];
   returned: Array<{countId: string; reason: string; key: string}> = [];
+  reassigned: Array<{countId: string; newUserId: string; reason: string; key: string}> = [];
 
   async signIn(): Promise<MonitorUser> { return this.user; }
   async signOut(): Promise<void> {}
@@ -65,6 +70,9 @@ class FakeMonitorRepository implements MonitorRepository {
   }
   async returnCount(countId: string, reason: string, key: string): Promise<void> {
     this.returned.push({countId, reason, key});
+  }
+  async reassignCountCorrection(countId: string, newUserId: string, reason: string, key: string): Promise<void> {
+    this.reassigned.push({countId, newUserId, reason, key});
   }
   observeMonitor(_user: MonitorUser, onSnapshot: (snapshot: MonitorSnapshot) => void): MonitorUnsubscribe {
     this.onSnapshot = onSnapshot;
@@ -195,5 +203,60 @@ describe("bandeja de revisión de Vivero Maestro", () => {
     for (const action of ["Editar", "Modificar", "Liberar", "Reasignar"]) {
       expect(screen.queryByRole("button", {name: new RegExp(action, "i")})).not.toBeInTheDocument();
     }
+  });
+
+  it("muestra la asignacion y confirma una reasignacion con resumen", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.currentSnapshot = {
+      ...snapshot,
+      lines: [{
+        ...pendingLine,
+        state: "DEVUELTA",
+        count: {...pendingLine.count, returnReason: "Recontar toda la linea."},
+        correctionResponsibility: {
+          reassignmentId: "REASIGNACION-ANTERIOR",
+          originalAuthorUserId: "uid-auxiliar-1",
+          originalAuthorDisplayName: "Auxiliar Conteo",
+          responsibleUserId: "uid-supervisor",
+          responsibleDisplayName: "Supervisor Pruebas",
+          assignedByUserId: "uid-administrador",
+          assignedByDisplayName: "Administrador Pruebas",
+          reason: "Primer responsable ausente",
+          assignedAt: "2026-07-15T14:00:00.000Z",
+        },
+      }],
+    };
+    await signIn(repository);
+    fireEvent.change(screen.getByLabelText("Estado"), {target: {value: "DEVUELTA"}});
+    fireEvent.click(screen.getByRole("button", {name: /Reasignar correcci/}));
+    fireEvent.change(screen.getByLabelText("Nuevo responsable"), {target: {value: "uid-auxiliar-2"}});
+    fireEvent.change(screen.getByLabelText("Motivo obligatorio"), {target: {value: "El responsable actual no esta disponible"}});
+    fireEvent.click(screen.getByRole("button", {name: /Revisar reasignaci/}));
+    expect(screen.getByLabelText(/Resumen de reasignaci/)).toHaveTextContent("Auxiliar Reasignado");
+    fireEvent.click(screen.getByRole("button", {name: /Confirmar reasignaci/}));
+    await waitFor(() => expect(repository.reassigned).toHaveLength(1));
+    expect(repository.reassigned[0]).toMatchObject({
+      countId: "CONTEO-003",
+      newUserId: "uid-auxiliar-2",
+      reason: "El responsable actual no esta disponible",
+    });
+  });
+
+  it("no ofrece reasignacion a un auxiliar", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.user = {
+      id: "uid-auxiliar-1",
+      displayName: "Auxiliar",
+      role: "AUXILIAR",
+      canViewReservationDetails: false,
+      canReview: false,
+    };
+    repository.currentSnapshot = {
+      ...snapshot,
+      lines: [{...pendingLine, state: "DEVUELTA", count: {...pendingLine.count, returnReason: "Recontar"}}],
+    };
+    await signIn(repository);
+    fireEvent.change(screen.getByLabelText("Estado"), {target: {value: "DEVUELTA"}});
+    expect(screen.queryByRole("button", {name: /Reasignar/i})).not.toBeInTheDocument();
   });
 });

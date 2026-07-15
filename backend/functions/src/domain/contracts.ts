@@ -28,6 +28,12 @@ export type ControlledErrorCode =
   | "COUNT_NOT_FOUND"
   | "COUNT_NOT_RETURNED"
   | "COUNT_AUTHOR_MISMATCH"
+  | "CORRECTION_RESPONSIBLE_MISMATCH"
+  | "CORRECTION_REASSIGNMENT_NOT_ALLOWED"
+  | "CORRECTION_ASSIGNEE_INACTIVE"
+  | "CORRECTION_ASSIGNEE_UNAUTHORIZED"
+  | "CORRECTION_REASSIGNMENT_REASON_REQUIRED"
+  | "CORRECTION_REASSIGNMENT_NO_CHANGE"
   | "COUNT_NOT_PENDING_REVIEW"
   | "COUNT_LINE_MISMATCH"
   | "REVIEW_NOT_ALLOWED"
@@ -82,6 +88,26 @@ export interface InitiateCountCorrectionResult {
   readonly version: number;
   readonly versionConteoSiguiente: number;
   readonly ubicacion: VisibleLocation;
+}
+
+export interface ReassignCountCorrectionRequest {
+  readonly conteoId: string;
+  readonly nuevoUsuarioId: string;
+  readonly motivo: string;
+  readonly claveIdempotencia: string;
+}
+
+export interface ReassignCountCorrectionResult {
+  readonly reasignacionId: string;
+  readonly conteoId: string;
+  readonly jornadaLineaId: string;
+  readonly autorOriginalUsuarioId: string;
+  readonly responsableCorreccionUsuarioId: string;
+  readonly responsableCorreccionNombreVisible: string;
+  readonly actorUsuarioId: string;
+  readonly motivo: string;
+  readonly versionLinea: number;
+  readonly reasignadaEn: string;
 }
 
 export interface SendCountRequest {

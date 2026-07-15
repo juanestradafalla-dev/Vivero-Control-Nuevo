@@ -24,8 +24,8 @@ async function assertInvalid(schemaFilename, exampleFilename) {
 }
 
 test("compila todos los esquemas Draft 2020-12 y resuelve sus referencias", () => {
-  assert.equal(registry.entityCount, 24);
-  assert.equal(registry.schemaCount, 25);
+  assert.equal(registry.entityCount, 27);
+  assert.equal(registry.schemaCount, 28);
   assert.equal(registry.enumCount, 5);
 });
 
@@ -185,4 +185,27 @@ test("acepta iniciar una corrección y su resultado idempotente", async () => {
 test("acepta una versión 2 que apunta al conteo anterior", async () => {
   await assertValid("conteo.schema.json", "etapa-06/conteo-version-2.json");
   await assertValid("reserva.schema.json", "etapa-06/reserva-correccion.json");
+});
+
+test("acepta la reasignacion supervisada y su resultado idempotente", async () => {
+  await assertValid(
+    "reassign-count-correction-request.schema.json",
+    "etapa-07/reassign-count-correction-request.json"
+  );
+  await assertValid(
+    "reassign-count-correction-result.schema.json",
+    "etapa-07/reassign-count-correction-result.json"
+  );
+  await assertValid("correction-reassignment.schema.json", "etapa-07/correction-reassignment.json");
+  await assertValid(
+    "resultado-idempotente.schema.json",
+    "etapa-07/idempotent-reassignment-result.json"
+  );
+});
+
+test("rechaza una reasignacion sin motivo", async () => {
+  await assertInvalid(
+    "reassign-count-correction-request.schema.json",
+    "etapa-07/reassign-count-correction-request-empty-reason.json"
+  );
 });

@@ -230,6 +230,28 @@ class CampoViewModelTest {
         assertEquals(returnedCount.input, viewModel.uiState.value.countDraft?.input)
     }
 
+    @Test
+    fun `autor original conserva vista de solo lectura cuando la correccion fue reasignada`() = runTest {
+        val readOnly = returnedCount.copy(
+            correctionResponsibleUserId = "uid-auxiliar-2",
+            correctionResponsibleName = "Auxiliar ficticio 2",
+            reassignedByName = "Supervisor ficticio",
+            reassignmentReason = "Autor ausente",
+            isReassigned = true,
+            canCorrect = false,
+        )
+        login()
+        repository.returnedCounts.value = listOf(readOnly)
+        advanceUntilIdle()
+
+        viewModel.correctCount(readOnly)
+        advanceUntilIdle()
+
+        assertTrue(repository.correctionPayloads.isEmpty())
+        assertNull(viewModel.uiState.value.confirmedReservation)
+        assertEquals("Supervisor ficticio", viewModel.uiState.value.returnedCounts.single().reassignedByName)
+    }
+
     private suspend fun kotlinx.coroutines.test.TestScope.login() {
         viewModel.updateEmail("auxiliar1@prueba.local")
         viewModel.updatePassword("SoloEmulador-Etapa3!")

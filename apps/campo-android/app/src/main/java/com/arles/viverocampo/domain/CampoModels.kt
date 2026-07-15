@@ -74,6 +74,14 @@ data class ReturnedCount(
     val reason: String,
     val input: CountInput,
     val location: VisibleLocation,
+    val originalAuthorUserId: String = "",
+    val originalAuthorName: String = "Usuario de prueba",
+    val correctionResponsibleUserId: String = "",
+    val correctionResponsibleName: String = "Usuario de prueba",
+    val reassignedByName: String? = null,
+    val reassignmentReason: String? = null,
+    val isReassigned: Boolean = false,
+    val canCorrect: Boolean = true,
 )
 
 data class CountInput(

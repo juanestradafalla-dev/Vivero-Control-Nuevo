@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/activate-journey-request.schema.json",
+  "title": "Solicitud activarJornada",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "jornadaId",
+    "versionJornadaEsperada",
+    "versionSeleccionLineasEsperada",
+    "versionSeleccionParticipantesEsperada",
+    "claveIdempotencia"
+  ],
+  "properties": {
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+    "versionJornadaEsperada": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "versionSeleccionLineasEsperada": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "versionSeleccionParticipantesEsperada": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}
+  }
+}

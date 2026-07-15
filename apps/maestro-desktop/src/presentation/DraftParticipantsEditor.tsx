@@ -1,6 +1,8 @@
 import {useEffect, useMemo, useRef, useState} from "react";
 
 import type {
+  DraftActivationResult,
+  DraftCatalogLine,
   DraftParticipantInput,
   DraftParticipantsData,
   ManageableDraftJourney,
@@ -11,6 +13,9 @@ import type {
 interface DraftParticipantsEditorProps {
   readonly repository: MonitorRepository;
   readonly journey: ManageableDraftJourney;
+  readonly catalogLines: readonly DraftCatalogLine[];
+  readonly lineSelectionDirty: boolean;
+  readonly onActivated: (result: DraftActivationResult) => void | Promise<void>;
 }
 
 const roleLabels: Record<MonitorRole, string> = {
@@ -19,7 +24,20 @@ const roleLabels: Record<MonitorRole, string> = {
   ADMINISTRADOR: "Administrador",
 };
 
-export function DraftParticipantsEditor({repository, journey}: DraftParticipantsEditorProps) {
+function participantSignature(participants: readonly DraftParticipantInput[]): string {
+  return [...participants]
+    .sort((left, right) => left.userId.localeCompare(right.userId))
+    .map((participant) => `${participant.userId}:${participant.canCount ? "1" : "0"}`)
+    .join("|");
+}
+
+export function DraftParticipantsEditor({
+  repository,
+  journey,
+  catalogLines,
+  lineSelectionDirty,
+  onActivated,
+}: DraftParticipantsEditorProps) {
   const [data, setData] = useState<DraftParticipantsData>();
   const [selection, setSelection] = useState<readonly DraftParticipantInput[]>([]);
   const [search, setSearch] = useState("");
@@ -27,9 +45,12 @@ export function DraftParticipantsEditor({repository, journey}: DraftParticipants
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
+  const [showActivationSummary, setShowActivationSummary] = useState(false);
+  const [activating, setActivating] = useState(false);
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const saveKey = useRef<string | undefined>(undefined);
+  const activationKey = useRef<string | undefined>(undefined);
 
   const load = async (): Promise<void> => {
     setLoading(true);
@@ -54,10 +75,18 @@ export function DraftParticipantsEditor({repository, journey}: DraftParticipants
     setSearch("");
     setRoleFilter("TODOS");
     setShowSummary(false);
+    setShowActivationSummary(false);
     setNotice(undefined);
     saveKey.current = undefined;
+    activationKey.current = undefined;
     void load();
-  }, [journey.id]);
+  }, [journey.id, journey.version]);
+
+  useEffect(() => {
+    if (!lineSelectionDirty) return;
+    activationKey.current = undefined;
+    setShowActivationSummary(false);
+  }, [lineSelectionDirty]);
 
   const visibleUsers = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("es");
@@ -66,11 +95,38 @@ export function DraftParticipantsEditor({repository, journey}: DraftParticipants
       `${user.displayName} ${roleLabels[user.role]}`.toLocaleLowerCase("es").includes(term)
     );
   }, [data, roleFilter, search]);
+  const savedSelection = data?.participants.map((participant) => ({
+    userId: participant.id,
+    canCount: participant.canCount,
+  })) ?? [];
+  const participantsDirty = participantSignature(selection) !== participantSignature(savedSelection);
+  const savedParticipants = data?.participants ?? [];
+  const selectedLines = journey.lineIds.flatMap((lineId) => {
+    const line = catalogLines.find((candidate) => candidate.id === lineId);
+    return line ? [line] : [];
+  });
+  const hasCounter = savedParticipants.some((participant) => participant.canCount);
+  const hasReviewer = savedParticipants.some((participant) =>
+    participant.role === "SUPERVISOR" || participant.role === "ADMINISTRADOR"
+  );
+  const withinTechnicalLimit = journey.lineIds.length + savedParticipants.length <= 200;
+  const activationReady = Boolean(data) &&
+    journey.lineIds.length > 0 &&
+    selectedLines.length === journey.lineIds.length &&
+    hasCounter &&
+    hasReviewer &&
+    withinTechnicalLimit &&
+    !participantsDirty &&
+    !lineSelectionDirty &&
+    !loading &&
+    !saving;
 
   const updateSelection = (next: readonly DraftParticipantInput[]) => {
     setSelection([...new Map(next.map((participant) => [participant.userId, participant])).values()]);
     saveKey.current = undefined;
+    activationKey.current = undefined;
     setShowSummary(false);
+    setShowActivationSummary(false);
     setNotice(undefined);
   };
 
@@ -106,6 +162,30 @@ export function DraftParticipantsEditor({repository, journey}: DraftParticipants
     }
   };
 
+  const confirmActivation = async () => {
+    if (!data || !activationReady || activating) return;
+    setActivating(true);
+    setError(undefined);
+    const key = activationKey.current ?? crypto.randomUUID();
+    activationKey.current = key;
+    try {
+      const result = await repository.activateDraftJourney(journey.id, {
+        journey: data.version,
+        lineSelection: data.lineSelectionVersion,
+        participantSelection: data.participantSelectionVersion,
+      }, key);
+      activationKey.current = undefined;
+      setShowActivationSummary(false);
+      await onActivated(result);
+    } catch (activationError) {
+      setError(activationError instanceof Error
+        ? activationError.message
+        : "No fue posible activar la jornada preparada.");
+    } finally {
+      setActivating(false);
+    }
+  };
+
   return (
     <section className="draft-participants" aria-labelledby="participants-title">
       <div className="draft-editor-heading">
@@ -114,12 +194,28 @@ export function DraftParticipantsEditor({repository, journey}: DraftParticipants
           <h3 id="participants-title">Participantes</h3>
           <p>{selection.length} participantes seleccionados</p>
         </div>
-        <button className="button" type="button" disabled={loading || saving} onClick={() => setShowSummary(true)}>
-          Revisar participantes
-        </button>
+        <div className="draft-heading-actions">
+          <button className="button button--secondary" type="button" disabled={loading || saving || activating} onClick={() => setShowSummary(true)}>
+            Revisar participantes
+          </button>
+          <button
+            className="button"
+            type="button"
+            disabled={!activationReady || activating}
+            onClick={() => setShowActivationSummary(true)}
+          >
+            {activating ? "Activando…" : "Activar jornada"}
+          </button>
+        </div>
       </div>
 
       <p className="draft-warning">BORRADOR — LOS PARTICIPANTES AÚN NO TIENEN AUTORIZACIÓN OPERATIVA</p>
+      {!activationReady && !loading && (
+        <p className="warning" role="status">
+          Para activar: guarda al menos una línea, un participante que pueda contar y un supervisor o administrador;
+          confirma también cualquier cambio pendiente.
+        </p>
+      )}
       {error && <p className="alert" role="alert">{error}</p>}
       {notice && <p className="notice" role="status">{notice}</p>}
 
@@ -193,6 +289,45 @@ export function DraftParticipantsEditor({repository, journey}: DraftParticipants
               </button>
               <button className="button" type="button" disabled={saving} onClick={confirmSave}>
                 {saving ? "Guardando…" : "Confirmar participantes"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {showActivationSummary && data && (
+        <div className="dialog-backdrop" role="presentation">
+          <section className="review-dialog" role="dialog" aria-modal="true" aria-labelledby="activation-summary-title">
+            <p className="eyebrow">ACTIVACIÓN TRANSACCIONAL</p>
+            <h2 id="activation-summary-title">Activar jornada</h2>
+            <div className="inventory-summary" aria-label="Resumen de activación de jornada">
+              <strong>{journey.displayName}</strong>
+              <span>Líneas: {selectedLines.length}</span>
+              {selectedLines.map((line) => (
+                <span key={line.id}>
+                  {line.location.nursery} · {line.location.module} · {line.location.bed} · {line.displayName}
+                </span>
+              ))}
+              <strong>Participantes y permisos</strong>
+              {savedParticipants.map((participant) => (
+                <span key={participant.id}>
+                  {participant.displayName} · {roleLabels[participant.role]} · {participant.canCount ? "Puede contar" : "No cuenta"}
+                </span>
+              ))}
+            </div>
+            <p className="warning">Después de confirmar, Vivero Campo podrá ver esta jornada.</p>
+            <p className="warning">La jornada activa no podrá editarse durante esta etapa.</p>
+            <div className="dialog-actions">
+              <button
+                className="button button--secondary"
+                type="button"
+                disabled={activating}
+                onClick={() => setShowActivationSummary(false)}
+              >
+                Volver
+              </button>
+              <button className="button" type="button" disabled={activating} onClick={confirmActivation}>
+                {activating ? "Activando…" : "Confirmar activación"}
               </button>
             </div>
           </section>

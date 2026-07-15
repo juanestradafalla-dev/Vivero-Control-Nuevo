@@ -1,0 +1,8 @@
+{
+  "jornadaId": "JORNADA-BORRADOR-SUPERVISOR",
+  "versionJornadaEsperada": 2,
+  "versionSeleccionLineasEsperada": 1,
+  "versionSeleccionParticipantesEsperada": 2,
+  "claveIdempotencia": "activar-jornada-etapa-12-0001",
+  "actorUsuarioId": "uid-supervisor"
+}

@@ -4,11 +4,21 @@
   "title": "Resultado listarParticipantesJornadaBorrador",
   "type": "object",
   "additionalProperties": false,
-  "required": ["jornadaId", "estado", "version", "participantes", "usuariosActivos"],
+  "required": [
+    "jornadaId",
+    "estado",
+    "version",
+    "versionSeleccionLineas",
+    "versionSeleccionParticipantes",
+    "participantes",
+    "usuariosActivos"
+  ],
   "properties": {
     "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "estado": {"const": "BORRADOR"},
     "version": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "versionSeleccionLineas": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "versionSeleccionParticipantes": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
     "participantes": {
       "type": "array",
       "maxItems": 200,

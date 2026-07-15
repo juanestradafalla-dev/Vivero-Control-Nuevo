@@ -27,6 +27,18 @@ export type ControlledErrorCode =
   | "PARTICIPANT_NOT_FOUND"
   | "PARTICIPANT_INACTIVE"
   | "DUPLICATE_PARTICIPANT_IDS"
+  | "ACTIVATION_STALE_SUMMARY"
+  | "ACTIVATION_SELECTIONS_INCOMPLETE"
+  | "ACTIVATION_LINES_REQUIRED"
+  | "ACTIVATION_COUNTER_REQUIRED"
+  | "ACTIVATION_REVIEWER_REQUIRED"
+  | "ACTIVATION_LIMIT_EXCEEDED"
+  | "ACTIVATION_PARTICIPANT_NOT_FOUND"
+  | "ACTIVATION_PARTICIPANT_INACTIVE"
+  | "ACTIVATION_PARTICIPANT_ROLE_CHANGED"
+  | "ACTIVATION_LINE_NOT_FOUND"
+  | "ACTIVATION_LINE_INACTIVE"
+  | "ACTIVATION_LINE_OCCUPIED"
   | "LINE_NOT_AVAILABLE"
   | "RESERVATION_NOT_FOUND"
   | "RESERVATION_NOT_ACTIVE"
@@ -241,6 +253,8 @@ export interface ListDraftJourneyParticipantsResult {
   readonly jornadaId: string;
   readonly estado: "BORRADOR";
   readonly version: number;
+  readonly versionSeleccionLineas: number;
+  readonly versionSeleccionParticipantes: number;
   readonly participantes: readonly DraftParticipant[];
   readonly usuariosActivos: readonly DraftParticipantCatalogEntry[];
 }
@@ -258,6 +272,25 @@ export interface UpdateDraftJourneyParticipantsResult {
   readonly cantidadParticipantes: number;
   readonly participantes: readonly DraftParticipant[];
   readonly actualizadaEn: string;
+}
+
+export interface ActivateJourneyRequest {
+  readonly jornadaId: string;
+  readonly versionJornadaEsperada: number;
+  readonly versionSeleccionLineasEsperada: number;
+  readonly versionSeleccionParticipantesEsperada: number;
+  readonly claveIdempotencia: string;
+}
+
+export interface ActivateJourneyResult {
+  readonly jornadaId: string;
+  readonly estado: "ACTIVA";
+  readonly version: number;
+  readonly cantidadLineas: number;
+  readonly cantidadParticipantes: number;
+  readonly jornadaLineaIds: readonly string[];
+  readonly participanteIds: readonly string[];
+  readonly activadaEn: string;
 }
 
 /** Contrato de frontera reservado para una futura operación de revisión; no es enviarConteo. */

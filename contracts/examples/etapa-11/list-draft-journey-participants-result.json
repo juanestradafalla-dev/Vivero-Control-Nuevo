@@ -2,6 +2,8 @@
   "jornadaId": "JORNADA-BORRADOR-SUPERVISOR",
   "estado": "BORRADOR",
   "version": 1,
+  "versionSeleccionLineas": 1,
+  "versionSeleccionParticipantes": 1,
   "participantes": [
     {
       "usuarioId": "uid-auxiliar-1",

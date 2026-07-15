@@ -17,6 +17,10 @@ import {
 import {loadEmulatorConfig} from "../core/emulatorConfig";
 import type {
   DraftCatalogLine,
+  DraftParticipant,
+  DraftParticipantCandidate,
+  DraftParticipantInput,
+  DraftParticipantsData,
   ManageableDraftJourney,
   ManageableJourneysData,
   MonitorCount,
@@ -114,6 +118,27 @@ function parseDraftCatalogLine(value: unknown): DraftCatalogLine {
       : {}),
     location,
   };
+}
+
+function parseDraftParticipantCandidate(value: unknown): DraftParticipantCandidate {
+  if (typeof value !== "object" || value === null) throw new Error("Un usuario del catalogo no es valido.");
+  const user = value as Record<string, unknown>;
+  if (
+    typeof user.usuarioId !== "string" ||
+    typeof user.nombreVisible !== "string" ||
+    !isRole(user.rol)
+  ) {
+    throw new Error("Un usuario del catalogo no es valido.");
+  }
+  return {id: user.usuarioId, displayName: user.nombreVisible, role: user.rol};
+}
+
+function parseDraftParticipant(value: unknown): DraftParticipant {
+  const candidate = parseDraftParticipantCandidate(value);
+  if (typeof value !== "object" || value === null || typeof (value as Record<string, unknown>).puedeContar !== "boolean") {
+    throw new Error("Un participante no es valido.");
+  }
+  return {...candidate, canCount: (value as Record<string, unknown>).puedeContar as boolean};
 }
 
 export class FirebaseMonitorRepository implements MonitorRepository {
@@ -246,6 +271,55 @@ export class FirebaseMonitorRepository implements MonitorRepository {
       await callable({jornadaId: journeyId, lineaIds: lineIds, claveIdempotencia: idempotencyKey});
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : "No fue posible guardar la selecciÃ³n.", {cause: error});
+    }
+  }
+
+  async listDraftJourneyParticipants(journeyId: string): Promise<DraftParticipantsData> {
+    const callable = httpsCallable(this.functions, "listarParticipantesJornadaBorrador");
+    try {
+      const response = await callable({jornadaId: journeyId});
+      if (typeof response.data !== "object" || response.data === null) {
+        throw new Error("La respuesta de participantes no tiene formato valido.");
+      }
+      const data = response.data as Record<string, unknown>;
+      if (
+        data.jornadaId !== journeyId ||
+        data.estado !== "BORRADOR" ||
+        !Number.isSafeInteger(data.version) ||
+        !Array.isArray(data.participantes) ||
+        !Array.isArray(data.usuariosActivos)
+      ) {
+        throw new Error("La respuesta de participantes no tiene formato valido.");
+      }
+      return {
+        journeyId,
+        state: "BORRADOR",
+        version: data.version as number,
+        participants: data.participantes.map(parseDraftParticipant),
+        activeUsers: data.usuariosActivos.map(parseDraftParticipantCandidate),
+      };
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible consultar participantes.", {cause: error});
+    }
+  }
+
+  async updateDraftJourneyParticipants(
+    journeyId: string,
+    participants: readonly DraftParticipantInput[],
+    idempotencyKey: string,
+  ): Promise<void> {
+    const callable = httpsCallable(this.functions, "actualizarParticipantesJornadaBorrador");
+    try {
+      await callable({
+        jornadaId: journeyId,
+        participantes: participants.map((participant) => ({
+          usuarioId: participant.userId,
+          puedeContar: participant.canCount,
+        })),
+        claveIdempotencia: idempotencyKey,
+      });
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible guardar participantes.", {cause: error});
     }
   }
 
@@ -606,6 +680,14 @@ export class DisabledMonitorRepository implements MonitorRepository {
   }
 
   async updateDraftJourneyLines(): Promise<void> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
+  }
+
+  async listDraftJourneyParticipants(): Promise<DraftParticipantsData> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
+  }
+
+  async updateDraftJourneyParticipants(): Promise<void> {
     throw new Error("Firebase de produccion permanece deshabilitado.");
   }
 

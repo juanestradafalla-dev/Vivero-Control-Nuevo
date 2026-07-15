@@ -127,6 +127,29 @@ export interface ManageableJourneysData {
   readonly catalogLines: readonly DraftCatalogLine[];
 }
 
+export interface DraftParticipantCandidate {
+  readonly id: string;
+  readonly displayName: string;
+  readonly role: MonitorRole;
+}
+
+export interface DraftParticipant extends DraftParticipantCandidate {
+  readonly canCount: boolean;
+}
+
+export interface DraftParticipantsData {
+  readonly journeyId: string;
+  readonly state: "BORRADOR";
+  readonly version: number;
+  readonly participants: readonly DraftParticipant[];
+  readonly activeUsers: readonly DraftParticipantCandidate[];
+}
+
+export interface DraftParticipantInput {
+  readonly userId: string;
+  readonly canCount: boolean;
+}
+
 export type MonitorUnsubscribe = () => void;
 
 export interface MonitorRepository {
@@ -139,6 +162,12 @@ export interface MonitorRepository {
   updateDraftJourneyLines(
     journeyId: string,
     lineIds: readonly string[],
+    idempotencyKey: string,
+  ): Promise<void>;
+  listDraftJourneyParticipants(journeyId: string): Promise<DraftParticipantsData>;
+  updateDraftJourneyParticipants(
+    journeyId: string,
+    participants: readonly DraftParticipantInput[],
     idempotencyKey: string,
   ): Promise<void>;
   approveCount(countId: string, idempotencyKey: string, exceptionReason?: string): Promise<void>;

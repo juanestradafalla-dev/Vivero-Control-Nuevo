@@ -1,6 +1,6 @@
 # Vivero Maestro
 
-Aplicación Electron/React de la Etapa 10 para revisar conteos y administrar jornadas en borrador dentro de Firebase Emulator Suite.
+Aplicación Electron/React de la Etapa 11 para revisar conteos y preparar jornadas en borrador dentro de Firebase Emulator Suite.
 
 - Consulta jornadas activas autorizadas y permite seleccionar una.
 - Al cambiar cancela todas las suscripciones anteriores y limpia el snapshot para no mezclar jornadas.
@@ -22,6 +22,9 @@ Aplicación Electron/React de la Etapa 10 para revisar conteos y administrar jor
 - La sección `Jornadas` lista los borradores administrables, permite crearlos y abrirlos sin exponerlos a auxiliares.
 - El catálogo se agrupa por vivero, módulo y cama, admite búsqueda y filtro, evita duplicados y marca las líneas usadas en jornadas activas.
 - La selección se revisa y guarda únicamente mediante Callables; no se crean líneas operativas ni se ofrece activación, cierre o eliminación.
+- Dentro de cada borrador muestra los usuarios centrales activos con nombre y rol, búsqueda y filtro.
+- Permite seleccionar participantes, definir únicamente `puede contar` y revisar un resumen antes de confirmar mediante Callable.
+- La interfaz advierte que la jornada continúa en `BORRADOR` y que todavía no existen autorizaciones operativas.
 
 ```powershell
 npm ci

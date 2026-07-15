@@ -7,8 +7,12 @@ import {
   ACTIVE_JOURNEY_ID,
   DEMO_PASSWORD,
   DEMO_PROJECT_ID,
+  SECOND_ACTIVE_JOURNEY_ID,
+  UNAUTHORIZED_ACTIVE_JOURNEY_ID,
   demoAccounts,
   journeyLineId,
+  secondJourneyLineId,
+  secondJourneyLocations,
   visibleLocations
 } from "./demoData.mjs";
 
@@ -64,6 +68,7 @@ export async function seedEmulator() {
   const auth = getAuth(app);
   const database = getFirestore(app);
   const now = Timestamp.fromDate(new Date("2026-07-13T12:00:00.000Z"));
+  const secondJourneyCreatedAt = Timestamp.fromDate(new Date("2026-07-14T12:00:00.000Z"));
 
   for (const account of demoAccounts) await upsertAuthUser(auth, account);
   for (const collectionName of [
@@ -98,7 +103,9 @@ export async function seedEmulator() {
   const locationDocuments = [
     {id: "VIVERO-PRUEBA", codigo: "VIVERO-PRUEBA", tipo: "VIVERO", nombreVisible: "Vivero ficticio", orden: 1},
     {id: "MODULO-PRUEBA-1", codigo: "MODULO-PRUEBA-1", tipo: "MODULO", ubicacionPadreId: "VIVERO-PRUEBA", nombreVisible: "Módulo ficticio 1", orden: 1},
-    {id: "CAMA-PRUEBA-1", codigo: "CAMA-PRUEBA-1", tipo: "CAMA", ubicacionPadreId: "MODULO-PRUEBA-1", nombreVisible: "Cama ficticia 1", orden: 1}
+    {id: "CAMA-PRUEBA-1", codigo: "CAMA-PRUEBA-1", tipo: "CAMA", ubicacionPadreId: "MODULO-PRUEBA-1", nombreVisible: "Cama ficticia 1", orden: 1},
+    {id: "MODULO-PRUEBA-2", codigo: "MODULO-PRUEBA-2", tipo: "MODULO", ubicacionPadreId: "VIVERO-PRUEBA", nombreVisible: "Módulo ficticio 2", orden: 2},
+    {id: "CAMA-PRUEBA-2", codigo: "CAMA-PRUEBA-2", tipo: "CAMA", ubicacionPadreId: "MODULO-PRUEBA-2", nombreVisible: "Cama ficticia 2", orden: 1}
   ];
   for (const location of locationDocuments) {
     batch.set(database.collection("ubicaciones").doc(location.id), {...location, activa: true, creadaEn: now});
@@ -116,11 +123,57 @@ export async function seedEmulator() {
       actualizadaEn: now
     });
   });
+  secondJourneyLocations.forEach((location, index) => {
+    const lineId = `LINEA-PRUEBA-B-${index + 1}`;
+    batch.set(database.collection("lineas").doc(lineId), {
+      id: lineId,
+      ubicacionId: "CAMA-PRUEBA-2",
+      codigo: lineId,
+      nombreVisible: location.nombreVisible,
+      orden: location.orden,
+      activa: true,
+      creadaEn: secondJourneyCreatedAt,
+      actualizadaEn: secondJourneyCreatedAt
+    });
+  });
+  for (const line of [
+    {id: "LINEA-PRUEBA-SIN-ACCESO", locationId: "CAMA-PRUEBA-2", name: "Línea activa no autorizada", order: 90},
+    {id: "LINEA-PRUEBA-INACTIVA", locationId: "CAMA-PRUEBA-2", name: "Línea de jornada inactiva", order: 91}
+  ]) {
+    batch.set(database.collection("lineas").doc(line.id), {
+      id: line.id,
+      ubicacionId: line.locationId,
+      codigo: line.id,
+      nombreVisible: line.name,
+      orden: line.order,
+      activa: true,
+      creadaEn: now,
+      actualizadaEn: now
+    });
+  }
 
   const journeyRef = database.collection("jornadas").doc(ACTIVE_JOURNEY_ID);
   batch.set(journeyRef, {
     id: ACTIVE_JOURNEY_ID,
     nombreVisible: "Jornada ficticia de la Etapa 3",
+    creadaPorUsuarioId: "uid-administrador",
+    estadoAdministrativo: "ACTIVA",
+    entorno: "FICTICIO_EMULADOR",
+    creadaEn: now
+  });
+  const secondJourneyRef = database.collection("jornadas").doc(SECOND_ACTIVE_JOURNEY_ID);
+  batch.set(secondJourneyRef, {
+    id: SECOND_ACTIVE_JOURNEY_ID,
+    nombreVisible: "Jornada ficticia dinámica B",
+    creadaPorUsuarioId: "uid-administrador",
+    estadoAdministrativo: "ACTIVA",
+    entorno: "FICTICIO_EMULADOR",
+    creadaEn: secondJourneyCreatedAt
+  });
+  const unauthorizedJourneyRef = database.collection("jornadas").doc(UNAUTHORIZED_ACTIVE_JOURNEY_ID);
+  batch.set(unauthorizedJourneyRef, {
+    id: UNAUTHORIZED_ACTIVE_JOURNEY_ID,
+    nombreVisible: "Jornada activa sin autorización",
     creadaPorUsuarioId: "uid-administrador",
     estadoAdministrativo: "ACTIVA",
     entorno: "FICTICIO_EMULADOR",
@@ -151,6 +204,22 @@ export async function seedEmulator() {
       creadaEn: now
     });
   }
+  for (const account of demoAccounts.filter((candidate) =>
+    ["uid-auxiliar-1", "uid-supervisor", "uid-administrador"].includes(candidate.uid)
+  )) {
+    batch.set(secondJourneyRef.collection("autorizaciones").doc(account.uid), {
+      id: account.uid,
+      jornadaId: SECOND_ACTIVE_JOURNEY_ID,
+      usuarioId: account.uid,
+      usuarioNombreVisible: account.nombreVisible,
+      usuarioActivo: account.activo,
+      rolEfectivo: account.rol,
+      activa: true,
+      puedeContar: true,
+      puedeRevisar: account.rol === "SUPERVISOR" || account.rol === "ADMINISTRADOR",
+      creadaEn: secondJourneyCreatedAt
+    });
+  }
   batch.set(inactiveJourneyRef.collection("autorizaciones").doc("uid-auxiliar-1"), {
     id: "uid-auxiliar-1",
     jornadaId: inactiveJourneyId,
@@ -175,6 +244,21 @@ export async function seedEmulator() {
       version: number === 3 ? 1 : 0,
       ubicacion: location,
       actualizadaEn: now
+    });
+  });
+  secondJourneyLocations.forEach((location, index) => {
+    const number = index + 1;
+    const id = secondJourneyLineId(number);
+    batch.set(database.collection("jornadaLineas").doc(id), {
+      id,
+      jornadaId: SECOND_ACTIVE_JOURNEY_ID,
+      lineaId: `LINEA-PRUEBA-B-${number}`,
+      activa: true,
+      estadoCentral: "DISPONIBLE",
+      reservaActivaId: null,
+      version: 0,
+      ubicacion: location,
+      actualizadaEn: secondJourneyCreatedAt
     });
   });
   const initialInventories = [
@@ -212,15 +296,26 @@ export async function seedEmulator() {
     ubicacion: {...visibleLocations[0], linea: "LINEA-PRUEBA-ERROR", nombreVisible: "Línea de jornada inexistente ficticia", orden: 90},
     actualizadaEn: now
   });
-  batch.set(database.collection("jornadaLineas").doc("JORNADA-PRUEBA-INACTIVA__LINEA-PRUEBA-1"), {
-    id: "JORNADA-PRUEBA-INACTIVA__LINEA-PRUEBA-1",
-    jornadaId: inactiveJourneyId,
-    lineaId: "LINEA-PRUEBA-1",
+  batch.set(database.collection("jornadaLineas").doc(`${UNAUTHORIZED_ACTIVE_JOURNEY_ID}__LINEA-SIN-ACCESO`), {
+    id: `${UNAUTHORIZED_ACTIVE_JOURNEY_ID}__LINEA-SIN-ACCESO`,
+    jornadaId: UNAUTHORIZED_ACTIVE_JOURNEY_ID,
+    lineaId: "LINEA-PRUEBA-SIN-ACCESO",
     activa: true,
     estadoCentral: "DISPONIBLE",
     reservaActivaId: null,
     version: 0,
-    ubicacion: visibleLocations[0],
+    ubicacion: {...secondJourneyLocations[0], linea: "LINEA-PRUEBA-SIN-ACCESO", nombreVisible: "Línea activa no autorizada", orden: 90},
+    actualizadaEn: now
+  });
+  batch.set(database.collection("jornadaLineas").doc("JORNADA-PRUEBA-INACTIVA__LINEA-PRUEBA-1"), {
+    id: "JORNADA-PRUEBA-INACTIVA__LINEA-PRUEBA-1",
+    jornadaId: inactiveJourneyId,
+    lineaId: "LINEA-PRUEBA-INACTIVA",
+    activa: true,
+    estadoCentral: "DISPONIBLE",
+    reservaActivaId: null,
+    version: 0,
+    ubicacion: {...secondJourneyLocations[0], linea: "LINEA-PRUEBA-INACTIVA", nombreVisible: "Línea de jornada inactiva", orden: 91},
     actualizadaEn: now
   });
   batch.set(database.collection("reservas").doc("RESERVA-PRUEBA-PREEXISTENTE"), {
@@ -243,7 +338,7 @@ export async function seedEmulator() {
     projectId,
     users: demoAccounts.length,
     journeyId: ACTIVE_JOURNEY_ID,
-    lines: visibleLocations.length,
+    lines: visibleLocations.length + secondJourneyLocations.length + 2,
     inventories: initialInventories.length
   };
 }

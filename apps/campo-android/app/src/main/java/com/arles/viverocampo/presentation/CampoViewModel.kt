@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.arles.viverocampo.data.sync.CountSyncScheduler
 import com.arles.viverocampo.domain.CampoRepository
 import com.arles.viverocampo.domain.CampoRepositoryException
+import com.arles.viverocampo.domain.ActiveJourney
 import com.arles.viverocampo.domain.ConfirmedReservation
 import com.arles.viverocampo.domain.CountFieldErrors
 import com.arles.viverocampo.domain.CountFormValidator
@@ -39,6 +40,8 @@ data class CampoUiState(
     val password: String = "",
     val signingIn: Boolean = false,
     val user: UserProfile? = null,
+    val activeJourneys: List<ActiveJourney> = emptyList(),
+    val selectedJourneyId: String? = null,
     val journey: JourneySnapshot? = null,
     val returnedCounts: List<ReturnedCount> = emptyList(),
     val connectionStatus: String = "DESCONECTADO",
@@ -97,16 +100,23 @@ class CampoViewModel(
             mutableState.value = mutableState.value.copy(signingIn = true, message = null)
             try {
                 val user = repository.signIn(state.email, state.password)
+                val journeys = repository.listActiveJourneys()
                 val reservation = repository.latestActiveReservation(user.id, deviceId)
+                val selectedJourneyId = reservation?.journeyId ?: journeys.singleOrNull()?.id
                 mutableState.value = mutableState.value.copy(
                     signingIn = false,
                     password = "",
                     user = user,
+                    activeJourneys = journeys,
+                    selectedJourneyId = selectedJourneyId,
                     confirmedReservation = reservation,
-                    connectionStatus = "CONECTANDO",
+                    connectionStatus = if (selectedJourneyId == null) "CONECTADO" else "CONECTANDO",
+                    message = if (journeys.isEmpty()) "No hay jornadas activas autorizadas para esta cuenta." else null,
                 )
-                observeJourney()
-                observeReturnedCounts(user)
+                if (selectedJourneyId != null) {
+                    observeJourney(selectedJourneyId)
+                    observeReturnedCounts(user, selectedJourneyId)
+                }
                 if (reservation != null && reservation.deviceId == deviceId) {
                     observeReservationState(reservation)
                     observeDraft(user, reservation)
@@ -140,6 +150,46 @@ class CampoViewModel(
         if (line.state == "DISPONIBLE" && !mutableState.value.reserving) {
             mutableState.value = mutableState.value.copy(selectedLine = line, message = null)
         }
+    }
+
+    fun selectJourney(journeyId: String) {
+        val state = mutableState.value
+        val user = state.user ?: return
+        if (hasWorkThatBlocksJourneyChange(state)) {
+            mutableState.value = state.copy(message = "Termina o resuelve el trabajo pendiente antes de cambiar de jornada.")
+            return
+        }
+        val journey = state.activeJourneys.find { it.id == journeyId } ?: return
+        journeyJob?.cancel()
+        returnedCountsJob?.cancel()
+        mutableState.value = state.copy(
+            selectedJourneyId = journey.id,
+            journey = null,
+            returnedCounts = emptyList(),
+            selectedLine = null,
+            connectionStatus = "CONECTANDO",
+            message = null,
+        )
+        observeJourney(journey.id)
+        observeReturnedCounts(user, journey.id)
+    }
+
+    fun returnToJourneySelection() {
+        val state = mutableState.value
+        if (hasWorkThatBlocksJourneyChange(state)) {
+            mutableState.value = state.copy(message = "Termina o resuelve el trabajo pendiente antes de cambiar de jornada.")
+            return
+        }
+        journeyJob?.cancel()
+        returnedCountsJob?.cancel()
+        mutableState.value = state.copy(
+            selectedJourneyId = null,
+            journey = null,
+            returnedCounts = emptyList(),
+            selectedLine = null,
+            connectionStatus = "CONECTADO",
+            message = null,
+        )
     }
 
     fun cancelSelection() {
@@ -390,10 +440,10 @@ class CampoViewModel(
         }
     }
 
-    private fun observeJourney() {
+    private fun observeJourney(journeyId: String) {
         journeyJob?.cancel()
         journeyJob = viewModelScope.launch {
-            repository.observeActiveJourney()
+            repository.observeJourney(journeyId)
                 .onStart { mutableState.value = mutableState.value.copy(connectionStatus = "CONECTANDO") }
                 .catch { error ->
                     mutableState.value = mutableState.value.copy(
@@ -407,10 +457,10 @@ class CampoViewModel(
         }
     }
 
-    private fun observeReturnedCounts(user: UserProfile) {
+    private fun observeReturnedCounts(user: UserProfile, journeyId: String) {
         returnedCountsJob?.cancel()
         returnedCountsJob = viewModelScope.launch {
-            repository.observeReturnedCounts(user.id)
+            repository.observeReturnedCounts(user.id, journeyId)
                 .catch { error ->
                     mutableState.value = mutableState.value.copy(
                         message = error.message ?: "No fue posible leer los conteos devueltos.",
@@ -421,6 +471,13 @@ class CampoViewModel(
                 }
         }
     }
+
+    private fun hasWorkThatBlocksJourneyChange(state: CampoUiState): Boolean =
+        state.confirmedReservation != null ||
+            state.reserving ||
+            state.correctingCountId != null ||
+            state.selectedLine != null ||
+            state.countDraft?.syncState in setOf(SyncState.PENDIENTE, SyncState.SINCRONIZANDO, SyncState.ERROR)
 
     private object NoOpCountSyncScheduler : CountSyncScheduler {
         override fun schedule(reservationId: String, idempotencyKey: String) = Unit

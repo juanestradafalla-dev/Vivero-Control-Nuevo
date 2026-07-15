@@ -107,3 +107,9 @@ Persisten los riesgos de señal y dispositivos reales, retención local, pérdid
 No se agregan dependencias externas ni migraciones Room. La liberación reutiliza Auth, Functions, transacciones, auditoría, idempotencia, snapshots y WorkManager existentes. La reserva consumida guarda `conteoId` para resolver la carrera liberar/enviar mediante la misma disputa documental y devolver siempre un resultado o error controlado.
 
 La operación es exclusivamente manual: no hay temporizadores, vencimiento ni inferencia de abandono. Un borrador liberado y su token cifrado permanecen en el dispositivo hasta que exista una política posterior; esto evita pérdida silenciosa, pero mantiene pendiente la retención local definitiva. También persisten los riesgos de señal y dispositivos reales, pérdida de claves Keystore y alertas moderadas transitivas del backend. Firebase real continúa sin configurarse ni desplegarse.
+
+## Actualización de la ETAPA 9
+
+No se agregan dependencias externas, migraciones Room ni índices de producción. La selección dinámica reutiliza Auth, Functions y snapshots existentes; cada cambio de Maestro cancela todas las suscripciones anteriores antes de abrir las nuevas.
+
+Persisten los riesgos de señal y dispositivos reales, retención local, pérdida de claves Keystore y alertas moderadas transitivas del backend. La fecha central ordena la lista, pero la política operativa para nombrar, crear, activar y cerrar jornadas continúa fuera de alcance. Firebase real sigue sin configurarse ni desplegarse.

@@ -1,6 +1,8 @@
 export const DEMO_PROJECT_ID = "demo-vivero-control-etapa3";
 export const DEMO_PASSWORD = "SoloEmulador-Etapa3!";
 export const ACTIVE_JOURNEY_ID = "JORNADA-PRUEBA-ETAPA-3";
+export const SECOND_ACTIVE_JOURNEY_ID = "JORNADA-PRUEBA-ETAPA-9-B";
+export const UNAUTHORIZED_ACTIVE_JOURNEY_ID = "JORNADA-PRUEBA-SIN-AUTORIZACION";
 
 export const demoAccounts = [
   {uid: "uid-auxiliar-1", email: "auxiliar1@prueba.local", nombreVisible: "Auxiliar ficticio 1", rol: "AUXILIAR", activo: true, autorizado: true},
@@ -21,6 +23,19 @@ export const visibleLocations = [1, 2, 3].map((number) => ({
   orden: number
 }));
 
+export const secondJourneyLocations = [1, 2].map((number) => ({
+  vivero: "VIVERO-PRUEBA",
+  modulo: "MODULO-PRUEBA-2",
+  cama: "CAMA-PRUEBA-2",
+  linea: `LINEA-PRUEBA-B-${number}`,
+  nombreVisible: `Línea ficticia B${number}`,
+  orden: number
+}));
+
 export function journeyLineId(lineNumber) {
   return `${ACTIVE_JOURNEY_ID}__LINEA-PRUEBA-${lineNumber}`;
+}
+
+export function secondJourneyLineId(lineNumber) {
+  return `${SECOND_ACTIVE_JOURNEY_ID}__LINEA-PRUEBA-B-${lineNumber}`;
 }

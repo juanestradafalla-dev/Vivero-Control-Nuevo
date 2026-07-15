@@ -9,6 +9,15 @@ data class UserProfile(
     val role: String,
 )
 
+data class ActiveJourney(
+    val id: String,
+    val displayName: String,
+    val state: String,
+    val effectiveRole: String,
+    val canCount: Boolean,
+    val lineCount: Int,
+)
+
 data class VisibleLocation(
     val nursery: String,
     val module: String,

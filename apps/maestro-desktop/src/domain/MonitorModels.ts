@@ -9,6 +9,15 @@ export interface MonitorUser {
   readonly canRelease: boolean;
 }
 
+export interface MonitorJourney {
+  readonly id: string;
+  readonly displayName: string;
+  readonly state: "ACTIVA";
+  readonly effectiveRole: MonitorRole;
+  readonly canCount: boolean;
+  readonly lineCount: number;
+}
+
 export interface MonitorLocation {
   readonly nursery: string;
   readonly module: string;
@@ -98,12 +107,14 @@ export interface MonitorRepository {
   readonly emulatorEnabled: boolean;
   signIn(email: string, password: string): Promise<MonitorUser>;
   signOut(): Promise<void>;
+  listActiveJourneys(): Promise<readonly MonitorJourney[]>;
   approveCount(countId: string, idempotencyKey: string, exceptionReason?: string): Promise<void>;
   returnCount(countId: string, reason: string, idempotencyKey: string): Promise<void>;
   reassignCountCorrection(countId: string, newUserId: string, reason: string, idempotencyKey: string): Promise<void>;
   releaseReservation(reservationId: string, reason: string, idempotencyKey: string): Promise<void>;
   observeMonitor(
     user: MonitorUser,
+    journeyId: string,
     onSnapshot: (snapshot: MonitorSnapshot) => void,
     onError: (message: string) => void,
   ): MonitorUnsubscribe;

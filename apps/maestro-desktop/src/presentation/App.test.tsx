@@ -1,7 +1,7 @@
 import {act, cleanup, fireEvent, render, screen, waitFor} from "@testing-library/react";
 import {afterEach, describe, expect, it} from "vitest";
 
-import type {MonitorRepository, MonitorSnapshot, MonitorUnsubscribe, MonitorUser} from "../domain/MonitorModels";
+import type {MonitorJourney, MonitorRepository, MonitorSnapshot, MonitorUnsubscribe, MonitorUser} from "../domain/MonitorModels";
 import {App} from "./App";
 
 afterEach(cleanup);
@@ -47,7 +47,7 @@ const pendingLine = {
 };
 
 const snapshot: MonitorSnapshot = {
-  journeyId: "JORNADA-PRUEBA-ETAPA-3",
+  journeyId: "JORNADA-DINAMICA-1",
   journeyDisplayName: "Jornada ficticia Etapa 5",
   lines: [pendingLine],
   correctionCandidates: [
@@ -56,11 +56,24 @@ const snapshot: MonitorSnapshot = {
   ],
 };
 
+const journeyOne: MonitorJourney = {
+  id: snapshot.journeyId,
+  displayName: snapshot.journeyDisplayName,
+  state: "ACTIVA",
+  effectiveRole: "SUPERVISOR",
+  canCount: true,
+  lineCount: 1,
+};
+
 class FakeMonitorRepository implements MonitorRepository {
   readonly emulatorEnabled = true;
   private onSnapshot?: (snapshot: MonitorSnapshot) => void;
   user: MonitorUser = supervisor;
   currentSnapshot: MonitorSnapshot = snapshot;
+  journeys: readonly MonitorJourney[] = [journeyOne];
+  snapshots = new Map<string, MonitorSnapshot>();
+  observedJourneyIds: string[] = [];
+  unsubscribeCount = 0;
   approved: Array<{countId: string; key: string; reason?: string}> = [];
   returned: Array<{countId: string; reason: string; key: string}> = [];
   reassigned: Array<{countId: string; newUserId: string; reason: string; key: string}> = [];
@@ -68,6 +81,7 @@ class FakeMonitorRepository implements MonitorRepository {
 
   async signIn(): Promise<MonitorUser> { return this.user; }
   async signOut(): Promise<void> {}
+  async listActiveJourneys(): Promise<readonly MonitorJourney[]> { return this.journeys; }
   async approveCount(countId: string, key: string, reason?: string): Promise<void> {
     this.approved.push({countId, key, ...(reason === undefined ? {} : {reason})});
   }
@@ -80,10 +94,18 @@ class FakeMonitorRepository implements MonitorRepository {
   async releaseReservation(reservationId: string, reason: string, key: string): Promise<void> {
     this.released.push({reservationId, reason, key});
   }
-  observeMonitor(_user: MonitorUser, onSnapshot: (snapshot: MonitorSnapshot) => void): MonitorUnsubscribe {
+  observeMonitor(
+    _user: MonitorUser,
+    journeyId: string,
+    onSnapshot: (snapshot: MonitorSnapshot) => void,
+  ): MonitorUnsubscribe {
+    this.observedJourneyIds.push(journeyId);
     this.onSnapshot = onSnapshot;
-    onSnapshot(this.currentSnapshot);
-    return () => { this.onSnapshot = undefined; };
+    onSnapshot(this.snapshots.get(journeyId) ?? this.currentSnapshot);
+    return () => {
+      this.unsubscribeCount += 1;
+      this.onSnapshot = undefined;
+    };
   }
   publish(nextSnapshot: MonitorSnapshot): void { this.onSnapshot?.(nextSnapshot); }
 }
@@ -97,6 +119,57 @@ async function signIn(repository: FakeMonitorRepository): Promise<void> {
 }
 
 describe("bandeja de revisión de Vivero Maestro", () => {
+  it("selecciona automáticamente una única jornada autorizada", async () => {
+    const repository = new FakeMonitorRepository();
+    await signIn(repository);
+    expect(repository.observedJourneyIds).toEqual([snapshot.journeyId]);
+    expect(screen.getByLabelText("Jornada activa")).toHaveValue(snapshot.journeyId);
+  });
+
+  it("muestra selector cuando hay varias jornadas y cambia suscripciones sin mezclar datos", async () => {
+    const repository = new FakeMonitorRepository();
+    const secondJourney: MonitorJourney = {
+      id: "JORNADA-DINAMICA-2",
+      displayName: "Jornada dinámica 2",
+      state: "ACTIVA",
+      effectiveRole: "SUPERVISOR",
+      canCount: true,
+      lineCount: 1,
+    };
+    const secondSnapshot: MonitorSnapshot = {
+      journeyId: secondJourney.id,
+      journeyDisplayName: secondJourney.displayName,
+      lines: [{
+        ...pendingLine,
+        id: "JORNADA-DINAMICA-2__LINEA-101",
+        lineId: "LINEA-101",
+        location: {...pendingLine.location, displayName: "Línea exclusiva jornada 2", line: "Línea 101"},
+      }],
+      correctionCandidates: [],
+    };
+    repository.journeys = [journeyOne, secondJourney];
+    repository.snapshots.set(journeyOne.id, snapshot);
+    repository.snapshots.set(secondJourney.id, secondSnapshot);
+
+    render(<App repository={repository} />);
+    fireEvent.change(screen.getByLabelText("Correo"), {target: {value: "supervisor@prueba.local"}});
+    fireEvent.change(screen.getByLabelText("Contraseña"), {target: {value: "secreto"}});
+    fireEvent.click(screen.getByRole("button", {name: "Iniciar sesión"}));
+    await screen.findByRole("heading", {name: "Selecciona una jornada activa"});
+    expect(repository.observedJourneyIds).toEqual([]);
+
+    fireEvent.change(screen.getByLabelText("Jornada activa"), {target: {value: journeyOne.id}});
+    await screen.findByRole("heading", {name: snapshot.journeyDisplayName});
+    expect(screen.getByText(pendingLine.location.displayName)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Jornada activa"), {target: {value: secondJourney.id}});
+    await screen.findByRole("heading", {name: secondJourney.displayName});
+    expect(screen.getByText("Línea exclusiva jornada 2")).toBeInTheDocument();
+    expect(screen.queryByText(pendingLine.location.displayName)).not.toBeInTheDocument();
+    expect(repository.observedJourneyIds).toEqual([journeyOne.id, secondJourney.id]);
+    expect(repository.unsubscribeCount).toBe(1);
+  });
+
   it("presenta conteo, inventario vigente y diferencia", async () => {
     await signIn(new FakeMonitorRepository());
     expect(screen.getByText("Auxiliar Conteo · AUXILIAR")).toBeInTheDocument();

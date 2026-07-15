@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/list-active-journeys-result.schema.json",
+  "title": "Resultado listarJornadasActivas",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["jornadas"],
+  "properties": {
+    "jornadas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["jornadaId", "nombreVisible", "estado", "rolEfectivo", "puedeContar", "cantidadLineas"],
+        "properties": {
+          "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+          "nombreVisible": {"type": "string", "minLength": 1, "maxLength": 200},
+          "estado": {"const": "ACTIVA"},
+          "rolEfectivo": {"$ref": "../enums/roles.json"},
+          "puedeContar": {"type": "boolean"},
+          "cantidadLineas": {"type": "integer", "minimum": 0, "maximum": 9007199254740991}
+        }
+      }
+    }
+  }
+}

@@ -2,6 +2,8 @@
 
 Los JSON Schema Draft 2020-12 son el lenguaje común de Campo, Maestro y backend.
 
+La Etapa 9 agrega una solicitud vacía para `listarJornadasActivas`: la identidad procede de Auth y el resultado solo contiene jornadas activas autorizadas. Los ejemplos están en `examples/etapa-09/`.
+
 La Etapa 8 añade contratos estrictos para `liberarReservaLinea`, la liberación inmutable y su resultado idempotente, manteniendo los de reasignación, reservas `CORRECCION` y versiones.
 
 Reglas de frontera:

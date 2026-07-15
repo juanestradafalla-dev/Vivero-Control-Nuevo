@@ -1,5 +1,6 @@
 {
   "reservaId": "reserva-prueba-0001",
+  "jornadaId": "JORNADA-PRUEBA-ETAPA-3",
   "jornadaLineaId": "JORNADA-PRUEBA-ETAPA-3__LINEA-PRUEBA-1",
   "estadoCentral": "EN_CONTEO",
   "tokenReserva": "token-opaco-ficticio-de-al-menos-32-caracteres",

@@ -32,6 +32,13 @@ const reassignCorrectionFields = new Set(["conteoId", "nuevoUsuarioId", "motivo"
 const releaseReservationFields = new Set(["reservaId", "motivo", "claveIdempotencia"]);
 const REVIEW_REASON_LIMIT = 2000;
 
+export function parseListActiveJourneysRequest(value: unknown): void {
+  if (value === undefined || value === null) return;
+  if (typeof value !== "object" || Array.isArray(value) || Object.keys(value as object).length > 0) {
+    throw domainErrors.invalidArgument();
+  }
+}
+
 function parseReviewBase(
   value: unknown,
   allowedFields: ReadonlySet<string>

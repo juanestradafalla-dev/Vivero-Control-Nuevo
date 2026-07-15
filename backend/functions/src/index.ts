@@ -4,6 +4,7 @@ import {HttpsError, onCall} from "firebase-functions/v2/https";
 import type {ControlledErrorCode} from "./domain/contracts.js";
 import {DomainError, domainErrors} from "./domain/errors.js";
 import {InitiateCountCorrectionService} from "./domain/correctCount.js";
+import {ListActiveJourneysService} from "./domain/listActiveJourneys.js";
 import {ReassignCountCorrectionService} from "./domain/reassignCorrection.js";
 import {ReleaseReservationService} from "./domain/releaseReservation.js";
 import {ReserveLineService} from "./domain/reserveLine.js";
@@ -12,6 +13,7 @@ import {SendCountService} from "./domain/sendCount.js";
 import {
   parseApproveCountRequest,
   parseInitiateCountCorrectionRequest,
+  parseListActiveJourneysRequest,
   parseReassignCountCorrectionRequest,
   parseReleaseReservationRequest,
   parseReserveLineRequest,
@@ -67,6 +69,22 @@ const returnCountService = new ReturnCountService(firestore);
 const initiateCountCorrectionService = new InitiateCountCorrectionService(firestore);
 const reassignCountCorrectionService = new ReassignCountCorrectionService(firestore);
 const releaseReservationService = new ReleaseReservationService(firestore);
+const listActiveJourneysService = new ListActiveJourneysService(firestore);
+
+export const listarJornadasActivas = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    parseListActiveJourneysRequest(request.data);
+    return await listActiveJourneysService.execute({actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en listarJornadasActivas", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
 
 export const reservarLinea = onCall({region: "us-central1"}, async (request) => {
   try {

@@ -67,6 +67,7 @@ export interface VisibleLocation {
 
 export interface ReserveLineResult {
   readonly reservaId: string;
+  readonly jornadaId: string;
   readonly jornadaLineaId: string;
   readonly estadoCentral: "EN_CONTEO";
   readonly tokenReserva: string;
@@ -83,6 +84,7 @@ export interface InitiateCountCorrectionRequest {
 
 export interface InitiateCountCorrectionResult {
   readonly reservaId: string;
+  readonly jornadaId: string;
   readonly jornadaLineaId: string;
   readonly conteoAnteriorId: string;
   readonly estadoCentral: "EN_CONTEO";
@@ -142,6 +144,19 @@ export interface SendCountResult {
 /** Contexto construido exclusivamente desde Authentication y fuentes centrales. */
 export interface TrustedOperationContext {
   readonly actorId: string;
+}
+
+export interface ActiveJourneySummary {
+  readonly jornadaId: string;
+  readonly nombreVisible: string;
+  readonly estado: "ACTIVA";
+  readonly rolEfectivo: UserRole;
+  readonly puedeContar: boolean;
+  readonly cantidadLineas: number;
+}
+
+export interface ListActiveJourneysResult {
+  readonly jornadas: readonly ActiveJourneySummary[];
 }
 
 /** Contrato de frontera reservado para una futura operación de revisión; no es enviarConteo. */

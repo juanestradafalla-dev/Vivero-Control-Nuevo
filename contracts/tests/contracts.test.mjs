@@ -24,8 +24,8 @@ async function assertInvalid(schemaFilename, exampleFilename) {
 }
 
 test("compila todos los esquemas Draft 2020-12 y resuelve sus referencias", () => {
-  assert.equal(registry.entityCount, 30);
-  assert.equal(registry.schemaCount, 31);
+  assert.equal(registry.entityCount, 32);
+  assert.equal(registry.schemaCount, 33);
   assert.equal(registry.enumCount, 5);
 });
 
@@ -222,5 +222,17 @@ test("rechaza una liberacion sin motivo", async () => {
   await assertInvalid(
     "release-reservation-request.schema.json",
     "etapa-08/release-reservation-request-empty-reason.json"
+  );
+});
+
+test("acepta listar jornadas sin identidad del cliente y su resultado", async () => {
+  await assertValid("list-active-journeys-request.schema.json", "etapa-09/list-active-journeys-request.json");
+  await assertValid("list-active-journeys-result.schema.json", "etapa-09/list-active-journeys-result.json");
+});
+
+test("rechaza solicitar jornadas para otro usuario", async () => {
+  await assertInvalid(
+    "list-active-journeys-request.schema.json",
+    "etapa-09/list-active-journeys-request-with-user.json"
   );
 });

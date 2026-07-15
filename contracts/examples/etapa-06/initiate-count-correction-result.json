@@ -1,5 +1,6 @@
 {
   "reservaId": "reserva-correccion-ficticia-001",
+  "jornadaId": "JORNADA-PRUEBA-ETAPA-3",
   "jornadaLineaId": "JORNADA-PRUEBA-ETAPA-3__LINEA-PRUEBA-1",
   "conteoAnteriorId": "conteo-ficticio-version-1",
   "estadoCentral": "EN_CONTEO",

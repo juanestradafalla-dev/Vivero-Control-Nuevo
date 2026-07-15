@@ -1,0 +1,15 @@
+{
+  "id": "4123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "actorUsuarioId": "uid-supervisor",
+  "operacion": "REABRIR_JORNADA_CANCELADA",
+  "claveHash": "4123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "payloadHash": "bbcdef4123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+  "resultado": {
+    "jornadaId": "JORNADA-BORRADOR-ETAPA-14",
+    "estado": "BORRADOR",
+    "version": 6,
+    "cancelacionAnteriorId": "CANCELACION-BORRADOR-ETAPA-14",
+    "reabiertaEn": "2026-07-15T22:30:00.000Z"
+  },
+  "creadoEn": "2026-07-15T22:30:00.000Z"
+}

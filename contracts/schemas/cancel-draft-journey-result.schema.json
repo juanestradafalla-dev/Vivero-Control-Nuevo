@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/cancel-draft-journey-result.schema.json",
+  "title": "Resultado cancelarJornadaBorrador",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["jornadaId", "estado", "tipoInactivacion", "version", "cancelacionId", "motivo", "canceladaPorUsuarioId", "canceladaPorNombreVisible", "canceladaEn"],
+  "properties": {
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "estado": {"const": "INACTIVA"},
+    "tipoInactivacion": {"const": "CANCELACION_BORRADOR"},
+    "version": {"type": "integer", "minimum": 2, "maximum": 9007199254740991},
+    "cancelacionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "motivo": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "canceladaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "canceladaPorNombreVisible": {"type": "string", "minLength": 1, "maxLength": 200},
+    "canceladaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

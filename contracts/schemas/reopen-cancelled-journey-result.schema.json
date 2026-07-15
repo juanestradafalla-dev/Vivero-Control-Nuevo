@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/reopen-cancelled-journey-result.schema.json",
+  "title": "Resultado reabrirJornadaCancelada",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["jornadaId", "estado", "version", "cancelacionAnteriorId", "reabiertaEn"],
+  "properties": {
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "estado": {"const": "BORRADOR"},
+    "version": {"type": "integer", "minimum": 3, "maximum": 9007199254740991},
+    "cancelacionAnteriorId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "reabiertaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

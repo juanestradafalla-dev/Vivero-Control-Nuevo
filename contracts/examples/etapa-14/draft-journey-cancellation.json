@@ -1,0 +1,11 @@
+{
+  "id": "CANCELACION-BORRADOR-ETAPA-14",
+  "jornadaId": "JORNADA-BORRADOR-ETAPA-14",
+  "tipoInactivacion": "CANCELACION_BORRADOR",
+  "actorUsuarioId": "uid-supervisor",
+  "actorNombreVisible": "Supervisor ficticio",
+  "motivo": "La preparacion continuara en una fecha posterior.",
+  "versionAnterior": 4,
+  "version": 5,
+  "canceladaEn": "2026-07-15T22:00:00.000Z"
+}

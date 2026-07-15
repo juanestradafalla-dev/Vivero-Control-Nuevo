@@ -94,6 +94,7 @@ export async function seedEmulator() {
     "decisionesRevision",
     "reasignacionesCorreccion",
     "liberacionesReserva",
+    "cancelacionesJornadas",
     "reservas",
     "idempotencia",
     "auditoria",

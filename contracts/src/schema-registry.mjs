@@ -59,7 +59,13 @@ export const expectedSchemas = [
   "activate-journey-result.schema.json",
   "active-line-occupation.schema.json",
   "close-journey-request.schema.json",
-  "close-journey-result.schema.json"
+  "close-journey-result.schema.json",
+  "cancel-draft-journey-request.schema.json",
+  "cancel-draft-journey-result.schema.json",
+  "reopen-cancelled-journey-request.schema.json",
+  "reopen-cancelled-journey-result.schema.json",
+  "cancelled-draft-journey-summary.schema.json",
+  "draft-journey-cancellation.schema.json"
 ];
 
 export const expectedEnums = new Map([

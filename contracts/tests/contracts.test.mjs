@@ -24,8 +24,8 @@ async function assertInvalid(schemaFilename, exampleFilename) {
 }
 
 test("compila todos los esquemas Draft 2020-12 y resuelve sus referencias", () => {
-  assert.equal(registry.entityCount, 54);
-  assert.equal(registry.schemaCount, 55);
+  assert.equal(registry.entityCount, 60);
+  assert.equal(registry.schemaCount, 61);
   assert.equal(registry.enumCount, 5);
 });
 
@@ -337,4 +337,22 @@ test("acepta cerrar una jornada con version observada y resultado central", asyn
 
 test("rechaza identidad o campos adicionales al cerrar", async () => {
   await assertInvalid("close-journey-request.schema.json", "etapa-13/close-journey-request-extra-field.json");
+});
+
+test("acepta cancelar y reabrir un borrador con trazabilidad", async () => {
+  await assertValid("cancel-draft-journey-request.schema.json", "etapa-14/cancel-draft-journey-request.json");
+  await assertValid("cancel-draft-journey-result.schema.json", "etapa-14/cancel-draft-journey-result.json");
+  await assertValid("reopen-cancelled-journey-request.schema.json", "etapa-14/reopen-cancelled-journey-request.json");
+  await assertValid("reopen-cancelled-journey-result.schema.json", "etapa-14/reopen-cancelled-journey-result.json");
+  await assertValid("cancelled-draft-journey-summary.schema.json", "etapa-14/cancelled-draft-journey-summary.json");
+  await assertValid("draft-journey-cancellation.schema.json", "etapa-14/draft-journey-cancellation.json");
+  await assertValid("resultado-idempotente.schema.json", "etapa-14/idempotent-cancel-draft-result.json");
+  await assertValid("resultado-idempotente.schema.json", "etapa-14/idempotent-reopen-draft-result.json");
+});
+
+test("rechaza identidad o campos adicionales al cancelar un borrador", async () => {
+  await assertInvalid(
+    "cancel-draft-journey-request.schema.json",
+    "etapa-14/cancel-draft-journey-request-extra-field.json"
+  );
 });

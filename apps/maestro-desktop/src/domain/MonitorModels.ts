@@ -126,6 +126,7 @@ export interface DraftCatalogLine {
 
 export interface ManageableJourneysData {
   readonly journeys: readonly ManageableDraftJourney[];
+  readonly cancelledJourneys: readonly CancelledDraftJourney[];
   readonly catalogLines: readonly DraftCatalogLine[];
 }
 
@@ -137,6 +138,25 @@ export interface DraftParticipantCandidate {
 
 export interface DraftParticipant extends DraftParticipantCandidate {
   readonly canCount: boolean;
+}
+
+export interface CancelledDraftJourney {
+  readonly id: string;
+  readonly displayName: string;
+  readonly state: "INACTIVA";
+  readonly inactiveType: "CANCELACION_BORRADOR";
+  readonly creatorUserId: string;
+  readonly creatorDisplayName: string;
+  readonly version: number;
+  readonly lineIds: readonly string[];
+  readonly participants: readonly DraftParticipant[];
+  readonly cancellationId: string;
+  readonly cancelledByUserId: string;
+  readonly cancelledByDisplayName: string;
+  readonly cancellationReason: string;
+  readonly cancelledAt: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
 }
 
 export interface DraftParticipantsData {
@@ -194,6 +214,13 @@ export interface MonitorRepository {
     versions: DraftActivationVersions,
     idempotencyKey: string,
   ): Promise<DraftActivationResult>;
+  cancelDraftJourney(
+    journeyId: string,
+    expectedVersion: number,
+    reason: string,
+    idempotencyKey: string,
+  ): Promise<void>;
+  reopenCancelledJourney(journeyId: string, expectedVersion: number, idempotencyKey: string): Promise<void>;
   closeJourney(journeyId: string, expectedVersion: number, idempotencyKey: string): Promise<void>;
   approveCount(countId: string, idempotencyKey: string, exceptionReason?: string): Promise<void>;
   returnCount(countId: string, reason: string, idempotencyKey: string): Promise<void>;

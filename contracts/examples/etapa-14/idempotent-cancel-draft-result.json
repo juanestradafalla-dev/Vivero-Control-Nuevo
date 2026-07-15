@@ -1,0 +1,19 @@
+{
+  "id": "3123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "actorUsuarioId": "uid-supervisor",
+  "operacion": "CANCELAR_JORNADA_BORRADOR",
+  "claveHash": "3123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "payloadHash": "abcdef3123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+  "resultado": {
+    "jornadaId": "JORNADA-BORRADOR-ETAPA-14",
+    "estado": "INACTIVA",
+    "tipoInactivacion": "CANCELACION_BORRADOR",
+    "version": 5,
+    "cancelacionId": "CANCELACION-BORRADOR-ETAPA-14",
+    "motivo": "La preparacion continuara en una fecha posterior.",
+    "canceladaPorUsuarioId": "uid-supervisor",
+    "canceladaPorNombreVisible": "Supervisor ficticio",
+    "canceladaEn": "2026-07-15T22:00:00.000Z"
+  },
+  "creadoEn": "2026-07-15T22:00:00.000Z"
+}

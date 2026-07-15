@@ -16,6 +16,7 @@ import {
 
 import {loadEmulatorConfig} from "../core/emulatorConfig";
 import type {
+  CancelledDraftJourney,
   DraftActivationResult,
   DraftActivationVersions,
   DraftCatalogLine,
@@ -143,6 +144,50 @@ function parseDraftParticipant(value: unknown): DraftParticipant {
   return {...candidate, canCount: (value as Record<string, unknown>).puedeContar as boolean};
 }
 
+function parseCancelledDraftJourney(value: unknown): CancelledDraftJourney {
+  if (typeof value !== "object" || value === null) throw new Error("Un borrador cancelado no tiene formato valido.");
+  const journey = value as Record<string, unknown>;
+  if (
+    typeof journey.jornadaId !== "string" ||
+    typeof journey.nombreVisible !== "string" ||
+    journey.estado !== "INACTIVA" ||
+    journey.tipoInactivacion !== "CANCELACION_BORRADOR" ||
+    typeof journey.creadorUsuarioId !== "string" ||
+    typeof journey.creadorNombreVisible !== "string" ||
+    !Number.isSafeInteger(journey.version) ||
+    !Array.isArray(journey.lineaIds) ||
+    journey.lineaIds.some((lineId) => typeof lineId !== "string") ||
+    !Array.isArray(journey.participantes) ||
+    typeof journey.cancelacionId !== "string" ||
+    typeof journey.canceladaPorUsuarioId !== "string" ||
+    typeof journey.canceladaPorNombreVisible !== "string" ||
+    typeof journey.motivoCancelacion !== "string" ||
+    typeof journey.canceladaEn !== "string" ||
+    typeof journey.creadaEn !== "string" ||
+    typeof journey.actualizadaEn !== "string"
+  ) {
+    throw new Error("Un borrador cancelado no tiene formato valido.");
+  }
+  return {
+    id: journey.jornadaId,
+    displayName: journey.nombreVisible,
+    state: "INACTIVA",
+    inactiveType: "CANCELACION_BORRADOR",
+    creatorUserId: journey.creadorUsuarioId,
+    creatorDisplayName: journey.creadorNombreVisible,
+    version: journey.version as number,
+    lineIds: journey.lineaIds as string[],
+    participants: journey.participantes.map(parseDraftParticipant),
+    cancellationId: journey.cancelacionId,
+    cancelledByUserId: journey.canceladaPorUsuarioId,
+    cancelledByDisplayName: journey.canceladaPorNombreVisible,
+    cancellationReason: journey.motivoCancelacion,
+    cancelledAt: journey.canceladaEn,
+    createdAt: journey.creadaEn,
+    updatedAt: journey.actualizadaEn,
+  };
+}
+
 export class FirebaseMonitorRepository implements MonitorRepository {
   readonly emulatorEnabled = true;
 
@@ -236,17 +281,26 @@ export class FirebaseMonitorRepository implements MonitorRepository {
   }
 
   async listManageableJourneys(): Promise<ManageableJourneysData> {
-    const callable = httpsCallable<Record<string, never>, {jornadas: unknown[]; lineasCatalogo: unknown[]}>(
+    const callable = httpsCallable<Record<string, never>, {
+      jornadas: unknown[];
+      jornadasCanceladas: unknown[];
+      lineasCatalogo: unknown[];
+    }>(
       this.functions,
       "listarJornadasAdministrables",
     );
     try {
       const response = await callable({});
-      if (!Array.isArray(response.data.jornadas) || !Array.isArray(response.data.lineasCatalogo)) {
+      if (
+        !Array.isArray(response.data.jornadas) ||
+        !Array.isArray(response.data.jornadasCanceladas) ||
+        !Array.isArray(response.data.lineasCatalogo)
+      ) {
         throw new Error("La respuesta administrativa no tiene formato vÃ¡lido.");
       }
       return {
         journeys: response.data.jornadas.map(parseDraftJourney),
+        cancelledJourneys: response.data.jornadasCanceladas.map(parseCancelledDraftJourney),
         catalogLines: response.data.lineasCatalogo.map(parseDraftCatalogLine),
       };
     } catch (error) {
@@ -384,6 +438,65 @@ export class FirebaseMonitorRepository implements MonitorRepository {
       });
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : "No fue posible aprobar el conteo.", {cause: error});
+    }
+  }
+
+  async cancelDraftJourney(
+    journeyId: string,
+    expectedVersion: number,
+    reason: string,
+    idempotencyKey: string,
+  ): Promise<void> {
+    const callable = httpsCallable(this.functions, "cancelarJornadaBorrador");
+    try {
+      const response = await callable({
+        jornadaId: journeyId,
+        versionEsperada: expectedVersion,
+        motivo: reason,
+        claveIdempotencia: idempotencyKey,
+      });
+      if (typeof response.data !== "object" || response.data === null) {
+        throw new Error("La respuesta de cancelacion no tiene formato valido.");
+      }
+      const data = response.data as Record<string, unknown>;
+      if (
+        data.jornadaId !== journeyId ||
+        data.estado !== "INACTIVA" ||
+        data.tipoInactivacion !== "CANCELACION_BORRADOR" ||
+        !Number.isSafeInteger(data.version) ||
+        typeof data.cancelacionId !== "string" ||
+        typeof data.canceladaEn !== "string"
+      ) {
+        throw new Error("La respuesta de cancelacion no tiene formato valido.");
+      }
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible cancelar el borrador.", {cause: error});
+    }
+  }
+
+  async reopenCancelledJourney(journeyId: string, expectedVersion: number, idempotencyKey: string): Promise<void> {
+    const callable = httpsCallable(this.functions, "reabrirJornadaCancelada");
+    try {
+      const response = await callable({
+        jornadaId: journeyId,
+        versionEsperada: expectedVersion,
+        claveIdempotencia: idempotencyKey,
+      });
+      if (typeof response.data !== "object" || response.data === null) {
+        throw new Error("La respuesta de reapertura no tiene formato valido.");
+      }
+      const data = response.data as Record<string, unknown>;
+      if (
+        data.jornadaId !== journeyId ||
+        data.estado !== "BORRADOR" ||
+        !Number.isSafeInteger(data.version) ||
+        typeof data.cancelacionAnteriorId !== "string" ||
+        typeof data.reabiertaEn !== "string"
+      ) {
+        throw new Error("La respuesta de reapertura no tiene formato valido.");
+      }
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible reabrir el borrador.", {cause: error});
     }
   }
 
@@ -763,6 +876,14 @@ export class DisabledMonitorRepository implements MonitorRepository {
   }
 
   async activateDraftJourney(): Promise<DraftActivationResult> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
+  }
+
+  async cancelDraftJourney(): Promise<void> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
+  }
+
+  async reopenCancelledJourney(): Promise<void> {
     throw new Error("Firebase de produccion permanece deshabilitado.");
   }
 

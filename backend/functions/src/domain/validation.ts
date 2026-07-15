@@ -1,11 +1,13 @@
 import type {
   ActivateJourneyRequest,
   ApproveCountRequest,
+  CancelDraftJourneyRequest,
   CreateDraftJourneyRequest,
   CloseJourneyRequest,
   InitiateCountCorrectionRequest,
   ListDraftJourneyParticipantsRequest,
   ReassignCountCorrectionRequest,
+  ReopenCancelledJourneyRequest,
   ReleaseReservationRequest,
   ReserveLineRequest,
   ReturnCountRequest,
@@ -49,6 +51,8 @@ const activateJourneyFields = new Set([
   "claveIdempotencia"
 ]);
 const closeJourneyFields = new Set(["jornadaId", "versionEsperada", "claveIdempotencia"]);
+const cancelDraftJourneyFields = new Set(["jornadaId", "versionEsperada", "motivo", "claveIdempotencia"]);
+const reopenCancelledJourneyFields = new Set(["jornadaId", "versionEsperada", "claveIdempotencia"]);
 const REVIEW_REASON_LIMIT = 2000;
 const JOURNEY_NAME_LIMIT = 200;
 const DRAFT_LINE_LIMIT = 400;
@@ -209,6 +213,54 @@ export function parseCloseJourneyRequest(value: unknown): CloseJourneyRequest {
   const record = value as Record<string, unknown>;
   if (
     Object.keys(record).some((field) => !closeJourneyFields.has(field)) ||
+    typeof record.jornadaId !== "string" ||
+    !safeIdPattern.test(record.jornadaId) ||
+    !Number.isSafeInteger(record.versionEsperada) ||
+    (record.versionEsperada as number) < 1 ||
+    typeof record.claveIdempotencia !== "string" ||
+    !idempotencyPattern.test(record.claveIdempotencia)
+  ) {
+    throw domainErrors.invalidArgument();
+  }
+  return {
+    jornadaId: record.jornadaId,
+    versionEsperada: record.versionEsperada as number,
+    claveIdempotencia: record.claveIdempotencia
+  };
+}
+
+export function parseCancelDraftJourneyRequest(value: unknown): CancelDraftJourneyRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw domainErrors.invalidArgument();
+  }
+  const record = value as Record<string, unknown>;
+  if (
+    Object.keys(record).some((field) => !cancelDraftJourneyFields.has(field)) ||
+    typeof record.jornadaId !== "string" ||
+    !safeIdPattern.test(record.jornadaId) ||
+    !Number.isSafeInteger(record.versionEsperada) ||
+    (record.versionEsperada as number) < 1 ||
+    typeof record.claveIdempotencia !== "string" ||
+    !idempotencyPattern.test(record.claveIdempotencia)
+  ) {
+    throw domainErrors.invalidArgument();
+  }
+  if (!validReason(record.motivo)) throw domainErrors.draftCancellationReasonRequired();
+  return {
+    jornadaId: record.jornadaId,
+    versionEsperada: record.versionEsperada as number,
+    motivo: (record.motivo as string).trim(),
+    claveIdempotencia: record.claveIdempotencia
+  };
+}
+
+export function parseReopenCancelledJourneyRequest(value: unknown): ReopenCancelledJourneyRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw domainErrors.invalidArgument();
+  }
+  const record = value as Record<string, unknown>;
+  if (
+    Object.keys(record).some((field) => !reopenCancelledJourneyFields.has(field)) ||
     typeof record.jornadaId !== "string" ||
     !safeIdPattern.test(record.jornadaId) ||
     !Number.isSafeInteger(record.versionEsperada) ||

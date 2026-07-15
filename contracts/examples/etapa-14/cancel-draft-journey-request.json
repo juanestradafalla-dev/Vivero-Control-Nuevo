@@ -1,0 +1,6 @@
+{
+  "jornadaId": "JORNADA-BORRADOR-ETAPA-14",
+  "versionEsperada": 4,
+  "motivo": "La preparacion continuara en una fecha posterior.",
+  "claveIdempotencia": "cancelar-borrador-etapa-14-0001"
+}

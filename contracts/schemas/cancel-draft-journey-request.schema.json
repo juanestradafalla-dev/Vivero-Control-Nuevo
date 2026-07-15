@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/cancel-draft-journey-request.schema.json",
+  "title": "Solicitud cancelarJornadaBorrador",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["jornadaId", "versionEsperada", "motivo", "claveIdempotencia"],
+  "properties": {
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+    "versionEsperada": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "motivo": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}
+  }
+}

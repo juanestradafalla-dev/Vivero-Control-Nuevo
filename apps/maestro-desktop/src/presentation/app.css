@@ -125,6 +125,7 @@ input:focus { outline: 3px solid #9ccca8; border-color: #1b6f3b; }
 
 .button:disabled { opacity: .55; cursor: not-allowed; }
 .button--secondary { border: 1px solid #8db09b; background: transparent; }
+.button--danger { background: #9f2f24; border-color: #9f2f24; color: #fff; }
 
 .alert {
   margin: 0;
@@ -212,6 +213,7 @@ input:focus { outline: 3px solid #9ccca8; border-color: #1b6f3b; }
 .inventory-summary { display: grid; gap: 7px; border-radius: 12px; background: #eef7ef; padding: 15px; }
 .state--aprobada { background: #d8f1dc; color: #145a20; }
 .state--devuelta { background: #ffe0dc; color: #8a2618; }
+.state--inactive { background: #ece7e2; color: #6d3c31; }
 
 .workspace-nav {
   display: flex;
@@ -294,6 +296,7 @@ input:focus { outline: 3px solid #9ccca8; border-color: #1b6f3b; }
 .participant-row input { width: 18px; height: 18px; }
 .participant-row span { display: grid; gap: 2px; }
 .participant-row small { color: #66766d; }
+.cancelled-draft-detail { display: grid; gap: 16px; }
 .can-count-toggle { display: flex; align-items: center; gap: 8px; color: #334e41; font-weight: 750; }
 
 @media (max-width: 720px) {

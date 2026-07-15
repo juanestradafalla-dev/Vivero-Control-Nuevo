@@ -112,6 +112,34 @@ export const domainErrors = {
     "JOURNEY_CLOSE_OCCUPATION_MISMATCH",
     "Una linea no conserva el bloqueo activo de esta jornada."
   ),
+  draftCancellationReasonRequired: () => new DomainError(
+    "DRAFT_CANCELLATION_REASON_REQUIRED",
+    "La cancelacion del borrador exige un motivo."
+  ),
+  draftCancellationStaleVersion: () => new DomainError(
+    "DRAFT_CANCELLATION_STALE_VERSION",
+    "El borrador cambio. Actualiza el resumen antes de cancelar."
+  ),
+  draftCancellationInvalidState: () => new DomainError(
+    "DRAFT_CANCELLATION_INVALID_STATE",
+    "Solo una jornada en BORRADOR puede cancelarse."
+  ),
+  draftCancellationOperationalDataExists: () => new DomainError(
+    "DRAFT_CANCELLATION_OPERATIONAL_DATA_EXISTS",
+    "El borrador conserva datos operativos y no puede cancelarse."
+  ),
+  draftReopenStaleVersion: () => new DomainError(
+    "DRAFT_REOPEN_STALE_VERSION",
+    "La jornada cancelada cambio. Actualiza el resumen antes de reabrir."
+  ),
+  draftReopenInvalidState: () => new DomainError(
+    "DRAFT_REOPEN_INVALID_STATE",
+    "Solo un borrador cancelado puede reabrirse."
+  ),
+  draftReopenNotAllowed: () => new DomainError(
+    "DRAFT_REOPEN_NOT_ALLOWED",
+    "Una jornada activada o cerrada normalmente no puede reabrirse como borrador."
+  ),
   unauthenticated: () => new DomainError("UNAUTHENTICATED", "Debes iniciar sesión."),
   invalidArgument: () => new DomainError("INVALID_ARGUMENT", "La solicitud no tiene un formato válido."),
   userNotFound: () => new DomainError("USER_NOT_FOUND", "La cuenta no tiene un perfil operativo."),

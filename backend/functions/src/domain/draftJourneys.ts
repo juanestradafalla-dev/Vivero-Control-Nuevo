@@ -3,10 +3,12 @@ import {createHash, randomUUID} from "node:crypto";
 import {Timestamp, type DocumentSnapshot, type Firestore} from "firebase-admin/firestore";
 
 import type {
+  CancelledDraftJourneySummary,
   CreateDraftJourneyRequest,
   CreateDraftJourneyResult,
   DraftCatalogLine,
   DraftJourneySummary,
+  DraftParticipant,
   ListManageableJourneysResult,
   TrustedOperationContext,
   UpdateDraftJourneyLinesRequest,
@@ -29,6 +31,12 @@ interface JourneyDocument {
   readonly version?: number;
   readonly creadaEn?: unknown;
   readonly actualizadaEn?: unknown;
+  readonly tipoInactivacion?: string | null;
+  readonly cancelacionVigenteId?: string | null;
+  readonly canceladaPorUsuarioId?: string;
+  readonly canceladaPorNombreVisible?: string;
+  readonly motivoCancelacion?: string;
+  readonly canceladaEn?: unknown;
 }
 
 interface LineDocument {
@@ -53,6 +61,10 @@ interface JourneyLineDocument {
 
 interface DraftSelectionDocument {
   readonly lineaIds?: unknown;
+}
+
+interface ParticipantSelectionDocument {
+  readonly participantes?: unknown;
 }
 
 interface IdempotencyDocument<Result> {
@@ -90,6 +102,29 @@ function selectionLineIds(selection: DraftSelectionDocument | undefined): string
     throw domainErrors.internal();
   }
   return [...selection.lineaIds].sort((left, right) => left.localeCompare(right));
+}
+
+function selectionParticipants(selection: ParticipantSelectionDocument | undefined): DraftParticipant[] {
+  if (selection === undefined) return [];
+  if (!Array.isArray(selection.participantes)) throw domainErrors.internal();
+  return selection.participantes.map((value): DraftParticipant => {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) throw domainErrors.internal();
+    const participant = value as Record<string, unknown>;
+    if (
+      typeof participant.usuarioId !== "string" ||
+      typeof participant.nombreVisible !== "string" ||
+      !["AUXILIAR", "SUPERVISOR", "ADMINISTRADOR"].includes(participant.rol as string) ||
+      typeof participant.puedeContar !== "boolean"
+    ) {
+      throw domainErrors.internal();
+    }
+    return {
+      usuarioId: participant.usuarioId,
+      nombreVisible: participant.nombreVisible,
+      rol: participant.rol as DraftParticipant["rol"],
+      puedeContar: participant.puedeContar
+    };
+  }).sort((left, right) => left.usuarioId.localeCompare(right.usuarioId));
 }
 
 export class CreateDraftJourneyService {
@@ -312,26 +347,52 @@ export class ListManageableJourneysService {
     const actorSnapshot = await this.firestore.collection("usuarios").doc(context.actorId).get();
     const actor = assertActiveUser(actorSnapshot);
     const role = administrativeRole(actor);
-    let query = this.firestore.collection("jornadas").where("estadoAdministrativo", "==", "BORRADOR");
-    if (role === "SUPERVISOR") query = query.where("creadaPorUsuarioId", "==", context.actorId);
-    const [journeysSnapshot, linesSnapshot, locationsSnapshot, activeJourneysSnapshot, operationalLinesSnapshot] =
+    let draftQuery = this.firestore.collection("jornadas").where("estadoAdministrativo", "==", "BORRADOR");
+    let inactiveQuery = this.firestore.collection("jornadas").where("estadoAdministrativo", "==", "INACTIVA");
+    if (role === "SUPERVISOR") {
+      draftQuery = draftQuery.where("creadaPorUsuarioId", "==", context.actorId);
+      inactiveQuery = inactiveQuery.where("creadaPorUsuarioId", "==", context.actorId);
+    }
+    const [
+      journeysSnapshot,
+      inactiveJourneysSnapshot,
+      linesSnapshot,
+      locationsSnapshot,
+      activeJourneysSnapshot,
+      operationalLinesSnapshot
+    ] =
       await Promise.all([
-        query.get(),
+        draftQuery.get(),
+        inactiveQuery.get(),
         this.firestore.collection("lineas").where("activa", "==", true).get(),
         this.firestore.collection("ubicaciones").get(),
         this.firestore.collection("jornadas").where("estadoAdministrativo", "==", "ACTIVA").get(),
         this.firestore.collection("jornadaLineas").get()
       ]);
-    const selectionSnapshots = journeysSnapshot.empty
+    const cancelledJourneyDocuments = inactiveJourneysSnapshot.docs.filter((snapshot) =>
+      (snapshot.data() as JourneyDocument).tipoInactivacion === "CANCELACION_BORRADOR"
+    );
+    const manageableDocuments = [...journeysSnapshot.docs, ...cancelledJourneyDocuments];
+    const selectionSnapshots = manageableDocuments.length === 0
       ? []
-      : await this.firestore.getAll(...journeysSnapshot.docs.map((journey) =>
+      : await this.firestore.getAll(...manageableDocuments.map((journey) =>
           this.firestore.collection("seleccionesLineasJornada").doc(journey.id)
         ));
+    const selectionByJourneyId = new Map(selectionSnapshots.map((snapshot) => [snapshot.id, snapshot]));
+    const participantSelectionSnapshots = cancelledJourneyDocuments.length === 0
+      ? []
+      : await this.firestore.getAll(...cancelledJourneyDocuments.map((journey) =>
+          this.firestore.collection("seleccionesParticipantesJornada").doc(journey.id)
+        ));
+    const participantSelectionByJourneyId = new Map(
+      participantSelectionSnapshots.map((snapshot) => [snapshot.id, snapshot])
+    );
 
-    const journeys = journeysSnapshot.docs.map((snapshot, index) => {
+    const journeys = journeysSnapshot.docs.map((snapshot) => {
       const journey = snapshot.data() as JourneyDocument;
-      const selection = selectionSnapshots[index]?.exists
-        ? selectionSnapshots[index]?.data() as DraftSelectionDocument
+      const selectionSnapshot = selectionByJourneyId.get(snapshot.id);
+      const selection = selectionSnapshot?.exists
+        ? selectionSnapshot.data() as DraftSelectionDocument
         : undefined;
       if (
         typeof journey.nombreVisible !== "string" ||
@@ -356,6 +417,50 @@ export class ListManageableJourneysService {
         actualizadaEn: journey.actualizadaEn.toDate().toISOString()
       };
       return {summary, createdAt: journey.creadaEn.toMillis()};
+    });
+    const cancelledJourneys = cancelledJourneyDocuments.map((snapshot) => {
+      const journey = snapshot.data() as JourneyDocument;
+      const selectionSnapshot = selectionByJourneyId.get(snapshot.id);
+      const participantSelectionSnapshot = participantSelectionByJourneyId.get(snapshot.id);
+      if (
+        typeof journey.nombreVisible !== "string" ||
+        typeof journey.creadaPorUsuarioId !== "string" ||
+        !isSafeVersion(journey.version) ||
+        typeof journey.cancelacionVigenteId !== "string" ||
+        typeof journey.canceladaPorUsuarioId !== "string" ||
+        typeof journey.canceladaPorNombreVisible !== "string" ||
+        typeof journey.motivoCancelacion !== "string" ||
+        !(journey.canceladaEn instanceof Timestamp) ||
+        !(journey.creadaEn instanceof Timestamp) ||
+        !(journey.actualizadaEn instanceof Timestamp)
+      ) {
+        throw domainErrors.internal();
+      }
+      const lineIds = selectionLineIds(selectionSnapshot?.exists
+        ? selectionSnapshot.data() as DraftSelectionDocument
+        : undefined);
+      const summary: CancelledDraftJourneySummary = {
+        jornadaId: snapshot.id,
+        nombreVisible: journey.nombreVisible,
+        estado: "INACTIVA",
+        tipoInactivacion: "CANCELACION_BORRADOR",
+        creadorUsuarioId: journey.creadaPorUsuarioId,
+        creadorNombreVisible: journey.creadorNombreVisible ?? "Usuario de prueba",
+        version: journey.version,
+        cantidadLineas: lineIds.length,
+        lineaIds: lineIds,
+        participantes: selectionParticipants(participantSelectionSnapshot?.exists
+          ? participantSelectionSnapshot.data() as ParticipantSelectionDocument
+          : undefined),
+        cancelacionId: journey.cancelacionVigenteId,
+        canceladaPorUsuarioId: journey.canceladaPorUsuarioId,
+        canceladaPorNombreVisible: journey.canceladaPorNombreVisible,
+        motivoCancelacion: journey.motivoCancelacion,
+        canceladaEn: journey.canceladaEn.toDate().toISOString(),
+        creadaEn: journey.creadaEn.toDate().toISOString(),
+        actualizadaEn: journey.actualizadaEn.toDate().toISOString()
+      };
+      return {summary, cancelledAt: journey.canceladaEn.toMillis()};
     });
 
     const locations = new Map(locationsSnapshot.docs.map((snapshot) => [
@@ -412,6 +517,10 @@ export class ListManageableJourneysService {
     return {
       jornadas: journeys
         .sort((left, right) => right.createdAt - left.createdAt ||
+          left.summary.nombreVisible.localeCompare(right.summary.nombreVisible, "es"))
+        .map((journey) => journey.summary),
+      jornadasCanceladas: cancelledJourneys
+        .sort((left, right) => right.cancelledAt - left.cancelledAt ||
           left.summary.nombreVisible.localeCompare(right.summary.nombreVisible, "es"))
         .map((journey) => journey.summary),
       lineasCatalogo: catalogLines

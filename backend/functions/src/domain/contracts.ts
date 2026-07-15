@@ -46,6 +46,13 @@ export type ControlledErrorCode =
   | "JOURNEY_CLOSE_PENDING_CORRECTIONS"
   | "JOURNEY_CLOSE_LIMIT_EXCEEDED"
   | "JOURNEY_CLOSE_OCCUPATION_MISMATCH"
+  | "DRAFT_CANCELLATION_REASON_REQUIRED"
+  | "DRAFT_CANCELLATION_STALE_VERSION"
+  | "DRAFT_CANCELLATION_INVALID_STATE"
+  | "DRAFT_CANCELLATION_OPERATIONAL_DATA_EXISTS"
+  | "DRAFT_REOPEN_STALE_VERSION"
+  | "DRAFT_REOPEN_INVALID_STATE"
+  | "DRAFT_REOPEN_NOT_ALLOWED"
   | "LINE_NOT_AVAILABLE"
   | "RESERVATION_NOT_FOUND"
   | "RESERVATION_NOT_ACTIVE"
@@ -208,6 +215,26 @@ export interface DraftJourneySummary {
   readonly actualizadaEn: string;
 }
 
+export interface CancelledDraftJourneySummary {
+  readonly jornadaId: string;
+  readonly nombreVisible: string;
+  readonly estado: "INACTIVA";
+  readonly tipoInactivacion: "CANCELACION_BORRADOR";
+  readonly creadorUsuarioId: string;
+  readonly creadorNombreVisible: string;
+  readonly version: number;
+  readonly cantidadLineas: number;
+  readonly lineaIds: readonly string[];
+  readonly participantes: readonly DraftParticipant[];
+  readonly cancelacionId: string;
+  readonly canceladaPorUsuarioId: string;
+  readonly canceladaPorNombreVisible: string;
+  readonly motivoCancelacion: string;
+  readonly canceladaEn: string;
+  readonly creadaEn: string;
+  readonly actualizadaEn: string;
+}
+
 export type CreateDraftJourneyResult = DraftJourneySummary;
 
 export interface UpdateDraftJourneyLinesRequest {
@@ -235,6 +262,7 @@ export interface DraftCatalogLine {
 
 export interface ListManageableJourneysResult {
   readonly jornadas: readonly DraftJourneySummary[];
+  readonly jornadasCanceladas: readonly CancelledDraftJourneySummary[];
   readonly lineasCatalogo: readonly DraftCatalogLine[];
 }
 
@@ -316,6 +344,39 @@ export interface CloseJourneyResult {
   readonly cantidadAutorizaciones: number;
   readonly ocupacionesLiberadas: number;
   readonly cerradaEn: string;
+}
+
+export interface CancelDraftJourneyRequest {
+  readonly jornadaId: string;
+  readonly versionEsperada: number;
+  readonly motivo: string;
+  readonly claveIdempotencia: string;
+}
+
+export interface CancelDraftJourneyResult {
+  readonly jornadaId: string;
+  readonly estado: "INACTIVA";
+  readonly tipoInactivacion: "CANCELACION_BORRADOR";
+  readonly version: number;
+  readonly cancelacionId: string;
+  readonly motivo: string;
+  readonly canceladaPorUsuarioId: string;
+  readonly canceladaPorNombreVisible: string;
+  readonly canceladaEn: string;
+}
+
+export interface ReopenCancelledJourneyRequest {
+  readonly jornadaId: string;
+  readonly versionEsperada: number;
+  readonly claveIdempotencia: string;
+}
+
+export interface ReopenCancelledJourneyResult {
+  readonly jornadaId: string;
+  readonly estado: "BORRADOR";
+  readonly version: number;
+  readonly cancelacionAnteriorId: string;
+  readonly reabiertaEn: string;
 }
 
 /** Contrato de frontera reservado para una futura operación de revisión; no es enviarConteo. */

@@ -2,7 +2,7 @@
 
 Sistema nuevo para operar inventario por línea mediante Vivero Campo (Android), Vivero Maestro (Windows) y un backend transaccional. Este repositorio no consulta, modifica ni reutiliza el proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 12
+## Estado: ETAPA 13
 
 La vertical disponible funciona exclusivamente con Firebase Emulator Suite y datos ficticios:
 
@@ -46,6 +46,13 @@ La vertical disponible funciona exclusivamente con Firebase Emulator Suite y dat
 32. Maestro muestra el resumen completo, exige confirmación y refresca tanto borradores como jornadas activas después del éxito.
 33. Campo ve la nueva jornada únicamente para los participantes seleccionados; las selecciones preparatorias permanecen como trazabilidad.
 34. Activar no inicializa ni reemplaza inventario oficial y no crea movimientos de inventario.
+
+35. Supervisor creador o administrador puede cerrar una jornada `ACTIVA` mediante `cerrarJornada` cuando todas sus líneas están `APROBADA`.
+36. El cierre rechaza versiones obsoletas, reservas activas, estados pendientes, correcciones y reasignaciones sin producir escrituras parciales.
+37. La transacción conserva líneas, autorizaciones e historia, las marca inactivas y libera `ocupacionesLineasActivas/{lineaId}`.
+38. Maestro muestra estados y bloqueos exactos, exige confirmación y retira la jornada de los selectores después del éxito.
+39. Campo detecta que la jornada dejó de estar activa, limpia la selección segura y nunca elimina el historial o un borrador local.
+40. Cerrar no modifica inventario, movimientos, conteos, decisiones, reservas ni selecciones preparatorias.
 
 > **MODO DE PRUEBA — EMULADOR.** No existe Firebase real configurado, no hay credenciales de producción y ningún comando despliega recursos.
 
@@ -107,7 +114,7 @@ Set-Location backend/functions
 npm run emulator:seed
 ```
 
-Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las catorce Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
+Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las quince Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
 
 | Correo ficticio | Rol |
 |---|---|
@@ -152,6 +159,14 @@ npm run build
 npm run test:emulators
 npm audit --omit=dev --audit-level=high
 ```
+
+## Documentación de la ETAPA 13
+
+- [Cierre seguro de jornadas](docs/arquitectura/CIERRE_JORNADA_ETAPA_13.md)
+- [Pruebas y concurrencia](docs/pruebas/PRUEBAS_ETAPA_13.md)
+- [Criterios de aceptación](docs/ETAPA_13_CRITERIOS_DE_ACEPTACION.md)
+- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
+- [Contratos compartidos](contracts/README.md)
 
 ## Documentación de la ETAPA 12
 
@@ -200,4 +215,4 @@ npm audit --omit=dev --audit-level=high
 
 ## Exclusiones vigentes
 
-No están implementados: cierre, cancelación, reapertura o eliminación de jornadas; modificación de jornadas activas; creación de cuentas; cambio de roles o perfiles; creación de ubicaciones o líneas; inicialización o migración de inventario; vencimiento automático; temporizadores de abandono; eliminación o recuperación administrativa de borradores locales; corrección simultánea por varios usuarios; datos reales; Firebase de producción; despliegues; APK de producción; instalador Windows definitivo; descartes, despachos, químicos, aplicaciones ni reingresos.
+No están implementados: cierre forzado o excepcional, cancelación, reapertura o eliminación de jornadas; edición de jornadas cerradas; modificación histórica; creación de cuentas; cambio de roles o perfiles; creación de ubicaciones o líneas; inicialización o migración de inventario; vencimiento automático; temporizadores de abandono; eliminación o recuperación administrativa de borradores locales; corrección simultánea por varios usuarios; datos reales; Firebase de producción; despliegues; APK de producción; instalador Windows definitivo; descartes, despachos, químicos, aplicaciones ni reingresos.

@@ -23,6 +23,22 @@ export const domainErrors = {
   lineNotAvailable: () => new DomainError("LINE_NOT_AVAILABLE", "Esta línea acaba de ser tomada por otro usuario."),
   reservationNotFound: () => new DomainError("RESERVATION_NOT_FOUND", "La reserva no existe."),
   reservationNotActive: () => new DomainError("RESERVATION_NOT_ACTIVE", "La reserva ya no está activa."),
+  reservationReleased: () => new DomainError(
+    "RESERVATION_RELEASED",
+    "La reserva fue liberada por supervisión. Conserva el borrador y consulta con el supervisor."
+  ),
+  reservationReleaseNotAllowed: () => new DomainError(
+    "RESERVATION_RELEASE_NOT_ALLOWED",
+    "La cuenta no puede liberar reservas en esta jornada."
+  ),
+  reservationReleaseReasonRequired: () => new DomainError(
+    "RESERVATION_RELEASE_REASON_REQUIRED",
+    "La liberación manual exige un motivo."
+  ),
+  reservationAlreadyCounted: () => new DomainError(
+    "RESERVATION_ALREADY_COUNTED",
+    "La reserva ya tiene un conteo asociado y no puede liberarse."
+  ),
   reservationAccessDenied: () => new DomainError("RESERVATION_ACCESS_DENIED", "La reserva pertenece a otra cuenta."),
   deviceMismatch: () => new DomainError("DEVICE_MISMATCH", "La reserva pertenece a otro dispositivo."),
   invalidReservationToken: () => new DomainError("INVALID_RESERVATION_TOKEN", "La reserva no puede validarse."),

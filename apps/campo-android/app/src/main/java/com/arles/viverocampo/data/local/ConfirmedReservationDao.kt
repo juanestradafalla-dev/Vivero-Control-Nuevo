@@ -28,4 +28,7 @@ interface ConfirmedReservationDao {
 
     @Query("UPDATE confirmed_reservations SET tokenCiphertext = NULL, tokenIv = NULL WHERE reservationId = :reservationId")
     suspend fun clearEncryptedToken(reservationId: String)
+
+    @Query("UPDATE confirmed_reservations SET state = :state WHERE reservationId = :reservationId")
+    suspend fun updateState(reservationId: String, state: String)
 }

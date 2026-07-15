@@ -1,0 +1,5 @@
+{
+  "reservaId": "reserva-ficticia-etapa-08-001",
+  "motivo": "El titular informó que no puede continuar el conteo.",
+  "claveIdempotencia": "liberar-reserva-etapa-08-0001"
+}

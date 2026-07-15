@@ -12,11 +12,13 @@ const supervisor: MonitorUser = {
   role: "SUPERVISOR",
   canViewReservationDetails: true,
   canReview: true,
+  canRelease: true,
 };
 
 const pendingLine = {
   id: "JORNADA-1__LINEA-003",
   lineId: "LINEA-003",
+  version: 1,
   state: "PENDIENTE_REVISION" as const,
   location: {
     nursery: "Vivero ficticio",
@@ -62,6 +64,7 @@ class FakeMonitorRepository implements MonitorRepository {
   approved: Array<{countId: string; key: string; reason?: string}> = [];
   returned: Array<{countId: string; reason: string; key: string}> = [];
   reassigned: Array<{countId: string; newUserId: string; reason: string; key: string}> = [];
+  released: Array<{reservationId: string; reason: string; key: string}> = [];
 
   async signIn(): Promise<MonitorUser> { return this.user; }
   async signOut(): Promise<void> {}
@@ -73,6 +76,9 @@ class FakeMonitorRepository implements MonitorRepository {
   }
   async reassignCountCorrection(countId: string, newUserId: string, reason: string, key: string): Promise<void> {
     this.reassigned.push({countId, newUserId, reason, key});
+  }
+  async releaseReservation(reservationId: string, reason: string, key: string): Promise<void> {
+    this.released.push({reservationId, reason, key});
   }
   observeMonitor(_user: MonitorUser, onSnapshot: (snapshot: MonitorSnapshot) => void): MonitorUnsubscribe {
     this.onSnapshot = onSnapshot;
@@ -190,6 +196,7 @@ describe("bandeja de revisión de Vivero Maestro", () => {
       role: "AUXILIAR",
       canViewReservationDetails: false,
       canReview: false,
+      canRelease: false,
     };
     await signIn(repository);
     expect(screen.getByText(/detalle restringido/)).toBeInTheDocument();
@@ -250,6 +257,7 @@ describe("bandeja de revisión de Vivero Maestro", () => {
       role: "AUXILIAR",
       canViewReservationDetails: false,
       canReview: false,
+      canRelease: false,
     };
     repository.currentSnapshot = {
       ...snapshot,
@@ -258,5 +266,67 @@ describe("bandeja de revisión de Vivero Maestro", () => {
     await signIn(repository);
     fireEvent.change(screen.getByLabelText("Estado"), {target: {value: "DEVUELTA"}});
     expect(screen.queryByRole("button", {name: /Reasignar/i})).not.toBeInTheDocument();
+  });
+
+  it("muestra hechos, exige motivo y confirma una liberacion normal", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.currentSnapshot = {
+      ...snapshot,
+      lines: [{
+        ...pendingLine,
+        state: "EN_CONTEO",
+        version: 7,
+        reservation: {
+          id: "RESERVA-ACTIVA-001",
+          userDisplayName: "Auxiliar Conteo",
+          type: "INICIAL",
+          deviceId: "DISPOSITIVO-FICTICIO",
+          reservedAt: "2026-07-15T14:00:00.000Z",
+        },
+      }],
+    };
+    await signIn(repository);
+    fireEvent.change(screen.getByLabelText("Estado"), {target: {value: "EN_CONTEO"}});
+    expect(screen.getByText("Normal")).toBeInTheDocument();
+    expect(screen.getByText("Versión de línea").nextSibling).toHaveTextContent("7");
+    fireEvent.click(screen.getByRole("button", {name: "Liberar reserva"}));
+    expect(screen.getByText(/Puede existir un borrador local sin enviar/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "Revisar liberación"}));
+    expect(screen.getByRole("alert")).toHaveTextContent("Escribe el motivo");
+    fireEvent.change(screen.getByLabelText("Motivo obligatorio"), {
+      target: {value: "Titular no puede continuar"},
+    });
+    fireEvent.click(screen.getByRole("button", {name: "Revisar liberación"}));
+    expect(screen.getByLabelText("Resumen de liberación")).toHaveTextContent("Estado resultante: DISPONIBLE");
+    fireEvent.click(screen.getByRole("button", {name: "Confirmar liberación"}));
+    await waitFor(() => expect(repository.released).toHaveLength(1));
+    expect(repository.released[0]).toMatchObject({
+      reservationId: "RESERVA-ACTIVA-001",
+      reason: "Titular no puede continuar",
+    });
+  });
+
+  it("informa que una reserva de correccion regresara a DEVUELTA", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.currentSnapshot = {
+      ...snapshot,
+      lines: [{
+        ...pendingLine,
+        state: "EN_CONTEO",
+        reservation: {
+          id: "RESERVA-CORRECCION-001",
+          userDisplayName: "Auxiliar Reasignado",
+          type: "CORRECCION",
+          deviceId: "DISPOSITIVO-CORRECCION",
+          reservedAt: "2026-07-15T14:00:00.000Z",
+        },
+      }],
+    };
+    await signIn(repository);
+    fireEvent.change(screen.getByLabelText("Estado"), {target: {value: "EN_CONTEO"}});
+    fireEvent.click(screen.getByRole("button", {name: "Liberar reserva"}));
+    fireEvent.change(screen.getByLabelText("Motivo obligatorio"), {target: {value: "Corrección interrumpida"}});
+    fireEvent.click(screen.getByRole("button", {name: "Revisar liberación"}));
+    expect(screen.getByLabelText("Resumen de liberación")).toHaveTextContent("Estado resultante: DEVUELTA");
   });
 });

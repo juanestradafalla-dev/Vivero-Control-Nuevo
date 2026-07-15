@@ -20,6 +20,10 @@ export type ControlledErrorCode =
   | "LINE_NOT_AVAILABLE"
   | "RESERVATION_NOT_FOUND"
   | "RESERVATION_NOT_ACTIVE"
+  | "RESERVATION_RELEASED"
+  | "RESERVATION_RELEASE_NOT_ALLOWED"
+  | "RESERVATION_RELEASE_REASON_REQUIRED"
+  | "RESERVATION_ALREADY_COUNTED"
   | "RESERVATION_ACCESS_DENIED"
   | "DEVICE_MISMATCH"
   | "INVALID_RESERVATION_TOKEN"
@@ -152,11 +156,21 @@ export interface SubmitCountRequest {
   readonly claveIdempotencia: string;
 }
 
-export interface ReleaseLineRequest {
-  readonly jornadaLineaId: string;
+export interface ReleaseReservationRequest {
   readonly reservaId: string;
   readonly motivo: string;
   readonly claveIdempotencia: string;
+}
+
+export interface ReleaseReservationResult {
+  readonly liberacionId: string;
+  readonly reservaId: string;
+  readonly jornadaLineaId: string;
+  readonly tipoReserva: "INICIAL" | "CORRECCION";
+  readonly estadoReserva: "LIBERADA";
+  readonly estadoCentral: "DISPONIBLE" | "DEVUELTA";
+  readonly versionLinea: number;
+  readonly liberadaEn: string;
 }
 
 export interface ReturnCountRequest {

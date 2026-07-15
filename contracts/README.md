@@ -2,7 +2,7 @@
 
 Los JSON Schema Draft 2020-12 son el lenguaje común de Campo, Maestro y backend.
 
-La Etapa 7 añade contratos estrictos para `reasignarCorreccionConteo`, su registro inmutable y su resultado idempotente, manteniendo los de reservas `CORRECCION` y versiones.
+La Etapa 8 añade contratos estrictos para `liberarReservaLinea`, la liberación inmutable y su resultado idempotente, manteniendo los de reasignación, reservas `CORRECCION` y versiones.
 
 Reglas de frontera:
 
@@ -19,8 +19,11 @@ Reglas de frontera:
 - reenviar una corrección sigue sin modificar inventario oficial.
 - reasignar solo recibe conteo, nuevo usuario, motivo y clave; identidad y rol del actor proceden de Authentication y datos centrales;
 - la reasignación no edita el conteo original ni cambia su autor.
+- liberar solo recibe reserva, motivo y clave; identidad, rol, jornada, línea y hora proceden de fuentes centrales;
+- una reserva `LIBERADA` se conserva, una reserva inicial vuelve a `DISPONIBLE` y una corrección vuelve a `DEVUELTA`;
+- una liberación no borra conteos ni modifica inventario oficial.
 
-Los ejemplos ficticios de reasignación están en `examples/etapa-07/`.
+Los ejemplos ficticios de liberación están en `examples/etapa-08/`.
 
 ```powershell
 npm ci

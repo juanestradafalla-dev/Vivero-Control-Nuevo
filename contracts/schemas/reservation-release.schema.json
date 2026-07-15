@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/reservation-release.schema.json",
+  "title": "Liberación manual inmutable de reserva",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id", "reservaId", "jornadaId", "jornadaLineaId", "tipoReserva",
+    "estadoAnterior", "estadoRestaurado", "actorUsuarioId", "motivo",
+    "liberadaEn", "versionLinea", "inmutable"
+  ],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "reservaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaLineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "titularUsuarioId": {
+      "oneOf": [
+        {"$ref": "comun.schema.json#/$defs/idGlobal"},
+        {"type": "null"}
+      ]
+    },
+    "tipoReserva": {"enum": ["INICIAL", "CORRECCION"]},
+    "estadoAnterior": {"const": "EN_CONTEO"},
+    "estadoRestaurado": {"enum": ["DISPONIBLE", "DEVUELTA"]},
+    "actorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "actorNombreVisible": {"type": "string", "minLength": 1, "maxLength": 240},
+    "rolEfectivoActor": {"enum": ["SUPERVISOR", "ADMINISTRADOR"]},
+    "motivo": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "liberadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "versionLinea": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "conteoAnteriorId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "responsableCorreccionUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "reasignacionActivaId": {
+      "oneOf": [
+        {"$ref": "comun.schema.json#/$defs/idGlobal"},
+        {"type": "null"}
+      ]
+    },
+    "eventoAuditoriaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "inmutable": {"const": true}
+  }
+}

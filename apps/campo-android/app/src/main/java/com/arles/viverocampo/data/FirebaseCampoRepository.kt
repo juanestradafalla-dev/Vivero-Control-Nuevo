@@ -20,6 +20,7 @@ import com.arles.viverocampo.domain.JourneyLine
 import com.arles.viverocampo.domain.JourneySnapshot
 import com.arles.viverocampo.domain.LocalCountDraft
 import com.arles.viverocampo.domain.ReserveLinePayload
+import com.arles.viverocampo.domain.RELEASED_RESERVATION_MESSAGE
 import com.arles.viverocampo.domain.ReturnedCount
 import com.arles.viverocampo.domain.SyncState
 import com.arles.viverocampo.domain.UserProfile
@@ -352,6 +353,30 @@ class FirebaseCampoRepository(
         deviceId: String,
     ): Flow<LocalCountDraft?> = draftDao.observe(reservationId, userId, deviceId).map { it?.toDomain() }
 
+    override fun observeReservationState(reservationId: String): Flow<String> = callbackFlow {
+        val registration = services.firestore.collection("reservas").document(reservationId)
+            .addSnapshotListener { snapshot, error ->
+                when {
+                    error != null -> close(
+                        CampoRepositoryException(
+                            "NETWORK_ERROR",
+                            "No fue posible comprobar el estado central de la reserva.",
+                            error,
+                        ),
+                    )
+                    snapshot == null || !snapshot.exists() -> close(
+                        CampoRepositoryException("RESERVATION_NOT_FOUND", "La reserva central no existe."),
+                    )
+                    else -> trySend(snapshot.getString("estadoReserva") ?: "DESCONOCIDA")
+                }
+            }
+        awaitClose { registration.remove() }
+    }
+
+    override suspend fun markReservationReleased(reservationId: String) {
+        localPersistence.markReleasedAndKeepDraft(reservationId)
+    }
+
     override suspend fun saveCountInput(
         reservationId: String,
         userId: String,
@@ -421,6 +446,9 @@ class FirebaseCampoRepository(
         if (draft.syncState == SyncState.ENVIADA.name) return CountSyncOutcome.Success
         val reservation = reservationDao.byId(reservationId)
             ?: return markFailure(draft, "RESERVATION_NOT_FOUND", "La reserva local ya no está disponible.", false)
+        if (reservation.state == "LIBERADA") {
+            return markFailure(draft, "RESERVATION_RELEASED", RELEASED_RESERVATION_MESSAGE, false)
+        }
         if (services.auth.currentUser?.uid != draft.userId || reservation.userId != draft.userId || reservation.deviceId != draft.deviceId) {
             return markFailure(draft, "DRAFT_ACCESS_DENIED", "Inicia sesión con la cuenta responsable para reintentar.", false)
         }
@@ -480,6 +508,7 @@ class FirebaseCampoRepository(
     }
 
     private fun actionableMessage(code: String): String = when (code) {
+        "RESERVATION_RELEASED" -> RELEASED_RESERVATION_MESSAGE
         "RESERVATION_NOT_ACTIVE", "LINE_NOT_IN_COUNT", "LINE_RESERVATION_MISMATCH" ->
             "La reserva cambió en el servidor. Solicita revisión al supervisor."
         "USER_INACTIVE", "JOURNEY_ACCESS_DENIED", "PERMISSION_DENIED" ->

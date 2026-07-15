@@ -105,6 +105,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
         role,
         canViewReservationDetails: role === "SUPERVISOR" || role === "ADMINISTRADOR",
         canReview: role === "SUPERVISOR" || role === "ADMINISTRADOR",
+        canRelease: role === "SUPERVISOR" || role === "ADMINISTRADOR",
       };
     } catch (error) {
       await this.auth.signOut();
@@ -154,6 +155,15 @@ export class FirebaseMonitorRepository implements MonitorRepository {
       });
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : "No fue posible reasignar la corrección.", {cause: error});
+    }
+  }
+
+  async releaseReservation(reservationId: string, reason: string, idempotencyKey: string): Promise<void> {
+    const callable = httpsCallable(this.functions, "liberarReservaLinea");
+    try {
+      await callable({reservaId: reservationId, motivo: reason, claveIdempotencia: idempotencyKey});
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible liberar la reserva.", {cause: error});
     }
   }
 
@@ -218,6 +228,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
             if (
               !location ||
               typeof data.lineaId !== "string" ||
+              !Number.isSafeInteger(data.version) ||
               !["DISPONIBLE", "EN_CONTEO", "PENDIENTE_REVISION", "DEVUELTA", "APROBADA"].includes(data.estadoCentral as string)
             ) {
               return [];
@@ -225,6 +236,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
             return [{
               id: documentSnapshot.id,
               lineId: data.lineaId,
+              version: data.version,
               state: data.estadoCentral,
               location,
               ...(typeof data.conteoVigenteId === "string" ? {currentCountId: data.conteoVigenteId} : {}),
@@ -308,15 +320,23 @@ export class FirebaseMonitorRepository implements MonitorRepository {
                 const timestamp = data.reservadaEn;
                 if (
                   typeof data.jornadaLineaId !== "string" ||
-                  typeof data.usuarioId !== "string" ||
+                  data.estadoReserva !== "ACTIVA" ||
                   typeof data.usuarioNombreVisible !== "string" ||
+                  typeof data.dispositivoId !== "string" ||
+                  !["INICIAL", "CORRECCION"].includes((data.tipoReserva ?? "INICIAL") as string) ||
                   !(timestamp instanceof Timestamp)
                 ) {
                   return [];
                 }
                 return [[
                   data.jornadaLineaId,
-                  {userDisplayName: data.usuarioNombreVisible, reservedAt: timestamp.toDate().toISOString()},
+                  {
+                    id: documentSnapshot.id,
+                    userDisplayName: data.usuarioNombreVisible,
+                    type: data.tipoReserva ?? "INICIAL",
+                    deviceId: data.dispositivoId,
+                    reservedAt: timestamp.toDate().toISOString(),
+                  },
                 ] as const];
               }),
             );
@@ -449,6 +469,10 @@ export class DisabledMonitorRepository implements MonitorRepository {
   }
 
   async reassignCountCorrection(): Promise<void> {
+    throw new Error("Firebase de producción permanece deshabilitado.");
+  }
+
+  async releaseReservation(): Promise<void> {
     throw new Error("Firebase de producción permanece deshabilitado.");
   }
 

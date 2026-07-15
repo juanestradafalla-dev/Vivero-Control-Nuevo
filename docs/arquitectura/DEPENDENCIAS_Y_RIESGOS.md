@@ -101,3 +101,9 @@ Persisten los riesgos de compatibilidad con dispositivos reales, pérdida de cla
 No se agregan dependencias externas ni migraciones Room. La reasignación reutiliza Functions, transacciones, Auth y contratos existentes. Maestro construye candidatos desde autorizaciones de jornada con nombre, rol y actividad denormalizados por el seed; el backend vuelve a validar el perfil vigente antes de escribir.
 
 Persisten los riesgos de señal y dispositivos reales, retención local, pérdida de claves Keystore y alertas moderadas transitivas del backend. Un usuario seleccionado puede adquirir otra reserva antes de iniciar la corrección; en ese caso el backend rechaza el inicio con `ACTIVE_RESERVATION_EXISTS` y la reasignación permanece visible para decisión supervisada posterior. No se implementa liberación. Firebase real continúa sin configurarse ni desplegarse.
+
+## Actualización de la ETAPA 8
+
+No se agregan dependencias externas ni migraciones Room. La liberación reutiliza Auth, Functions, transacciones, auditoría, idempotencia, snapshots y WorkManager existentes. La reserva consumida guarda `conteoId` para resolver la carrera liberar/enviar mediante la misma disputa documental y devolver siempre un resultado o error controlado.
+
+La operación es exclusivamente manual: no hay temporizadores, vencimiento ni inferencia de abandono. Un borrador liberado y su token cifrado permanecen en el dispositivo hasta que exista una política posterior; esto evita pérdida silenciosa, pero mantiene pendiente la retención local definitiva. También persisten los riesgos de señal y dispositivos reales, pérdida de claves Keystore y alertas moderadas transitivas del backend. Firebase real continúa sin configurarse ni desplegarse.

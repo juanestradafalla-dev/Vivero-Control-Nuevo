@@ -1,5 +1,8 @@
 package com.arles.viverocampo.domain
 
+const val RELEASED_RESERVATION_MESSAGE =
+    "La reserva fue liberada por supervisión. El borrador se conservó; consulta con el supervisor."
+
 data class UserProfile(
     val id: String,
     val name: String,

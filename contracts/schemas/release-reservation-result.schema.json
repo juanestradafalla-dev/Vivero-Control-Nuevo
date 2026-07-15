@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/release-reservation-result.schema.json",
+  "title": "LiberarReservaLineaResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "liberacionId", "reservaId", "jornadaLineaId", "tipoReserva",
+    "estadoReserva", "estadoCentral", "versionLinea", "liberadaEn"
+  ],
+  "properties": {
+    "liberacionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "reservaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaLineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "tipoReserva": {"enum": ["INICIAL", "CORRECCION"]},
+    "estadoReserva": {"const": "LIBERADA"},
+    "estadoCentral": {"enum": ["DISPONIBLE", "DEVUELTA"]},
+    "versionLinea": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "liberadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

@@ -40,6 +40,10 @@ class DisabledCampoRepository : CampoRepository {
 
     override fun observeCountDraft(reservationId: String, userId: String, deviceId: String): Flow<LocalCountDraft?> = emptyFlow()
 
+    override fun observeReservationState(reservationId: String): Flow<String> = emptyFlow()
+
+    override suspend fun markReservationReleased(reservationId: String) = unavailable()
+
     override suspend fun saveCountInput(reservationId: String, userId: String, deviceId: String, input: CountInput) = unavailable()
 
     override suspend fun freezeCountAttempt(

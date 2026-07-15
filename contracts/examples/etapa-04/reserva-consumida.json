@@ -10,6 +10,7 @@
   "tokenReservaHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
   "reservadaEn": "2026-07-13T19:00:00.000Z",
   "estadoReserva": "CONSUMIDA",
+  "conteoId": "conteo-ficticio-001",
   "consumidaEn": "2026-07-13T20:00:00.000Z",
   "politicaLiberacion": "MANUAL_SUPERVISOR_MVP"
 }

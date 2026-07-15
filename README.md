@@ -2,7 +2,7 @@
 
 Sistema nuevo para operar inventario por línea mediante Vivero Campo (Android), Vivero Maestro (Windows) y un backend transaccional. Este repositorio no consulta, modifica ni reutiliza el proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 7
+## Estado: ETAPA 8
 
 La vertical disponible funciona exclusivamente con Firebase Emulator Suite y datos ficticios:
 
@@ -19,6 +19,11 @@ La vertical disponible funciona exclusivamente con Firebase Emulator Suite y dat
 10. Supervisor o administrador autorizado puede reasignar una corrección `DEVUELTA` a otro usuario activo y autorizado.
 11. La reasignación es inmutable, idempotente y auditada; no cambia el conteo original, su autor ni el inventario.
 12. Solo el responsable actual inicia la reserva `CORRECCION`; la nueva versión conserva el enlace anterior y registra como autor a quien corrigió.
+
+13. Supervisor o administrador autorizado puede liberar manualmente una reserva `ACTIVA` mediante `liberarReservaLinea`.
+14. Una reserva inicial vuelve de `EN_CONTEO` a `DISPONIBLE`; una reserva `CORRECCION` vuelve a `DEVUELTA` y restaura su reasignación vigente.
+15. Campo conserva el borrador local, cancela reintentos y muestra el rechazo supervisado sin borrar el token cifrado.
+16. La liberación es inmutable, auditada e idempotente; competir con `enviarConteo` produce exactamente un ganador.
 
 > **MODO DE PRUEBA — EMULADOR.** No existe Firebase real configurado, no hay credenciales de producción y ningún comando despliega recursos.
 
@@ -80,7 +85,7 @@ Set-Location backend/functions
 npm run emulator:seed
 ```
 
-Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las seis Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
+Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las siete Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
 
 | Correo ficticio | Rol |
 |---|---|
@@ -126,6 +131,14 @@ npm run test:emulators
 npm audit --omit=dev --audit-level=high
 ```
 
+## Documentación de la ETAPA 8
+
+- [Liberación manual supervisada](docs/arquitectura/LIBERACION_RESERVAS_ETAPA_08.md)
+- [Pruebas y concurrencia](docs/pruebas/PRUEBAS_ETAPA_08.md)
+- [Criterios de aceptación](docs/ETAPA_08_CRITERIOS_DE_ACEPTACION.md)
+- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
+- [Decisiones pendientes](docs/DECISIONES_PENDIENTES.md)
+
 ## Documentación de la ETAPA 7
 
 - [Reasignación supervisada](docs/arquitectura/REASIGNACION_CORRECCIONES_ETAPA_07.md)
@@ -136,4 +149,4 @@ npm audit --omit=dev --audit-level=high
 
 ## Exclusiones vigentes
 
-No están implementados: liberación de reservas o líneas abandonadas, corrección simultánea por varios usuarios, gestión completa de jornadas, administración de usuarios, datos reales, migración, Firebase de producción, despliegues, APK de producción, instalador Windows definitivo, descartes, despachos, químicos, aplicaciones ni reingresos.
+No están implementados: vencimiento automático, temporizadores de abandono, eliminación o recuperación administrativa de borradores, corrección simultánea por varios usuarios, gestión completa de jornadas, administración de usuarios, datos reales, migración, Firebase de producción, despliegues, APK de producción, instalador Windows definitivo, descartes, despachos, químicos, aplicaciones ni reingresos.

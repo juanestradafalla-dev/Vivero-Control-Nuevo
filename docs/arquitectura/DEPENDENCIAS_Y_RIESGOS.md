@@ -133,3 +133,11 @@ No se agregan dependencias externas, migraciones Room ni índices de producción
 El bloqueo determinista por `lineaId` evita dos jornadas activas simultáneas. Su ciclo de liberación queda pendiente porque cierre, cancelación y reapertura no existen aún. El límite combinado de 200 mantiene el peor caso en 402 escrituras dentro de una única transacción, pero deberá revisarse con la estructura real del vivero antes de producción.
 
 Persisten los riesgos de estructura y datos reales, calidad de señal, dispositivos Android reales, retención local, pérdida de claves Keystore y 8 alertas moderadas transitivas del backend, sin alertas altas ni críticas en la auditoría actual. No se inicializa inventario: una jornada activa puede tener líneas sin fotografía oficial y una aprobación futura continuará rechazándose hasta contar con inventario inicial válido. Firebase real sigue sin configurarse ni desplegarse.
+
+## Actualización de la ETAPA 13
+
+No se agregan dependencias externas, migraciones Room ni índices de producción. El cierre reutiliza Auth, Functions, transacciones, auditoría, idempotencia y el bloqueo determinista de líneas. El máximo combinado de 200 limita el peor caso a 403 escrituras y evita cualquier cierre por lotes.
+
+La liberación de ocupaciones permite reutilizar líneas físicas en nuevos borradores, pero no autoriza reapertura ni edición histórica. Una ocupación faltante o perteneciente a otra jornada bloquea el cierre para evitar ocultar inconsistencias. Campo conserva los datos locales ante revocación; la política definitiva de retención local sigue pendiente.
+
+Persisten los riesgos de estructura y datos reales, calidad de señal, dispositivos Android reales, pérdida de claves Keystore y 9 alertas moderadas transitivas del backend, sin alertas altas ni críticas. No existe cierre forzado para resolver trabajo pendiente: debe completarse por los flujos normales. Firebase real sigue sin configurarse ni desplegarse.

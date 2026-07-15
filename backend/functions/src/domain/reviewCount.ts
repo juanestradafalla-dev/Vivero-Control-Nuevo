@@ -303,6 +303,12 @@ export class ApproveCountService {
       transaction.update(lineRef, {
         estadoCentral: "APROBADA",
         decisionVigenteId: decisionId,
+        responsableCorreccionUsuarioId: null,
+        responsableCorreccionNombreVisible: null,
+        reasignacionActivaId: null,
+        reasignadaPorUsuarioId: null,
+        reasignadaPorNombreVisible: null,
+        motivoReasignacion: null,
         version: nextLineVersion,
         actualizadaEn: decidedAt
       });

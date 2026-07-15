@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/close-journey-result.schema.json",
+  "title": "Resultado cerrarJornada",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "jornadaId",
+    "estado",
+    "version",
+    "cantidadLineas",
+    "cantidadAutorizaciones",
+    "ocupacionesLiberadas",
+    "cerradaEn"
+  ],
+  "properties": {
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "estado": {"const": "INACTIVA"},
+    "version": {"type": "integer", "minimum": 2, "maximum": 9007199254740991},
+    "cantidadLineas": {"type": "integer", "minimum": 0, "maximum": 200},
+    "cantidadAutorizaciones": {"type": "integer", "minimum": 0, "maximum": 200},
+    "ocupacionesLiberadas": {"type": "integer", "minimum": 0, "maximum": 200},
+    "cerradaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

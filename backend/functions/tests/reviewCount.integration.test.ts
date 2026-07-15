@@ -128,6 +128,14 @@ describe("aprobarConteo y devolverConteo mediante emuladores reales", () => {
     const reviewer = await authenticatedClient("supervisor@prueba.local", "supervisor-approve");
     const database = adminDatabase();
     const originalCount = await database.collection("conteos").doc(count.conteoId).get();
+    await database.collection("jornadaLineas").doc(journeyLineId(1)).update({
+      responsableCorreccionUsuarioId: "uid-auxiliar-1",
+      responsableCorreccionNombreVisible: "Auxiliar ficticio 1",
+      reasignacionActivaId: "REASIGNACION-YA-CORREGIDA",
+      reasignadaPorUsuarioId: "uid-supervisor",
+      reasignadaPorNombreVisible: "Supervisor ficticio",
+      motivoReasignacion: "Metadatos activos que deben cerrarse al aprobar."
+    });
     const result = await approve(reviewer.functions, {
       conteoId: count.conteoId,
       claveIdempotencia: "aprobar-valido-etapa-05-0001"
@@ -146,7 +154,13 @@ describe("aprobarConteo y devolverConteo mediante emuladores reales", () => {
     expect((await database.collection("inventarioOficialLineas").doc("LINEA-PRUEBA-1").get()).data())
       .toMatchObject({hembras: 450, machos: 320, patrones: 210, total: 980, version: 2});
     expect((await database.collection("jornadaLineas").doc(journeyLineId(1)).get()).data())
-      .toMatchObject({estadoCentral: "APROBADA", version: 3, decisionVigenteId: result.decisionId});
+      .toMatchObject({
+        estadoCentral: "APROBADA",
+        version: 3,
+        decisionVigenteId: result.decisionId,
+        responsableCorreccionUsuarioId: null,
+        reasignacionActivaId: null
+      });
     expect((await database.collection("conteos").doc(count.conteoId).get()).data()).toEqual(originalCount.data());
     expect((await database.collection("decisionesRevision").get()).size).toBe(1);
     expect((await database.collection("movimientosInventario").get()).size).toBe(1);

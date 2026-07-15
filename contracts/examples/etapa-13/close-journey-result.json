@@ -1,0 +1,9 @@
+{
+  "jornadaId": "JORNADA-CIERRE-ETAPA-13",
+  "estado": "INACTIVA",
+  "version": 9,
+  "cantidadLineas": 2,
+  "cantidadAutorizaciones": 3,
+  "ocupacionesLiberadas": 2,
+  "cerradaEn": "2026-07-15T21:00:00.000Z"
+}

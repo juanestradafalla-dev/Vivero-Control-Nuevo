@@ -11,14 +11,16 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["jornadaId", "nombreVisible", "estado", "rolEfectivo", "puedeContar", "cantidadLineas"],
+        "required": ["jornadaId", "nombreVisible", "estado", "rolEfectivo", "puedeContar", "cantidadLineas", "version", "puedeCerrar"],
         "properties": {
           "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
           "nombreVisible": {"type": "string", "minLength": 1, "maxLength": 200},
           "estado": {"const": "ACTIVA"},
           "rolEfectivo": {"$ref": "../enums/roles.json"},
           "puedeContar": {"type": "boolean"},
-          "cantidadLineas": {"type": "integer", "minimum": 0, "maximum": 9007199254740991}
+          "cantidadLineas": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+          "version": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+          "puedeCerrar": {"type": "boolean"}
         }
       }
     }

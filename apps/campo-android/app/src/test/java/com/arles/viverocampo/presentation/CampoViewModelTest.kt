@@ -21,6 +21,7 @@ import com.arles.viverocampo.domain.VisibleLocation
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -62,6 +63,31 @@ class CampoViewModelTest {
         assertEquals("Jornada ficticia", viewModel.uiState.value.journey?.displayName)
         assertEquals("CONECTADO", viewModel.uiState.value.connectionStatus)
         assertEquals("jornada-prueba", viewModel.uiState.value.selectedJourneyId)
+    }
+
+    @Test
+    fun `jornada cerrada desaparece de la seleccion sin borrar historial local`() = runTest {
+        repository.closeJourneyAfterSnapshot = true
+        login()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.activeJourneys.isEmpty())
+        assertNull(viewModel.uiState.value.selectedJourneyId)
+        assertNull(viewModel.uiState.value.journey)
+        assertTrue(viewModel.uiState.value.message?.contains("historial local se conservó") == true)
+    }
+
+    @Test
+    fun `si existe trabajo local inesperado conserva la seleccion y el borrador al cerrar`() = runTest {
+        repository.latestReservation = confirmedReservation
+        repository.closeJourneyAfterSnapshot = true
+        login()
+        advanceUntilIdle()
+
+        assertEquals(activeJourney.id, viewModel.uiState.value.selectedJourneyId)
+        assertEquals(confirmedReservation.reservationId, viewModel.uiState.value.confirmedReservation?.reservationId)
+        assertEquals(SyncState.PENDIENTE, viewModel.uiState.value.countDraft?.syncState)
+        assertTrue(viewModel.uiState.value.message?.contains("trabajo local se conservó") == true)
     }
 
     @Test
@@ -354,6 +380,8 @@ class CampoViewModelTest {
             secondActiveJourney.id to MutableStateFlow(secondJourneySnapshot),
         )
         val observedJourneyIds = mutableListOf<String>()
+        var closeJourneyAfterSnapshot = false
+        private var activeJourneyListCalls = 0
         val returnedCounts = MutableStateFlow<List<ReturnedCount>>(emptyList())
         private val drafts = mutableMapOf<Triple<String, String, String>, MutableStateFlow<LocalCountDraft?>>()
         private val reservationStates = mutableMapOf<String, MutableStateFlow<String>>()
@@ -365,10 +393,17 @@ class CampoViewModelTest {
 
         override suspend fun signIn(email: String, password: String) = UserProfile("uid-auxiliar-1", "Auxiliar ficticio", "AUXILIAR")
         override suspend fun signOut() = Unit
-        override suspend fun listActiveJourneys(): List<ActiveJourney> = activeJourneys
+        override suspend fun listActiveJourneys(): List<ActiveJourney> {
+            activeJourneyListCalls += 1
+            return if (closeJourneyAfterSnapshot && activeJourneyListCalls > 1) emptyList() else activeJourneys
+        }
         override fun observeJourney(journeyId: String): Flow<JourneySnapshot> {
             observedJourneyIds += journeyId
-            return requireNotNull(journeys[journeyId])
+            val journey = requireNotNull(journeys[journeyId])
+            return if (closeJourneyAfterSnapshot) flow {
+                emit(journey.value)
+                throw CampoRepositoryException("JOURNEY_NOT_ACTIVE", "La jornada fue cerrada por supervisión.")
+            } else journey
         }
         override fun observeReturnedCounts(userId: String, journeyId: String): Flow<List<ReturnedCount>> = returnedCounts
         override suspend fun reserveLine(payload: ReserveLinePayload, userId: String): ConfirmedReservation {

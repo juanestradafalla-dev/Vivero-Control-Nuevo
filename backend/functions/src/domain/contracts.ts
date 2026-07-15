@@ -39,6 +39,13 @@ export type ControlledErrorCode =
   | "ACTIVATION_LINE_NOT_FOUND"
   | "ACTIVATION_LINE_INACTIVE"
   | "ACTIVATION_LINE_OCCUPIED"
+  | "JOURNEY_CLOSE_ACCESS_DENIED"
+  | "JOURNEY_CLOSE_STALE_VERSION"
+  | "JOURNEY_CLOSE_PENDING_LINES"
+  | "JOURNEY_CLOSE_ACTIVE_RESERVATIONS"
+  | "JOURNEY_CLOSE_PENDING_CORRECTIONS"
+  | "JOURNEY_CLOSE_LIMIT_EXCEEDED"
+  | "JOURNEY_CLOSE_OCCUPATION_MISMATCH"
   | "LINE_NOT_AVAILABLE"
   | "RESERVATION_NOT_FOUND"
   | "RESERVATION_NOT_ACTIVE"
@@ -175,6 +182,8 @@ export interface ActiveJourneySummary {
   readonly rolEfectivo: UserRole;
   readonly puedeContar: boolean;
   readonly cantidadLineas: number;
+  readonly version: number;
+  readonly puedeCerrar: boolean;
 }
 
 export interface ListActiveJourneysResult {
@@ -291,6 +300,22 @@ export interface ActivateJourneyResult {
   readonly jornadaLineaIds: readonly string[];
   readonly participanteIds: readonly string[];
   readonly activadaEn: string;
+}
+
+export interface CloseJourneyRequest {
+  readonly jornadaId: string;
+  readonly versionEsperada: number;
+  readonly claveIdempotencia: string;
+}
+
+export interface CloseJourneyResult {
+  readonly jornadaId: string;
+  readonly estado: "INACTIVA";
+  readonly version: number;
+  readonly cantidadLineas: number;
+  readonly cantidadAutorizaciones: number;
+  readonly ocupacionesLiberadas: number;
+  readonly cerradaEn: string;
 }
 
 /** Contrato de frontera reservado para una futura operación de revisión; no es enviarConteo. */

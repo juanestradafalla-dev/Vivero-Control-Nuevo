@@ -25,6 +25,8 @@ interface JourneyDocument {
   readonly nombreVisible?: string;
   readonly estadoAdministrativo?: string;
   readonly creadaEn?: unknown;
+  readonly version?: unknown;
+  readonly creadaPorUsuarioId?: unknown;
 }
 
 const roles = new Set<UserRole>(["AUXILIAR", "SUPERVISOR", "ADMINISTRADOR"]);
@@ -77,7 +79,9 @@ export class ListActiveJourneysService {
       if (
         journey.estadoAdministrativo !== "ACTIVA" ||
         typeof journey.nombreVisible !== "string" ||
-        !(journey.creadaEn instanceof Timestamp)
+        !(journey.creadaEn instanceof Timestamp) ||
+        !Number.isSafeInteger(journey.version) ||
+        typeof journey.creadaPorUsuarioId !== "string"
       ) {
         return undefined;
       }
@@ -87,7 +91,10 @@ export class ListActiveJourneysService {
         estado: "ACTIVA",
         rolEfectivo: authorization.rolEfectivo,
         puedeContar: authorization.puedeContar,
-        cantidadLineas: linesSnapshot.docs.filter((line) => line.data().activa === true).length
+        cantidadLineas: linesSnapshot.docs.filter((line) => line.data().activa === true).length,
+        version: journey.version as number,
+        puedeCerrar: userRoles.includes("ADMINISTRADOR") ||
+          (userRoles.includes("SUPERVISOR") && journey.creadaPorUsuarioId === context.actorId)
       };
       return {summary, createdAt: journey.creadaEn.toMillis()};
     }));

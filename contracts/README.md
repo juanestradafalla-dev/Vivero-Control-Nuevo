@@ -2,6 +2,8 @@
 
 Los JSON Schema Draft 2020-12 son el lenguaje común de Campo, Maestro y backend.
 
+La Etapa 13 agrega contratos estrictos para `cerrarJornada` y su resultado idempotente. La solicitud contiene solo jornada, versión observada y clave; el resultado central declara `INACTIVA`, nueva versión, cantidades conservadas y ocupaciones liberadas. `listarJornadasActivas` incluye la versión y el permiso de cierre calculado centralmente, sin exponer la identidad del creador a Campo. Los ejemplos están en `examples/etapa-13/`.
+
 La Etapa 12 agrega contratos para `activarJornada`, su resultado y el bloqueo determinista `ocupacionesLineasActivas/{lineaId}`. La solicitud solo contiene jornada, las tres versiones observadas y clave idempotente. El límite técnico combinado de líneas y participantes es 200; su exceso rechaza toda la activación y nunca habilita lotes parciales. Los ejemplos están en `examples/etapa-12/`.
 
 La Etapa 11 agrega contratos para listar el catálogo central activo y actualizar participantes de un borrador. Las solicitudes solo aceptan `usuarioId`, `puedeContar` y la clave idempotente; nombre y rol aparecen únicamente en resultados centrales. La selección preparatoria permanece separada de las autorizaciones operativas. Los ejemplos están en `examples/etapa-11/`.
@@ -41,6 +43,9 @@ Reglas de frontera:
 - nombre, actividad y rol de cada participante se revalidan centralmente antes de crear autorizaciones;
 - `ACTIVA` y `DISPONIBLE` solo aparecen como resultado de la transacción central;
 - `ACTIVAR_JORNADA` no crea inventario ni movimientos y conserva intactas las selecciones preparatorias.
+- cerrar usa la versión esperada de la jornada y no acepta identidad, rol, estados ni horas del cliente;
+- `CERRAR_JORNADA` conserva historia, desactiva datos operativos y libera solo bloqueos de líneas de esa jornada;
+- un cierre normal nunca modifica inventario, movimientos, conteos, decisiones, reservas o selecciones preparatorias.
 
 Los ejemplos ficticios de liberación están en `examples/etapa-08/`.
 

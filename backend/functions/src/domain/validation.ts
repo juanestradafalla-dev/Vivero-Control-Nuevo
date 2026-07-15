@@ -2,6 +2,7 @@ import type {
   ActivateJourneyRequest,
   ApproveCountRequest,
   CreateDraftJourneyRequest,
+  CloseJourneyRequest,
   InitiateCountCorrectionRequest,
   ListDraftJourneyParticipantsRequest,
   ReassignCountCorrectionRequest,
@@ -47,6 +48,7 @@ const activateJourneyFields = new Set([
   "versionSeleccionParticipantesEsperada",
   "claveIdempotencia"
 ]);
+const closeJourneyFields = new Set(["jornadaId", "versionEsperada", "claveIdempotencia"]);
 const REVIEW_REASON_LIMIT = 2000;
 const JOURNEY_NAME_LIMIT = 200;
 const DRAFT_LINE_LIMIT = 400;
@@ -196,6 +198,29 @@ export function parseActivateJourneyRequest(value: unknown): ActivateJourneyRequ
     versionJornadaEsperada: record.versionJornadaEsperada as number,
     versionSeleccionLineasEsperada: record.versionSeleccionLineasEsperada as number,
     versionSeleccionParticipantesEsperada: record.versionSeleccionParticipantesEsperada as number,
+    claveIdempotencia: record.claveIdempotencia
+  };
+}
+
+export function parseCloseJourneyRequest(value: unknown): CloseJourneyRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw domainErrors.invalidArgument();
+  }
+  const record = value as Record<string, unknown>;
+  if (
+    Object.keys(record).some((field) => !closeJourneyFields.has(field)) ||
+    typeof record.jornadaId !== "string" ||
+    !safeIdPattern.test(record.jornadaId) ||
+    !Number.isSafeInteger(record.versionEsperada) ||
+    (record.versionEsperada as number) < 1 ||
+    typeof record.claveIdempotencia !== "string" ||
+    !idempotencyPattern.test(record.claveIdempotencia)
+  ) {
+    throw domainErrors.invalidArgument();
+  }
+  return {
+    jornadaId: record.jornadaId,
+    versionEsperada: record.versionEsperada as number,
     claveIdempotencia: record.claveIdempotencia
   };
 }

@@ -445,12 +445,7 @@ class CampoViewModel(
         journeyJob = viewModelScope.launch {
             repository.observeJourney(journeyId)
                 .onStart { mutableState.value = mutableState.value.copy(connectionStatus = "CONECTANDO") }
-                .catch { error ->
-                    mutableState.value = mutableState.value.copy(
-                        connectionStatus = "ERROR",
-                        message = error.message ?: "Se perdió la conexión con los emuladores.",
-                    )
-                }
+                .catch { error -> handleJourneyObservationFailure(journeyId, error) }
                 .collect { journey ->
                     mutableState.value = mutableState.value.copy(journey = journey, connectionStatus = "CONECTADO")
                 }
@@ -477,6 +472,42 @@ class CampoViewModel(
             state.reserving ||
             state.correctingCountId != null ||
             state.selectedLine != null ||
+            state.countDraft?.syncState in setOf(SyncState.PENDIENTE, SyncState.SINCRONIZANDO, SyncState.ERROR)
+
+    private suspend fun handleJourneyObservationFailure(journeyId: String, error: Throwable) {
+        val refreshedJourneys = runCatching { repository.listActiveJourneys() }.getOrNull()
+        if (refreshedJourneys == null || refreshedJourneys.any { it.id == journeyId }) {
+            mutableState.value = mutableState.value.copy(
+                connectionStatus = "ERROR",
+                message = error.message ?: "Se perdió la conexión con los emuladores.",
+            )
+            return
+        }
+        val current = mutableState.value
+        if (hasLocalWorkToPreserveAfterClosure(current)) {
+            mutableState.value = current.copy(
+                activeJourneys = refreshedJourneys,
+                connectionStatus = "ERROR",
+                message = "La jornada fue cerrada. El trabajo local se conservó; consulta con supervisión.",
+            )
+            return
+        }
+        returnedCountsJob?.cancel()
+        mutableState.value = current.copy(
+            activeJourneys = refreshedJourneys,
+            selectedJourneyId = null,
+            journey = null,
+            returnedCounts = emptyList(),
+            selectedLine = null,
+            connectionStatus = "CONECTADO",
+            message = "La jornada fue cerrada y ya no está disponible. El historial local se conservó.",
+        )
+    }
+
+    private fun hasLocalWorkToPreserveAfterClosure(state: CampoUiState): Boolean =
+        state.confirmedReservation != null ||
+            state.reserving ||
+            state.correctingCountId != null ||
             state.countDraft?.syncState in setOf(SyncState.PENDIENTE, SyncState.SINCRONIZANDO, SyncState.ERROR)
 
     private object NoOpCountSyncScheduler : CountSyncScheduler {

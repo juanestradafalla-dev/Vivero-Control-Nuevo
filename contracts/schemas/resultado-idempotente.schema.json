@@ -8,7 +8,7 @@
   "properties": {
     "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "actorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
-    "operacion": {"enum": ["RESERVAR_LINEA", "ENVIAR_CONTEO", "APROBAR_CONTEO", "DEVOLVER_CONTEO", "INICIAR_CORRECCION_CONTEO", "REASIGNAR_CORRECCION_CONTEO", "LIBERAR_RESERVA_LINEA", "CREAR_JORNADA_BORRADOR", "ACTUALIZAR_LINEAS_JORNADA_BORRADOR", "ACTUALIZAR_PARTICIPANTES_JORNADA_BORRADOR", "ACTIVAR_JORNADA"]},
+    "operacion": {"enum": ["RESERVAR_LINEA", "ENVIAR_CONTEO", "APROBAR_CONTEO", "DEVOLVER_CONTEO", "INICIAR_CORRECCION_CONTEO", "REASIGNAR_CORRECCION_CONTEO", "LIBERAR_RESERVA_LINEA", "CREAR_JORNADA_BORRADOR", "ACTUALIZAR_LINEAS_JORNADA_BORRADOR", "ACTUALIZAR_PARTICIPANTES_JORNADA_BORRADOR", "ACTIVAR_JORNADA", "CERRAR_JORNADA"]},
     "claveHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "payloadHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "resultado": {
@@ -23,7 +23,8 @@
         {"$ref": "create-draft-journey-result.schema.json"},
         {"$ref": "update-draft-journey-lines-result.schema.json"},
         {"$ref": "update-draft-journey-participants-result.schema.json"},
-        {"$ref": "activate-journey-result.schema.json"}
+        {"$ref": "activate-journey-result.schema.json"},
+        {"$ref": "close-journey-result.schema.json"}
       ]
     },
     "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}

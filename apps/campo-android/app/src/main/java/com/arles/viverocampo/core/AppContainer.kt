@@ -11,6 +11,7 @@ import com.arles.viverocampo.data.sync.CountSyncScheduler
 import com.arles.viverocampo.data.sync.CountSyncWorkerDependencies
 import com.arles.viverocampo.data.sync.WorkManagerCountSyncScheduler
 import com.arles.viverocampo.domain.CampoRepository
+import com.arles.viverocampo.domain.CampoEnvironment
 import java.util.UUID
 
 class AppContainer private constructor(
@@ -20,28 +21,41 @@ class AppContainer private constructor(
 ) {
     companion object {
         fun create(context: Context): AppContainer {
-            val preferences = context.getSharedPreferences("technical_emulator", Context.MODE_PRIVATE)
+            val initialization = FirebaseServicesInitializer.initialize(context)
+            val config = initialization.config
+            val namespace = config.localStorageNamespace.takeIf { it.matches(Regex("[a-z0-9_-]+")) } ?: "disabled"
+            val preferences = context.getSharedPreferences("technical_$namespace", Context.MODE_PRIVATE)
             val installationId = preferences.getString("installation_id", null)
                 ?: UUID.randomUUID().toString().also {
                     preferences.edit { putString("installation_id", it) }
                 }
-            val deviceId = "ANDROID-INSTALACION-$installationId"
-            val services = FirebaseEmulatorInitializer.initialize(context)
+            val emulatorMode = config.environment == CampoEnvironment.EMULATOR
+            val deviceId = if (emulatorMode) {
+                "ANDROID-INSTALACION-$installationId"
+            } else {
+                "ANDROID-${namespace.uppercase()}-INSTALACION-$installationId"
+            }
+            val services = initialization.services
             val repository = if (services == null) {
-                DisabledCampoRepository()
+                DisabledCampoRepository(config.environment, requireNotNull(initialization.errorMessage))
             } else {
                 val database = Room.databaseBuilder(
                     context.applicationContext,
                     ViveroCampoDatabase::class.java,
-                    "vivero-campo-emulador.db",
+                    if (emulatorMode) "vivero-campo-emulador.db" else "vivero-campo-$namespace.db",
                 ).addMigrations(
                     ViveroCampoDatabase.MIGRATION_1_2,
                     ViveroCampoDatabase.MIGRATION_2_3,
                 ).build()
-                FirebaseCampoRepository(services, database, AndroidKeystoreReservationTokenVault())
+                FirebaseCampoRepository(
+                    services,
+                    database,
+                    AndroidKeystoreReservationTokenVault(namespace),
+                    config.environment,
+                )
             }
             CountSyncWorkerDependencies.repository = repository
-            return AppContainer(repository, deviceId, WorkManagerCountSyncScheduler(context))
+            return AppContainer(repository, deviceId, WorkManagerCountSyncScheduler(context, namespace))
         }
     }
 }

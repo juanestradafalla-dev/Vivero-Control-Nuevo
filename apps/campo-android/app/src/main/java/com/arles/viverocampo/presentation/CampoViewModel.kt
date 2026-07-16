@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.arles.viverocampo.data.sync.CountSyncScheduler
 import com.arles.viverocampo.domain.CampoRepository
 import com.arles.viverocampo.domain.CampoRepositoryException
+import com.arles.viverocampo.domain.CampoEnvironment
 import com.arles.viverocampo.domain.ActiveJourney
 import com.arles.viverocampo.domain.ConfirmedReservation
 import com.arles.viverocampo.domain.CountFieldErrors
@@ -35,7 +36,9 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 
 data class CampoUiState(
-    val emulatorEnabled: Boolean,
+    val environment: CampoEnvironment,
+    val accessEnabled: Boolean,
+    val mutableOperationsEnabled: Boolean,
     val email: String = "",
     val password: String = "",
     val signingIn: Boolean = false,
@@ -70,7 +73,14 @@ class CampoViewModel(
         }.format(Date())
     },
 ) : ViewModel() {
-    private val mutableState = MutableStateFlow(CampoUiState(emulatorEnabled = repository.emulatorEnabled))
+    private val mutableState = MutableStateFlow(
+        CampoUiState(
+            environment = repository.environment,
+            accessEnabled = repository.accessEnabled,
+            mutableOperationsEnabled = repository.mutableOperationsEnabled,
+            message = repository.configurationError,
+        ),
+    )
     val uiState: StateFlow<CampoUiState> = mutableState.asStateFlow()
     private val pendingReservationKeys = mutableMapOf<String, String>()
     private val pendingCorrectionKeys = mutableMapOf<String, String>()
@@ -91,9 +101,13 @@ class CampoViewModel(
 
     fun signIn() {
         val state = mutableState.value
+        if (!state.accessEnabled) {
+            mutableState.value = state.copy(message = repository.configurationError)
+            return
+        }
         if (state.signingIn || state.email.isBlank() || state.password.isBlank()) {
             if (state.email.isBlank() || state.password.isBlank()) {
-                mutableState.value = state.copy(message = "Ingresa correo y contraseña de prueba.")
+                mutableState.value = state.copy(message = "Ingresa correo y contraseña.")
             }
             return
         }
@@ -145,7 +159,12 @@ class CampoViewModel(
             accountStatusJob?.cancel()
             pendingReservationKeys.clear()
             pendingCorrectionKeys.clear()
-            mutableState.value = CampoUiState(emulatorEnabled = repository.emulatorEnabled)
+            mutableState.value = CampoUiState(
+                environment = repository.environment,
+                accessEnabled = repository.accessEnabled,
+                mutableOperationsEnabled = repository.mutableOperationsEnabled,
+                message = repository.configurationError,
+            )
         }
     }
 
@@ -173,7 +192,9 @@ class CampoViewModel(
                     pendingReservationKeys.clear()
                     pendingCorrectionKeys.clear()
                     mutableState.value = CampoUiState(
-                        emulatorEnabled = repository.emulatorEnabled,
+                        environment = repository.environment,
+                        accessEnabled = repository.accessEnabled,
+                        mutableOperationsEnabled = repository.mutableOperationsEnabled,
                         message = "Cuenta desactivada",
                     )
                 }
@@ -181,6 +202,7 @@ class CampoViewModel(
     }
 
     fun selectLine(line: JourneyLine) {
+        if (blockMutableOperation()) return
         if (line.state == "DISPONIBLE" && !mutableState.value.reserving) {
             mutableState.value = mutableState.value.copy(selectedLine = line, message = null)
         }
@@ -231,6 +253,7 @@ class CampoViewModel(
     }
 
     fun confirmReservation() {
+        if (blockMutableOperation()) return
         val state = mutableState.value
         val line = state.selectedLine ?: return
         val user = state.user ?: return
@@ -265,6 +288,7 @@ class CampoViewModel(
     }
 
     fun correctCount(returnedCount: ReturnedCount) {
+        if (blockMutableOperation()) return
         val state = mutableState.value
         val user = state.user ?: return
         if (!returnedCount.canCorrect || state.correctingCountId != null || state.confirmedReservation != null) return
@@ -328,6 +352,7 @@ class CampoViewModel(
     }
 
     fun requestCountConfirmation() {
+        if (blockMutableOperation()) return
         if (mutableState.value.confirmedReservation?.state == "LIBERADA") return
         val validation = CountFormValidator.validate(mutableState.value.countInput)
         if (!validation.valid) {
@@ -355,6 +380,7 @@ class CampoViewModel(
     }
 
     fun confirmCountSubmission() {
+        if (blockMutableOperation()) return
         val state = mutableState.value
         val reservation = state.confirmedReservation ?: return
         val user = state.user ?: return
@@ -391,6 +417,7 @@ class CampoViewModel(
     }
 
     fun retryCountSubmission() {
+        if (blockMutableOperation()) return
         if (mutableState.value.confirmedReservation?.state == "LIBERADA") return
         val frozen = mutableState.value.countDraft?.frozenPayload ?: return
         syncScheduler.schedule(frozen.reservationId, frozen.idempotencyKey)
@@ -508,12 +535,20 @@ class CampoViewModel(
             state.selectedLine != null ||
             state.countDraft?.syncState in setOf(SyncState.PENDIENTE, SyncState.SINCRONIZANDO, SyncState.ERROR)
 
+    private fun blockMutableOperation(): Boolean {
+        if (repository.mutableOperationsEnabled) return false
+        mutableState.value = mutableState.value.copy(
+            message = "STAGING es de solo lectura: las operaciones de conteo continúan bloqueadas.",
+        )
+        return true
+    }
+
     private suspend fun handleJourneyObservationFailure(journeyId: String, error: Throwable) {
         val refreshedJourneys = runCatching { repository.listActiveJourneys() }.getOrNull()
         if (refreshedJourneys == null || refreshedJourneys.any { it.id == journeyId }) {
             mutableState.value = mutableState.value.copy(
                 connectionStatus = "ERROR",
-                message = error.message ?: "Se perdió la conexión con los emuladores.",
+                message = error.message ?: "Se perdió la conexión con Firebase.",
             )
             return
         }

@@ -77,11 +77,21 @@ import {
 } from "./domain/validation.js";
 import {firestore} from "./firebase.js";
 
+const STAGING_PROJECT_ID = "viverocontrol-3f83f";
+
 export function assertEmulatorOnly(): void {
   const projectId = process.env.GCLOUD_PROJECT ?? process.env.GOOGLE_CLOUD_PROJECT ?? "";
   if (process.env.FUNCTIONS_EMULATOR !== "true" || !projectId.startsWith("demo-")) {
     throw domainErrors.emulatorOnly();
   }
+}
+
+export function assertActiveJourneysReadEnvironment(): void {
+  const projectId = process.env.GCLOUD_PROJECT ?? process.env.GOOGLE_CLOUD_PROJECT ?? "";
+  const emulatorAllowed = process.env.FUNCTIONS_EMULATOR === "true" && projectId.startsWith("demo-");
+  const stagingAllowed = process.env.FUNCTIONS_EMULATOR !== "true" &&
+    projectId === STAGING_PROJECT_ID && process.env.APP_ENV === "staging";
+  if (!emulatorAllowed && !stagingAllowed) throw domainErrors.emulatorOnly();
 }
 
 function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof HttpsError>[0] {
@@ -546,7 +556,7 @@ export const listarJornadasAdministrables = onCall({region: "us-central1"}, asyn
 
 export const listarJornadasActivas = onCall({region: "us-central1"}, async (request) => {
   try {
-    assertEmulatorOnly();
+    assertActiveJourneysReadEnvironment();
     if (!request.auth?.uid) throw domainErrors.unauthenticated();
     parseListActiveJourneysRequest(request.data);
     return await listActiveJourneysService.execute({actorId: request.auth.uid});

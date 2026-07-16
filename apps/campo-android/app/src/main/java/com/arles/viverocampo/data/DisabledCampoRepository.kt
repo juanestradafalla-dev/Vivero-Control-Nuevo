@@ -1,6 +1,7 @@
 package com.arles.viverocampo.data
 
 import com.arles.viverocampo.domain.CampoRepository
+import com.arles.viverocampo.domain.CampoEnvironment
 import com.arles.viverocampo.domain.ActiveJourney
 import com.arles.viverocampo.domain.CampoRepositoryException
 import com.arles.viverocampo.domain.ConfirmedReservation
@@ -15,8 +16,11 @@ import com.arles.viverocampo.domain.ReturnedCount
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 
-class DisabledCampoRepository : CampoRepository {
-    override val emulatorEnabled: Boolean = false
+class DisabledCampoRepository(
+    override val environment: CampoEnvironment = CampoEnvironment.DISABLED,
+    override val configurationError: String =
+        "Firebase no está configurado en esta compilación. No se intentará conectar a producción.",
+) : CampoRepository {
 
     override suspend fun signIn(email: String, password: String): UserProfile = unavailable()
 
@@ -63,6 +67,6 @@ class DisabledCampoRepository : CampoRepository {
 
     private fun unavailable(): Nothing = throw CampoRepositoryException(
         "FIREBASE_DISABLED",
-        "Firebase no está configurado en esta compilación. No se intentará conectar a producción.",
+        configurationError,
     )
 }

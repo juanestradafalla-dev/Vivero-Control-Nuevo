@@ -45,6 +45,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6.2.0
       - run: chmod +x gradlew
       - run: ./gradlew assembleDebug
+      - name: Compilar staging con identificadores ficticios
+        run: >-
+          ./gradlew assembleStaging
+          -PstagingFirebaseProjectId=viverocontrol-3f83f
+          -PstagingFirebaseApiKey=API_KEY_FICTICIA_SOLO_CI
+          -PstagingFirebaseAppId=1:000000000000:android:app-ficticia-solo-ci
       - run: ./gradlew testDebugUnitTest
       - run: ./gradlew lintDebug
 

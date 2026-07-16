@@ -1,46 +1,55 @@
 package com.arles.viverocampo.core
 
 import android.content.Context
-import com.arles.viverocampo.BuildConfig
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
 
-data class FirebaseEmulatorServices(
+data class FirebaseServices(
     val auth: FirebaseAuth,
     val firestore: FirebaseFirestore,
     val functions: FirebaseFunctions,
 )
 
-object FirebaseEmulatorInitializer {
-    private const val APP_NAME = "vivero-control-demo-etapa-3"
-    private var cachedServices: FirebaseEmulatorServices? = null
+data class FirebaseServicesInitialization(
+    val config: FirebaseRuntimeConfig,
+    val services: FirebaseServices?,
+    val errorMessage: String?,
+)
+
+object FirebaseServicesInitializer {
+    private var cachedServices: FirebaseServices? = null
 
     @Synchronized
-    fun initialize(context: Context): FirebaseEmulatorServices? {
-        if (!BuildConfig.EMULATOR_ENABLED) return null
-        cachedServices?.let { return it }
-        require(BuildConfig.FIREBASE_PROJECT_ID.startsWith("demo-")) {
-            "La compilación debug solo admite proyectos demo-."
-        }
-        val app = FirebaseApp.getApps(context).firstOrNull { it.name == APP_NAME }
+    fun initialize(
+        context: Context,
+        config: FirebaseRuntimeConfig = FirebaseRuntimeConfig.fromBuildConfig(),
+    ): FirebaseServicesInitialization {
+        val configurationError = config.validationError()
+        if (configurationError != null) return FirebaseServicesInitialization(config, null, configurationError)
+        cachedServices?.let { return FirebaseServicesInitialization(config, it, null) }
+        val appName = "vivero-control-${config.localStorageNamespace}"
+        val app = FirebaseApp.getApps(context).firstOrNull { it.name == appName }
             ?: FirebaseApp.initializeApp(
                 context,
                 FirebaseOptions.Builder()
-                    .setProjectId(BuildConfig.FIREBASE_PROJECT_ID)
-                    .setApiKey(BuildConfig.FIREBASE_API_KEY)
-                    .setApplicationId(BuildConfig.FIREBASE_APP_ID)
+                    .setProjectId(config.projectId)
+                    .setApiKey(config.apiKey)
+                    .setApplicationId(config.applicationId)
                     .build(),
-                APP_NAME,
+                appName,
             )
         val auth = FirebaseAuth.getInstance(app)
         val firestore = FirebaseFirestore.getInstance(app)
         val functions = FirebaseFunctions.getInstance(app, "us-central1")
-        auth.useEmulator(BuildConfig.EMULATOR_HOST, 9099)
-        firestore.useEmulator(BuildConfig.EMULATOR_HOST, 8180)
-        functions.useEmulator(BuildConfig.EMULATOR_HOST, 5001)
-        return FirebaseEmulatorServices(auth, firestore, functions).also { cachedServices = it }
+        if (config.usesEmulators) {
+            auth.useEmulator(config.emulatorHost, 9099)
+            firestore.useEmulator(config.emulatorHost, 8180)
+            functions.useEmulator(config.emulatorHost, 5001)
+        }
+        val services = FirebaseServices(auth, firestore, functions).also { cachedServices = it }
+        return FirebaseServicesInitialization(config, services, null)
     }
 }

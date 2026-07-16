@@ -24,8 +24,8 @@ async function assertInvalid(schemaFilename, exampleFilename) {
 }
 
 test("compila todos los esquemas Draft 2020-12 y resuelve sus referencias", () => {
-  assert.equal(registry.entityCount, 79);
-  assert.equal(registry.schemaCount, 80);
+  assert.equal(registry.entityCount, 83);
+  assert.equal(registry.schemaCount, 84);
   assert.equal(registry.enumCount, 5);
 });
 
@@ -404,5 +404,19 @@ test("rechaza cambiar campos inmutables de una línea", async () => {
   await assertInvalid(
     "update-catalog-line-request.schema.json",
     "etapa-16/update-catalog-line-request-extra-immutable.json"
+  );
+});
+
+test("acepta los contratos de inventario inicial controlado", async () => {
+  await assertValid("register-initial-inventory-request.schema.json", "etapa-17/register-initial-inventory-request.json");
+  await assertValid("register-initial-inventory-result.schema.json", "etapa-17/register-initial-inventory-result.json");
+  await assertValid("initial-inventory-load.schema.json", "etapa-17/initial-inventory-load.json");
+  await assertValid("resultado-idempotente.schema.json", "etapa-17/idempotent-initial-inventory-result.json");
+});
+
+test("rechaza total enviado por el cliente en la carga inicial", async () => {
+  await assertInvalid(
+    "register-initial-inventory-request.schema.json",
+    "etapa-17/register-initial-inventory-request-with-total.json"
   );
 });

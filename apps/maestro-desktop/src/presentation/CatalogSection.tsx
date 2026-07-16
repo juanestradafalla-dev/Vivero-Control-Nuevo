@@ -33,6 +33,16 @@ interface EditForm {
   readonly key: string;
 }
 
+interface InitialInventoryForm {
+  readonly line: ManageableCatalogLine;
+  readonly females: string;
+  readonly males: string;
+  readonly rootstocks: string;
+  readonly sourceReference: string;
+  readonly confirmed: boolean;
+  readonly key: string;
+}
+
 const emptyData: ManageableCatalogData = {locations: [], lines: []};
 
 function initialCreate(kind: CreateForm["kind"], parentId = ""): CreateForm {
@@ -46,6 +56,7 @@ export function CatalogSection({repository, onCatalogChanged}: CatalogSectionPro
   const [stateFilter, setStateFilter] = useState("TODOS");
   const [createForm, setCreateForm] = useState<CreateForm>();
   const [editForm, setEditForm] = useState<EditForm>();
+  const [inventoryForm, setInventoryForm] = useState<InitialInventoryForm>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
@@ -102,6 +113,7 @@ export function CatalogSection({repository, onCatalogChanged}: CatalogSectionPro
     setNotice(message);
     setCreateForm(undefined);
     setEditForm(undefined);
+    setInventoryForm(undefined);
     await load();
     onCatalogChanged();
   };
@@ -177,6 +189,44 @@ export function CatalogSection({repository, onCatalogChanged}: CatalogSectionPro
     }
   };
 
+  const submitInitialInventory = async () => {
+    if (!inventoryForm || saving) return;
+    const females = Number(inventoryForm.females);
+    const males = Number(inventoryForm.males);
+    const rootstocks = Number(inventoryForm.rootstocks);
+    const quantities = [females, males, rootstocks];
+    const total = females + males + rootstocks;
+    if (quantities.some((value) => !Number.isSafeInteger(value) || value < 0) || !Number.isSafeInteger(total)) {
+      setError("Las tres cantidades deben ser enteros no negativos dentro del rango seguro.");
+      return;
+    }
+    if (total === 0) {
+      setError("El total cero no está permitido para una carga inicial.");
+      return;
+    }
+    if (!inventoryForm.sourceReference.trim()) {
+      setError("La referencia de fuente ficticia es obligatoria.");
+      return;
+    }
+    if (!inventoryForm.confirmed) {
+      setError("Confirma explícitamente la carga inmutable.");
+      return;
+    }
+    setSaving(true);
+    setError(undefined);
+    try {
+      await repository.registerInitialInventory(
+        inventoryForm.line, females, males, rootstocks,
+        inventoryForm.sourceReference, inventoryForm.key,
+      );
+      await refreshAfterChange("Inventario inicial ficticio registrado de forma inmutable.");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "No fue posible registrar el inventario inicial.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const openLocationEdit = (location: ManageableCatalogLocation) => setEditForm({
     kind: "LOCATION", target: location, displayName: location.displayName,
     order: String(location.order), active: location.active, reason: "", confirmed: false, key: crypto.randomUUID(),
@@ -184,6 +234,10 @@ export function CatalogSection({repository, onCatalogChanged}: CatalogSectionPro
   const openLineEdit = (line: ManageableCatalogLine) => setEditForm({
     kind: "LINE", target: line, displayName: line.displayName,
     order: String(line.order), active: line.active, reason: "", confirmed: false, key: crypto.randomUUID(),
+  });
+  const openInitialInventory = (line: ManageableCatalogLine) => setInventoryForm({
+    line, females: "", males: "", rootstocks: "", sourceReference: "",
+    confirmed: false, key: crypto.randomUUID(),
   });
 
   const renderLocation = (location: ManageableCatalogLocation, visited = new Set<string>()) => {
@@ -213,6 +267,24 @@ export function CatalogSection({repository, onCatalogChanged}: CatalogSectionPro
                 {line.occupiedByActiveJourney && <em>Bloqueada por una jornada ACTIVA.</em>}
                 {line.draftSelectionCount > 0 && <em>Seleccionada en {line.draftSelectionCount} borrador(es); la selección se conservará.</em>}
               </div>
+              <div className={line.inventory ? "catalog-inventory" : "catalog-inventory catalog-inventory--empty"}>
+                <strong>{line.inventory ? "INICIALIZADO" : "SIN INICIALIZAR"}</strong>
+                {line.inventory ? (
+                  <>
+                    <span>H {line.inventory.females} · M {line.inventory.males} · P {line.inventory.rootstocks} · Total {line.inventory.total}</span>
+                    <span>v{line.inventory.version} · {line.inventory.origin}</span>
+                    <span>{line.inventory.actorDisplayName} · {new Date(line.inventory.updatedAt).toLocaleString("es-CO")}</span>
+                    {line.inventory.initialSourceReference && <span>Fuente inicial: {line.inventory.initialSourceReference}</span>}
+                  </>
+                ) : !line.initialInventoryEligible ? (
+                  <span>No elegible: {line.initialInventoryIneligibleReason ?? "actividad o estado incompatible"}</span>
+                ) : null}
+              </div>
+              {!line.inventory && line.initialInventoryEligible && (
+                <button className="button" type="button" onClick={() => openInitialInventory(line)}>
+                  Registrar inventario inicial
+                </button>
+              )}
               <button className="button button--secondary" type="button" disabled={line.occupiedByActiveJourney} onClick={() => openLineEdit(line)}>
                 Editar línea
               </button>
@@ -232,7 +304,7 @@ export function CatalogSection({repository, onCatalogChanged}: CatalogSectionPro
   return (
     <section className="catalog-admin" aria-labelledby="catalog-title">
       <header className="section-heading">
-        <div><p className="eyebrow">ETAPA 16 · ADMINISTRACIÓN CENTRAL</p><h1 id="catalog-title">Catálogo</h1></div>
+        <div><p className="eyebrow">ETAPA 17 · ADMINISTRACIÓN CENTRAL</p><h1 id="catalog-title">Catálogo</h1></div>
         <button className="button" type="button" onClick={() => setCreateForm(initialCreate("LOCATION"))}>Nueva ubicación raíz</button>
       </header>
       <p className="read-only-note">La jerarquía es genérica. Los tipos actuales son fixtures y no definen la estructura productiva.</p>
@@ -274,6 +346,29 @@ export function CatalogSection({repository, onCatalogChanged}: CatalogSectionPro
           <div className="dialog-actions"><button className="button button--secondary" type="button" disabled={saving} onClick={() => setEditForm(undefined)}>Cancelar</button><button className="button" type="button" disabled={saving || !editForm.confirmed} onClick={submitEdit}>{saving ? "Guardando…" : "Confirmar cambio"}</button></div>
         </section></div>
       )}
+
+      {inventoryForm && (() => {
+        const females = Number(inventoryForm.females);
+        const males = Number(inventoryForm.males);
+        const rootstocks = Number(inventoryForm.rootstocks);
+        const total = [females, males, rootstocks].every(Number.isSafeInteger)
+          ? females + males + rootstocks
+          : Number.NaN;
+        return (
+          <div className="dialog-backdrop" role="presentation"><section className="review-dialog" role="dialog" aria-modal="true" aria-labelledby="initial-inventory-title">
+            <h2 id="initial-inventory-title">Registrar inventario inicial</h2>
+            <p>{inventoryForm.line.displayName} · {inventoryForm.line.code} · versión de línea {inventoryForm.line.version}</p>
+            <p className="warning">Esta operación es inmutable y utiliza exclusivamente cifras ficticias del emulador.</p>
+            <label>Hembras<input aria-label="Hembras iniciales" type="number" min="0" step="1" inputMode="numeric" value={inventoryForm.females} onChange={(event) => setInventoryForm({...inventoryForm, females: event.target.value, confirmed: false})} /></label>
+            <label>Machos<input aria-label="Machos iniciales" type="number" min="0" step="1" inputMode="numeric" value={inventoryForm.males} onChange={(event) => setInventoryForm({...inventoryForm, males: event.target.value, confirmed: false})} /></label>
+            <label>Patrones<input aria-label="Patrones iniciales" type="number" min="0" step="1" inputMode="numeric" value={inventoryForm.rootstocks} onChange={(event) => setInventoryForm({...inventoryForm, rootstocks: event.target.value, confirmed: false})} /></label>
+            <div className="inventory-summary"><strong>Total calculado</strong><span>{Number.isSafeInteger(total) ? total : "Inválido"}</span></div>
+            <label>Referencia de fuente ficticia<textarea maxLength={500} rows={3} value={inventoryForm.sourceReference} onChange={(event) => setInventoryForm({...inventoryForm, sourceReference: event.target.value, confirmed: false})} /></label>
+            <label className="explicit-confirmation"><input type="checkbox" checked={inventoryForm.confirmed} onChange={(event) => setInventoryForm({...inventoryForm, confirmed: event.target.checked})} />Confirmo que son datos ficticios y que la carga no podrá editarse, reemplazarse ni eliminarse.</label>
+            <div className="dialog-actions"><button className="button button--secondary" type="button" disabled={saving} onClick={() => setInventoryForm(undefined)}>Cancelar</button><button className="button" type="button" disabled={saving || !inventoryForm.confirmed} onClick={submitInitialInventory}>{saving ? "Registrando…" : "Registrar inventario inicial"}</button></div>
+          </section></div>
+        );
+      })()}
     </section>
   );
 }

@@ -27,6 +27,7 @@ import type {
   ManageableDraftJourney,
   ManageableCatalogData,
   ManageableCatalogLine,
+  ManageableCatalogInventory,
   ManageableCatalogLocation,
   ManageableJourneysData,
   ManageableUser,
@@ -273,8 +274,33 @@ function parseCatalogLine(value: unknown): ManageableCatalogLine {
     typeof line.codigo !== "string" || typeof line.nombreVisible !== "string" ||
     !Number.isSafeInteger(line.orden) || typeof line.activa !== "boolean" ||
     !Number.isSafeInteger(line.version) || typeof line.ocupadaEnJornadaActiva !== "boolean" ||
-    !Number.isSafeInteger(line.seleccionesBorrador)
+    !Number.isSafeInteger(line.seleccionesBorrador) ||
+    (line.inventario !== null && (typeof line.inventario !== "object" || line.inventario === null)) ||
+    typeof line.elegibleInventarioInicial !== "boolean" ||
+    (line.motivoNoElegibleInventarioInicial !== null && typeof line.motivoNoElegibleInventarioInicial !== "string")
   ) throw new Error("Una linea del catalogo no es valida.");
+  let inventory: ManageableCatalogInventory | undefined;
+  if (line.inventario !== null) {
+    const value = line.inventario as Record<string, unknown>;
+    if (
+      !Number.isSafeInteger(value.hembras) || !Number.isSafeInteger(value.machos) ||
+      !Number.isSafeInteger(value.patrones) || !Number.isSafeInteger(value.total) ||
+      !Number.isSafeInteger(value.version) || typeof value.origen !== "string" ||
+      typeof value.actorUsuarioId !== "string" || typeof value.actorNombreVisible !== "string" ||
+      typeof value.actualizadoEn !== "string" ||
+      (value.referenciaFuenteInicial !== null && typeof value.referenciaFuenteInicial !== "string")
+    ) throw new Error("El inventario de la linea no es valido.");
+    inventory = {
+      females: value.hembras as number, males: value.machos as number,
+      rootstocks: value.patrones as number, total: value.total as number,
+      version: value.version as number, origin: value.origen,
+      actorUserId: value.actorUsuarioId, actorDisplayName: value.actorNombreVisible,
+      updatedAt: value.actualizadoEn,
+      ...(typeof value.referenciaFuenteInicial === "string"
+        ? {initialSourceReference: value.referenciaFuenteInicial}
+        : {}),
+    };
+  }
   return {
     id: line.lineaId,
     locationId: line.ubicacionId,
@@ -285,6 +311,11 @@ function parseCatalogLine(value: unknown): ManageableCatalogLine {
     version: line.version as number,
     occupiedByActiveJourney: line.ocupadaEnJornadaActiva,
     draftSelectionCount: line.seleccionesBorrador as number,
+    ...(inventory ? {inventory} : {}),
+    initialInventoryEligible: line.elegibleInventarioInicial,
+    ...(typeof line.motivoNoElegibleInventarioInicial === "string"
+      ? {initialInventoryIneligibleReason: line.motivoNoElegibleInventarioInicial}
+      : {}),
   };
 }
 
@@ -601,6 +632,26 @@ export class FirebaseMonitorRepository implements MonitorRepository {
       return parseCatalogLine(response.data);
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : "No fue posible actualizar la linea.", {cause: error});
+    }
+  }
+
+  async registerInitialInventory(
+    line: ManageableCatalogLine,
+    females: number,
+    males: number,
+    rootstocks: number,
+    sourceReference: string,
+    idempotencyKey: string,
+  ): Promise<void> {
+    const callable = httpsCallable(this.functions, "registrarInventarioInicial");
+    try {
+      await callable({
+        lineaId: line.id, versionLineaEsperada: line.version,
+        hembras: females, machos: males, patrones: rootstocks,
+        referenciaFuente: sourceReference, claveIdempotencia: idempotencyKey,
+      });
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible registrar el inventario inicial.", {cause: error});
     }
   }
 
@@ -1177,6 +1228,10 @@ export class DisabledMonitorRepository implements MonitorRepository {
   }
 
   async updateCatalogLine(): Promise<ManageableCatalogLine> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
+  }
+
+  async registerInitialInventory(): Promise<void> {
     throw new Error("Firebase de produccion permanece deshabilitado.");
   }
 

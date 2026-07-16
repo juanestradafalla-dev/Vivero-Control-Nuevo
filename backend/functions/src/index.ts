@@ -32,6 +32,7 @@ import {
   UpdateDraftJourneyParticipantsService
 } from "./domain/draftParticipants.js";
 import {ListActiveJourneysService} from "./domain/listActiveJourneys.js";
+import {RegisterInitialInventoryService} from "./domain/initialInventory.js";
 import {ReassignCountCorrectionService} from "./domain/reassignCorrection.js";
 import {ReleaseReservationService} from "./domain/releaseReservation.js";
 import {ReserveLineService} from "./domain/reserveLine.js";
@@ -52,6 +53,7 @@ import {
   parseListManageableCatalogRequest,
   parseListManageableUsersRequest,
   parseReassignCountCorrectionRequest,
+  parseRegisterInitialInventoryRequest,
   parseReopenCancelledJourneyRequest,
   parseReleaseReservationRequest,
   parseReserveLineRequest,
@@ -122,7 +124,13 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
     "CATALOG_LOCATION_HAS_ACTIVE_CHILDREN",
     "CATALOG_LOCATION_HAS_ACTIVE_LINES",
     "CATALOG_LINE_OCCUPIED",
-    "CATALOG_NO_CHANGE"
+    "CATALOG_NO_CHANGE",
+    "INVENTORY_INITIAL_LINE_INACTIVE",
+    "INVENTORY_INITIAL_STALE_VERSION",
+    "INVENTORY_ALREADY_EXISTS",
+    "INVENTORY_INITIAL_ZERO_NOT_ALLOWED",
+    "INVENTORY_INITIAL_SOURCE_INVALID",
+    "INVENTORY_INITIAL_OPERATIONAL_ACTIVITY"
   ].includes(code)) return "failed-precondition";
   if (["RESERVATION_NOT_ACTIVE", "LINE_RESERVATION_MISMATCH", "LINE_NOT_IN_COUNT"].includes(code)) {
     return "failed-precondition";
@@ -190,6 +198,23 @@ const createCatalogLocationService = new CreateCatalogLocationService(firestore)
 const updateCatalogLocationService = new UpdateCatalogLocationService(firestore);
 const createCatalogLineService = new CreateCatalogLineService(firestore);
 const updateCatalogLineService = new UpdateCatalogLineService(firestore);
+const registerInitialInventoryService = new RegisterInitialInventoryService(firestore);
+
+export const registrarInventarioInicial = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    return await registerInitialInventoryService.execute(
+      parseRegisterInitialInventoryRequest(request.data), {actorId: request.auth.uid}
+    );
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en registrarInventarioInicial", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
 
 export const listarCatalogoAdministrable = onCall({region: "us-central1"}, async (request) => {
   try {

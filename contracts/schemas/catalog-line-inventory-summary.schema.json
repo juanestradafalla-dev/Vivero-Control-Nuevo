@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/catalog-line-inventory-summary.schema.json",
+  "title": "Inventario visible en catálogo",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["hembras", "machos", "patrones", "total", "version", "origen", "actorUsuarioId", "actorNombreVisible", "actualizadoEn", "referenciaFuenteInicial"],
+  "properties": {
+    "hembras": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "machos": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "patrones": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "total": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "version": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "origen": {"type": "string", "minLength": 1, "maxLength": 120},
+    "actorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "actorNombreVisible": {"type": "string", "minLength": 1, "maxLength": 240},
+    "actualizadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "referenciaFuenteInicial": {"oneOf": [{"type": "string", "minLength": 1, "maxLength": 500}, {"type": "null"}]}
+  }
+}

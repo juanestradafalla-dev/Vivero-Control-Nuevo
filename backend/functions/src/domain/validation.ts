@@ -9,6 +9,7 @@ import type {
   InitiateCountCorrectionRequest,
   ListDraftJourneyParticipantsRequest,
   ReassignCountCorrectionRequest,
+  RegisterInitialInventoryRequest,
   ReopenCancelledJourneyRequest,
   ReleaseReservationRequest,
   ReserveLineRequest,
@@ -76,6 +77,9 @@ const createCatalogLineFields = new Set([
 ]);
 const updateCatalogLineFields = new Set([
   "lineaId", "versionEsperada", "nombreVisible", "orden", "activa", "motivo", "claveIdempotencia"
+]);
+const registerInitialInventoryFields = new Set([
+  "lineaId", "versionLineaEsperada", "hembras", "machos", "patrones", "referenciaFuente", "claveIdempotencia"
 ]);
 const REVIEW_REASON_LIMIT = 2000;
 const JOURNEY_NAME_LIMIT = 200;
@@ -181,6 +185,41 @@ export function parseUpdateCatalogLineRequest(value: unknown): UpdateCatalogLine
     orden: record.orden as number,
     activa: record.activa,
     motivo: (record.motivo as string).trim(),
+    claveIdempotencia: record.claveIdempotencia
+  };
+}
+
+export function parseRegisterInitialInventoryRequest(value: unknown): RegisterInitialInventoryRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw domainErrors.invalidArgument();
+  const record = value as Record<string, unknown>;
+  if (
+    Object.keys(record).some((field) => !registerInitialInventoryFields.has(field)) ||
+    typeof record.lineaId !== "string" || !safeIdPattern.test(record.lineaId) ||
+    !Number.isSafeInteger(record.versionLineaEsperada) || (record.versionLineaEsperada as number) < 1 ||
+    typeof record.claveIdempotencia !== "string" || !idempotencyPattern.test(record.claveIdempotencia)
+  ) throw domainErrors.invalidArgument();
+  const quantities = [record.hembras, record.machos, record.patrones];
+  if (quantities.some((quantity) => !Number.isSafeInteger(quantity) || (quantity as number) < 0)) {
+    throw domainErrors.invalidArgument();
+  }
+  const total = (record.hembras as number) + (record.machos as number) + (record.patrones as number);
+  if (!Number.isSafeInteger(total)) throw domainErrors.invalidArgument();
+  if (total === 0) throw domainErrors.initialInventoryZeroNotAllowed();
+  if (typeof record.referenciaFuente !== "string" || record.referenciaFuente.trim().length === 0 ||
+      record.referenciaFuente.length > 500) {
+    throw domainErrors.initialInventorySourceInvalid();
+  }
+  const normalizedSource = record.referenciaFuente.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+  if (!/(FICTICI|PRUEBA|EMULADOR|SIMULAD)/.test(normalizedSource)) {
+    throw domainErrors.initialInventorySourceInvalid();
+  }
+  return {
+    lineaId: record.lineaId,
+    versionLineaEsperada: record.versionLineaEsperada as number,
+    hembras: record.hembras as number,
+    machos: record.machos as number,
+    patrones: record.patrones as number,
+    referenciaFuente: record.referenciaFuente.trim(),
     claveIdempotencia: record.claveIdempotencia
   };
 }

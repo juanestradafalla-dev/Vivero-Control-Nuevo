@@ -4,6 +4,7 @@ import {Timestamp, type DocumentSnapshot, type Firestore, type Transaction} from
 
 import type {
   CatalogLineResult,
+  CatalogLineInventorySummary,
   CatalogLineSummary,
   CatalogLocationResult,
   CatalogLocationSummary,
@@ -37,6 +38,18 @@ interface LineDocument {
   readonly version?: number;
 }
 interface DraftSelectionDocument { readonly lineaIds?: unknown; }
+interface InventoryDocument {
+  readonly lineaId?: string;
+  readonly hembras?: number;
+  readonly machos?: number;
+  readonly patrones?: number;
+  readonly total?: number;
+  readonly version?: number;
+  readonly origen?: string;
+  readonly actualizadoPorUsuarioId?: string;
+  readonly actualizadoEn?: unknown;
+}
+interface InitialLoadDocument { readonly lineaId?: string; readonly referenciaFuente?: string; }
 interface IdempotencyDocument<Result> { readonly payloadHash?: string; readonly resultado?: Result; }
 
 type CatalogOperation =
@@ -101,7 +114,9 @@ function lineSummary(
   id: string,
   line: LineDocument,
   occupied: boolean,
-  draftSelections: number
+  draftSelections: number,
+  inventory: CatalogLineInventorySummary | null = null,
+  ineligibleReason: string | null = null
 ): CatalogLineSummary {
   if (
     typeof line.ubicacionId !== "string" || typeof line.codigo !== "string" ||
@@ -116,7 +131,42 @@ function lineSummary(
     activa: line.activa === true,
     version: versionOf(line.version),
     ocupadaEnJornadaActiva: occupied,
-    seleccionesBorrador: draftSelections
+    seleccionesBorrador: draftSelections,
+    inventario: inventory,
+    elegibleInventarioInicial: inventory === null && ineligibleReason === null,
+    motivoNoElegibleInventarioInicial: inventory === null ? ineligibleReason : "INVENTARIO_EXISTENTE"
+  };
+}
+
+function timestampIso(value: unknown): string {
+  if (typeof value === "object" && value !== null && "toDate" in value && typeof value.toDate === "function") {
+    return (value.toDate() as Date).toISOString();
+  }
+  throw domainErrors.internal();
+}
+
+function inventorySummary(
+  inventory: InventoryDocument,
+  initialLoad: InitialLoadDocument | undefined,
+  actorName: string
+): CatalogLineInventorySummary {
+  const quantities = [inventory.hembras, inventory.machos, inventory.patrones, inventory.total];
+  if (
+    typeof inventory.lineaId !== "string" || !Number.isSafeInteger(inventory.version) ||
+    typeof inventory.origen !== "string" || typeof inventory.actualizadoPorUsuarioId !== "string" ||
+    quantities.some((value) => !Number.isSafeInteger(value) || (value as number) < 0)
+  ) throw domainErrors.internal();
+  return {
+    hembras: inventory.hembras as number,
+    machos: inventory.machos as number,
+    patrones: inventory.patrones as number,
+    total: inventory.total as number,
+    version: inventory.version as number,
+    origen: inventory.origen,
+    actorUsuarioId: inventory.actualizadoPorUsuarioId,
+    actorNombreVisible: actorName,
+    actualizadoEn: timestampIso(inventory.actualizadoEn),
+    referenciaFuenteInicial: typeof initialLoad?.referenciaFuente === "string" ? initialLoad.referenciaFuente : null
   };
 }
 
@@ -160,15 +210,44 @@ export class ListManageableCatalogService {
   constructor(private readonly firestore: Firestore) {}
 
   async execute(context: TrustedOperationContext): Promise<ListManageableCatalogResult> {
-    const [actor, locations, lines, occupations, selections] = await Promise.all([
+    const [actor, locations, lines, occupations, selections, inventories, initialLoads, users,
+      journeyLines, reservations, counts, decisions, reassignments, movements] = await Promise.all([
       this.firestore.collection("usuarios").doc(context.actorId).get(),
       this.firestore.collection("ubicaciones").get(),
       this.firestore.collection("lineas").get(),
       this.firestore.collection("ocupacionesLineasActivas").get(),
-      this.firestore.collection("seleccionesLineasJornada").get()
+      this.firestore.collection("seleccionesLineasJornada").get(),
+      this.firestore.collection("inventarioOficialLineas").get(),
+      this.firestore.collection("cargasInventarioInicial").get(),
+      this.firestore.collection("usuarios").get(),
+      this.firestore.collection("jornadaLineas").get(),
+      this.firestore.collection("reservas").get(),
+      this.firestore.collection("conteos").get(),
+      this.firestore.collection("decisionesRevision").get(),
+      this.firestore.collection("reasignacionesCorreccion").get(),
+      this.firestore.collection("movimientosInventario").get()
     ]);
     assertActiveAdmin(actor);
     const occupied = new Set(occupations.docs.map((snapshot) => snapshot.id));
+    const inventoryByLine = new Map(inventories.docs.map((snapshot) => [snapshot.id, snapshot.data() as InventoryDocument]));
+    const loadByLine = new Map(initialLoads.docs.map((snapshot) => [snapshot.id, snapshot.data() as InitialLoadDocument]));
+    const userNames = new Map(users.docs.map((snapshot) => [
+      snapshot.id,
+      typeof snapshot.data().nombreVisible === "string" ? snapshot.data().nombreVisible as string : snapshot.id
+    ]));
+    const activityLines = new Set<string>();
+    for (const snapshot of [...reservations.docs, ...counts.docs, ...decisions.docs, ...reassignments.docs, ...movements.docs]) {
+      const lineId = snapshot.data().lineaId;
+      if (typeof lineId === "string") activityLines.add(lineId);
+    }
+    for (const snapshot of journeyLines.docs) {
+      const data = snapshot.data();
+      if (
+        data.activa === true && typeof data.lineaId === "string" &&
+        (data.estadoCentral !== "DISPONIBLE" || data.reservaActivaId !== null || data.conteoVigenteId != null ||
+          data.decisionVigenteId != null || data.responsableCorreccionUsuarioId != null || data.reasignacionActivaId != null)
+      ) activityLines.add(data.lineaId);
+    }
     const activeChildren = new Map<string, number>();
     const activeLines = new Map<string, number>();
     locations.docs.forEach((snapshot) => {
@@ -190,12 +269,20 @@ export class ListManageableCatalogService {
         activeChildren.get(snapshot.id) ?? 0,
         activeLines.get(snapshot.id) ?? 0
       )).sort((left, right) => left.orden - right.orden || left.codigo.localeCompare(right.codigo)),
-      lineas: lines.docs.map((snapshot) => lineSummary(
-        snapshot.id,
-        snapshot.data() as LineDocument,
-        occupied.has(snapshot.id),
-        draftSelectionCount(selections.docs, snapshot.id)
-      )).sort((left, right) => left.orden - right.orden || left.codigo.localeCompare(right.codigo))
+      lineas: lines.docs.map((snapshot) => {
+        const line = snapshot.data() as LineDocument;
+        const inventory = inventoryByLine.get(snapshot.id);
+        const summary = inventory === undefined ? null : inventorySummary(
+          inventory,
+          loadByLine.get(snapshot.id),
+          userNames.get(inventory.actualizadoPorUsuarioId ?? "") ?? inventory.actualizadoPorUsuarioId ?? "Administrador"
+        );
+        const reason = line.activa !== true ? "LINEA_INACTIVA" :
+          activityLines.has(snapshot.id) ? "ACTIVIDAD_OPERATIVA" : null;
+        return lineSummary(
+          snapshot.id, line, occupied.has(snapshot.id), draftSelectionCount(selections.docs, snapshot.id), summary, reason
+        );
+      }).sort((left, right) => left.orden - right.orden || left.codigo.localeCompare(right.codigo))
     };
   }
 }
@@ -453,7 +540,7 @@ export class UpdateCatalogLineService {
         ...line, nombreVisible: request.nombreVisible, orden: request.orden, activa: request.activa, version
       };
       const result: CatalogLineResult = {
-        ...lineSummary(request.lineaId, updated, false, selectionCount),
+        ...lineSummary(request.lineaId, updated, false, selectionCount, null, request.activa ? null : "LINEA_INACTIVA"),
         operacion: "LINEA_ACTUALIZADA", actualizadaEn: now.toDate().toISOString()
       };
       transaction.update(lineRef, {

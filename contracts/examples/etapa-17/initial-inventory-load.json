@@ -1,0 +1,18 @@
+{
+  "id": "LINEA-CATALOGO-LIBRE-1",
+  "lineaId": "LINEA-CATALOGO-LIBRE-1",
+  "jornadaId": null,
+  "jornadaLineaId": null,
+  "hembras": 120,
+  "machos": 40,
+  "patrones": 20,
+  "total": 180,
+  "versionInventario": 1,
+  "origen": "CARGA_INICIAL_ADMINISTRATIVA_EMULADOR",
+  "conteoAprobadoId": null,
+  "referenciaFuente": "Planilla ficticia de prueba ETAPA 17",
+  "actorUsuarioId": "uid-administrador",
+  "actorNombreVisible": "Administrador ficticio",
+  "registradaEn": "2026-07-15T12:00:00.000Z",
+  "inmutable": true
+}

@@ -69,6 +69,15 @@ Reglas del catálogo de la Etapa 16:
 - una selección de borrador puede conservar una línea inactiva, pero activar vuelve a validar el catálogo;
 - los tipos de ubicación actuales son fixtures ficticios y no fijan la jerarquía real.
 
+Reglas del inventario inicial de la Etapa 17:
+
+- `registrarInventarioInicial` acepta únicamente línea, versión observada, tres cantidades, referencia ficticia y clave idempotente;
+- identidad, rol, total, origen y hora proceden exclusivamente del backend;
+- `total`, campos centrales y propiedades adicionales enviados por el cliente son inválidos;
+- la primera fotografía usa versión 1 y `conteoAprobadoId = null`;
+- la carga inmutable se conserva aunque una aprobación posterior lleve el inventario oficial a versión 2;
+- no se crea movimiento durante la inicialización y nunca se supone inventario cero.
+
 ```powershell
 npm ci
 npm run validate

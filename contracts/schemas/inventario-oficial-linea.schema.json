@@ -22,8 +22,8 @@
   ],
   "properties": {
     "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
-    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
-    "jornadaLineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaId": {"oneOf": [{"$ref": "comun.schema.json#/$defs/idGlobal"}, {"type": "null"}]},
+    "jornadaLineaId": {"oneOf": [{"$ref": "comun.schema.json#/$defs/idGlobal"}, {"type": "null"}]},
     "lineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "hembras": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
     "machos": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
@@ -40,7 +40,7 @@
       ]
     },
     "version": {"type": "integer", "minimum": 1},
-    "origen": {"type": "string", "enum": ["SEED_FICTICIO_ETAPA_5", "CONTEO_APROBADO"]},
+    "origen": {"type": "string", "enum": ["SEED_FICTICIO_ETAPA_5", "CARGA_INICIAL_ADMINISTRATIVA_EMULADOR", "CONTEO_APROBADO"]},
     "actualizadoPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "actualizadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
   }

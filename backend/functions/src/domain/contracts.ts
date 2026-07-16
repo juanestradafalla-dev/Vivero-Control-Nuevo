@@ -69,6 +69,12 @@ export type ControlledErrorCode =
   | "CATALOG_LOCATION_HAS_ACTIVE_LINES"
   | "CATALOG_LINE_OCCUPIED"
   | "CATALOG_NO_CHANGE"
+  | "INVENTORY_INITIAL_LINE_INACTIVE"
+  | "INVENTORY_INITIAL_STALE_VERSION"
+  | "INVENTORY_ALREADY_EXISTS"
+  | "INVENTORY_INITIAL_ZERO_NOT_ALLOWED"
+  | "INVENTORY_INITIAL_SOURCE_INVALID"
+  | "INVENTORY_INITIAL_OPERATIONAL_ACTIVITY"
   | "LINE_NOT_AVAILABLE"
   | "RESERVATION_NOT_FOUND"
   | "RESERVATION_NOT_ACTIVE"
@@ -468,6 +474,18 @@ export interface CatalogLineSummary {
   readonly version: number;
   readonly ocupadaEnJornadaActiva: boolean;
   readonly seleccionesBorrador: number;
+  readonly inventario: CatalogLineInventorySummary | null;
+  readonly elegibleInventarioInicial: boolean;
+  readonly motivoNoElegibleInventarioInicial: string | null;
+}
+
+export interface CatalogLineInventorySummary extends InventoryValues {
+  readonly version: number;
+  readonly origen: string;
+  readonly actorUsuarioId: string;
+  readonly actorNombreVisible: string;
+  readonly actualizadoEn: string;
+  readonly referenciaFuenteInicial: string | null;
 }
 
 export interface ListManageableCatalogResult {
@@ -520,6 +538,30 @@ export interface UpdateCatalogLineRequest {
 export interface CatalogLineResult extends CatalogLineSummary {
   readonly operacion: "LINEA_CREADA" | "LINEA_ACTUALIZADA";
   readonly actualizadaEn: string;
+}
+
+export interface RegisterInitialInventoryRequest {
+  readonly lineaId: string;
+  readonly versionLineaEsperada: number;
+  readonly hembras: number;
+  readonly machos: number;
+  readonly patrones: number;
+  readonly referenciaFuente: string;
+  readonly claveIdempotencia: string;
+}
+
+export interface RegisterInitialInventoryResult extends InventoryValues {
+  readonly lineaId: string;
+  readonly cargaInventarioInicialId: string;
+  readonly jornadaId: string | null;
+  readonly jornadaLineaId: string | null;
+  readonly versionInventario: 1;
+  readonly origen: "CARGA_INICIAL_ADMINISTRATIVA_EMULADOR";
+  readonly conteoAprobadoId: null;
+  readonly referenciaFuente: string;
+  readonly registradaPorUsuarioId: string;
+  readonly registradaPorNombreVisible: string;
+  readonly registradaEn: string;
 }
 
 /** Contrato de frontera reservado para una futura operación de revisión; no es enviarConteo. */

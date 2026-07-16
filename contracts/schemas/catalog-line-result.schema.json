@@ -4,7 +4,7 @@
   "title": "Resultado de crear o actualizar línea",
   "type": "object",
   "additionalProperties": false,
-  "required": ["operacion", "lineaId", "ubicacionId", "codigo", "nombreVisible", "orden", "activa", "version", "ocupadaEnJornadaActiva", "seleccionesBorrador", "actualizadaEn"],
+  "required": ["operacion", "lineaId", "ubicacionId", "codigo", "nombreVisible", "orden", "activa", "version", "ocupadaEnJornadaActiva", "seleccionesBorrador", "inventario", "elegibleInventarioInicial", "motivoNoElegibleInventarioInicial", "actualizadaEn"],
   "properties": {
     "operacion": {"enum": ["LINEA_CREADA", "LINEA_ACTUALIZADA"]},
     "lineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
@@ -16,6 +16,9 @@
     "version": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
     "ocupadaEnJornadaActiva": {"type": "boolean"},
     "seleccionesBorrador": {"type": "integer", "minimum": 0},
+    "inventario": {"oneOf": [{"$ref": "catalog-line-inventory-summary.schema.json"}, {"type": "null"}]},
+    "elegibleInventarioInicial": {"type": "boolean"},
+    "motivoNoElegibleInventarioInicial": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
     "actualizadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
   }
 }

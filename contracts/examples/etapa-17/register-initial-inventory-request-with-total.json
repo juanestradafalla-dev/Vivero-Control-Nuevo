@@ -1,0 +1,10 @@
+{
+  "lineaId": "LINEA-CATALOGO-LIBRE-1",
+  "versionLineaEsperada": 1,
+  "hembras": 120,
+  "machos": 40,
+  "patrones": 20,
+  "total": 180,
+  "referenciaFuente": "Planilla ficticia de prueba ETAPA 17",
+  "claveIdempotencia": "inventario-inicial-etapa-17-0002"
+}

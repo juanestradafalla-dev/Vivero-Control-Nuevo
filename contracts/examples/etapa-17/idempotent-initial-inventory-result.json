@@ -1,0 +1,25 @@
+{
+  "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "actorUsuarioId": "uid-administrador",
+  "operacion": "REGISTRAR_INVENTARIO_INICIAL",
+  "claveHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "payloadHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "resultado": {
+    "lineaId": "LINEA-CATALOGO-LIBRE-1",
+    "cargaInventarioInicialId": "LINEA-CATALOGO-LIBRE-1",
+    "jornadaId": null,
+    "jornadaLineaId": null,
+    "hembras": 120,
+    "machos": 40,
+    "patrones": 20,
+    "total": 180,
+    "versionInventario": 1,
+    "origen": "CARGA_INICIAL_ADMINISTRATIVA_EMULADOR",
+    "conteoAprobadoId": null,
+    "referenciaFuente": "Planilla ficticia de prueba ETAPA 17",
+    "registradaPorUsuarioId": "uid-administrador",
+    "registradaPorNombreVisible": "Administrador ficticio",
+    "registradaEn": "2026-07-15T12:00:00.000Z"
+  },
+  "creadoEn": "2026-07-15T12:00:00.000Z"
+}

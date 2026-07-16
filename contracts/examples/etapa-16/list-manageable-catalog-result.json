@@ -7,6 +7,7 @@
   "lineas": [{
     "lineaId": "LINEA-16", "ubicacionId": "UBICACION-RAIZ-16", "codigo": "LINEA-16",
     "nombreVisible": "Línea ficticia 16", "orden": 1, "activa": true, "version": 1,
-    "ocupadaEnJornadaActiva": false, "seleccionesBorrador": 0
+    "ocupadaEnJornadaActiva": false, "seleccionesBorrador": 0,
+    "inventario": null, "elegibleInventarioInicial": true, "motivoNoElegibleInventarioInicial": null
   }]
 }

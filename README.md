@@ -2,7 +2,7 @@
 
 Sistema nuevo para operar inventario por línea mediante Vivero Campo (Android), Vivero Maestro (Windows) y un backend transaccional. Este repositorio no consulta, modifica ni reutiliza el proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 16
+## Estado: ETAPA 17
 
 La vertical disponible funciona exclusivamente con Firebase Emulator Suite y datos ficticios:
 
@@ -71,6 +71,12 @@ La vertical disponible funciona exclusivamente con Firebase Emulator Suite y dat
 53. Código, tipo y padre de una ubicación, y código y ubicación de una línea, permanecen inmutables; ninguna desactivación se propaga en cascada.
 54. Maestro limita “Catálogo” a administradores, muestra el árbol expandible y refresca los borradores después de cada cambio central.
 55. Una línea desactivada conserva sus selecciones preparatorias y aparece inválida hasta corregirlas; una línea ocupada por jornada `ACTIVA` no puede modificarse y su fotografía histórica permanece intacta.
+
+56. `registrarInventarioInicial` permite únicamente a un administrador activo crear la primera fotografía oficial de una línea elegible.
+57. Las cantidades se validan como enteros seguros y el total se calcula centralmente; una carga total cero se rechaza mientras no exista política real.
+58. La carga crea inventario versión 1, trazabilidad inmutable y auditoría, pero ningún movimiento porque no existe fotografía anterior.
+59. Maestro muestra `SIN INICIALIZAR` o `INICIALIZADO`, exige fuente ficticia y confirmación explícita, y no ofrece edición, reemplazo, borrado o importación.
+60. Una aprobación posterior sustituye normalmente la versión 1, crea la versión 2 y registra diferencias sin alterar la carga inicial conservada.
 
 > **MODO DE PRUEBA — EMULADOR.** No existe Firebase real configurado, no hay credenciales de producción y ningún comando despliega recursos.
 
@@ -178,6 +184,14 @@ npm run test:emulators
 npm audit --omit=dev --audit-level=high
 ```
 
+## Documentación de la ETAPA 17
+
+- [Inventario inicial controlado](docs/arquitectura/INVENTARIO_INICIAL_ETAPA_17.md)
+- [Pruebas, concurrencia y trazabilidad](docs/pruebas/PRUEBAS_ETAPA_17.md)
+- [Criterios de aceptación](docs/ETAPA_17_CRITERIOS_DE_ACEPTACION.md)
+- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
+- [Contratos compartidos](contracts/README.md)
+
 ## Documentación de la ETAPA 16
 
 - [Catálogo central de ubicaciones y líneas](docs/arquitectura/CATALOGO_UBICACIONES_LINEAS_ETAPA_16.md)
@@ -249,4 +263,4 @@ npm audit --omit=dev --audit-level=high
 
 ## Exclusiones vigentes
 
-No están implementados: cierre forzado o excepcional; cancelación de jornadas activas; reapertura de jornadas activadas o cerradas; eliminación definitiva; edición de jornadas cerradas; modificación histórica; creación o eliminación de cuentas Firebase Auth; cambio de correo, contraseña, nombre visible o recuperación de acceso; edición directa de autorizaciones activas; creación de ubicaciones o líneas; inicialización o migración de inventario; vencimiento automático; temporizadores de abandono; eliminación o recuperación administrativa de borradores locales; corrección simultánea por varios usuarios; datos reales; Firebase de producción; despliegues; APK de producción; instalador Windows definitivo; descartes, despachos, químicos, aplicaciones ni reingresos.
+No están implementados: edición o eliminación de inventario inicial; importación masiva; migración o datos reales; ajustes manuales posteriores; cambios en movimientos históricos; cierre forzado o excepcional; cancelación de jornadas activas; reapertura de jornadas activadas o cerradas; eliminación definitiva; edición de jornadas cerradas; modificación histórica; creación o eliminación de cuentas Firebase Auth; cambio de correo, contraseña, nombre visible o recuperación de acceso; edición directa de autorizaciones activas; vencimiento automático; temporizadores de abandono; eliminación o recuperación administrativa de borradores locales; corrección simultánea por varios usuarios; Firebase de producción; despliegues; APK de producción; instalador Windows definitivo; descartes, despachos, químicos, aplicaciones ni reingresos.

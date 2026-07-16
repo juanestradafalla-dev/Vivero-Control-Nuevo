@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/update-user-status-request.schema.json",
+  "title": "Solicitud actualizarEstadoUsuario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["usuarioId", "versionEsperada", "nuevoEstado", "motivo", "claveIdempotencia"],
+  "properties": {
+    "usuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "versionEsperada": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "nuevoEstado": {"enum": ["ACTIVO", "INACTIVO"]},
+    "motivo": {"type": "string", "minLength": 1, "maxLength": 2000, "pattern": ".*\\S.*"},
+    "claveIdempotencia": {"type": "string", "minLength": 8, "maxLength": 160, "pattern": "^[A-Za-z0-9._:-]+$"}
+  }
+}

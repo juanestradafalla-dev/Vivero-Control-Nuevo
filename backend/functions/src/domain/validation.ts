@@ -12,6 +12,8 @@ import type {
   ReserveLineRequest,
   ReturnCountRequest,
   SendCountRequest,
+  UpdateUserRoleRequest,
+  UpdateUserStatusRequest,
   UpdateDraftJourneyLinesRequest,
   UpdateDraftJourneyParticipantsRequest
 } from "./contracts.js";
@@ -53,6 +55,12 @@ const activateJourneyFields = new Set([
 const closeJourneyFields = new Set(["jornadaId", "versionEsperada", "claveIdempotencia"]);
 const cancelDraftJourneyFields = new Set(["jornadaId", "versionEsperada", "motivo", "claveIdempotencia"]);
 const reopenCancelledJourneyFields = new Set(["jornadaId", "versionEsperada", "claveIdempotencia"]);
+const updateUserStatusFields = new Set([
+  "usuarioId", "versionEsperada", "nuevoEstado", "motivo", "claveIdempotencia"
+]);
+const updateUserRoleFields = new Set([
+  "usuarioId", "versionEsperada", "nuevoRol", "motivo", "claveIdempotencia"
+]);
 const REVIEW_REASON_LIMIT = 2000;
 const JOURNEY_NAME_LIMIT = 200;
 const DRAFT_LINE_LIMIT = 400;
@@ -66,6 +74,58 @@ export function parseListActiveJourneysRequest(value: unknown): void {
 }
 
 export const parseListManageableJourneysRequest = parseListActiveJourneysRequest;
+export const parseListManageableUsersRequest = parseListActiveJourneysRequest;
+
+function parseUserAdministrativeUpdate(
+  value: unknown,
+  fields: ReadonlySet<string>
+): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw domainErrors.invalidArgument();
+  }
+  const record = value as Record<string, unknown>;
+  if (
+    Object.keys(record).some((field) => !fields.has(field)) ||
+    typeof record.usuarioId !== "string" ||
+    !safeIdPattern.test(record.usuarioId) ||
+    !Number.isSafeInteger(record.versionEsperada) ||
+    (record.versionEsperada as number) < 1 ||
+    typeof record.claveIdempotencia !== "string" ||
+    !idempotencyPattern.test(record.claveIdempotencia) ||
+    !validReason(record.motivo)
+  ) {
+    throw domainErrors.invalidArgument();
+  }
+  return record;
+}
+
+export function parseUpdateUserStatusRequest(value: unknown): UpdateUserStatusRequest {
+  const record = parseUserAdministrativeUpdate(value, updateUserStatusFields);
+  if (record.nuevoEstado !== "ACTIVO" && record.nuevoEstado !== "INACTIVO") {
+    throw domainErrors.invalidArgument();
+  }
+  return {
+    usuarioId: record.usuarioId as string,
+    versionEsperada: record.versionEsperada as number,
+    nuevoEstado: record.nuevoEstado,
+    motivo: (record.motivo as string).trim(),
+    claveIdempotencia: record.claveIdempotencia as string
+  };
+}
+
+export function parseUpdateUserRoleRequest(value: unknown): UpdateUserRoleRequest {
+  const record = parseUserAdministrativeUpdate(value, updateUserRoleFields);
+  if (!["AUXILIAR", "SUPERVISOR", "ADMINISTRADOR"].includes(record.nuevoRol as string)) {
+    throw domainErrors.invalidArgument();
+  }
+  return {
+    usuarioId: record.usuarioId as string,
+    versionEsperada: record.versionEsperada as number,
+    nuevoRol: record.nuevoRol as UpdateUserRoleRequest["nuevoRol"],
+    motivo: (record.motivo as string).trim(),
+    claveIdempotencia: record.claveIdempotencia as string
+  };
+}
 
 export function parseCreateDraftJourneyRequest(value: unknown): CreateDraftJourneyRequest {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {

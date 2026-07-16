@@ -53,6 +53,12 @@ export type ControlledErrorCode =
   | "DRAFT_REOPEN_STALE_VERSION"
   | "DRAFT_REOPEN_INVALID_STATE"
   | "DRAFT_REOPEN_NOT_ALLOWED"
+  | "USER_PROFILE_STALE_VERSION"
+  | "SELF_DEACTIVATION_FORBIDDEN"
+  | "SELF_ADMIN_ROLE_REMOVAL_FORBIDDEN"
+  | "LAST_ACTIVE_ADMIN_REQUIRED"
+  | "USER_ROLE_CHANGE_BLOCKED_ACTIVE_WORK"
+  | "USER_PROFILE_NO_CHANGE"
   | "LINE_NOT_AVAILABLE"
   | "RESERVATION_NOT_FOUND"
   | "RESERVATION_NOT_ACTIVE"
@@ -377,6 +383,56 @@ export interface ReopenCancelledJourneyResult {
   readonly version: number;
   readonly cancelacionAnteriorId: string;
   readonly reabiertaEn: string;
+}
+
+export type UserRoleChangeBlocker = "JORNADA_ACTIVA" | "RESERVA_ACTIVA" | "CORRECCION_PENDIENTE";
+
+export interface UserActiveWorkSummary {
+  readonly jornadasActivas: number;
+  readonly reservasActivas: number;
+  readonly correccionesPendientes: number;
+  readonly tieneTrabajoActivo: boolean;
+  readonly bloqueosCambioRol: readonly UserRoleChangeBlocker[];
+}
+
+export interface ManageableUserSummary {
+  readonly usuarioId: string;
+  readonly nombreVisible: string;
+  readonly rol: UserRole;
+  readonly activo: boolean;
+  readonly version: number;
+  readonly puedeCambiarRol: boolean;
+  readonly resumenTrabajoActivo: UserActiveWorkSummary;
+}
+
+export interface ListManageableUsersResult {
+  readonly usuarios: readonly ManageableUserSummary[];
+}
+
+export interface UpdateUserStatusRequest {
+  readonly usuarioId: string;
+  readonly versionEsperada: number;
+  readonly nuevoEstado: "ACTIVO" | "INACTIVO";
+  readonly motivo: string;
+  readonly claveIdempotencia: string;
+}
+
+export interface UpdateUserStatusResult extends ManageableUserSummary {
+  readonly operacion: "ESTADO_USUARIO_ACTUALIZADO";
+  readonly actualizadoEn: string;
+}
+
+export interface UpdateUserRoleRequest {
+  readonly usuarioId: string;
+  readonly versionEsperada: number;
+  readonly nuevoRol: UserRole;
+  readonly motivo: string;
+  readonly claveIdempotencia: string;
+}
+
+export interface UpdateUserRoleResult extends ManageableUserSummary {
+  readonly operacion: "ROL_USUARIO_ACTUALIZADO";
+  readonly actualizadoEn: string;
 }
 
 /** Contrato de frontera reservado para una futura operación de revisión; no es enviarConteo. */

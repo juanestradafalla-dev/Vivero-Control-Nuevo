@@ -140,6 +140,30 @@ export const domainErrors = {
     "DRAFT_REOPEN_NOT_ALLOWED",
     "Una jornada activada o cerrada normalmente no puede reabrirse como borrador."
   ),
+  userProfileStaleVersion: () => new DomainError(
+    "USER_PROFILE_STALE_VERSION",
+    "El perfil cambio. Actualiza la lista antes de continuar."
+  ),
+  selfDeactivationForbidden: () => new DomainError(
+    "SELF_DEACTIVATION_FORBIDDEN",
+    "Un administrador no puede desactivar su propia cuenta."
+  ),
+  selfAdminRoleRemovalForbidden: () => new DomainError(
+    "SELF_ADMIN_ROLE_REMOVAL_FORBIDDEN",
+    "Un administrador no puede retirar su propio rol administrador."
+  ),
+  lastActiveAdminRequired: () => new DomainError(
+    "LAST_ACTIVE_ADMIN_REQUIRED",
+    "Debe permanecer al menos un administrador activo."
+  ),
+  userRoleChangeBlockedActiveWork: () => new DomainError(
+    "USER_ROLE_CHANGE_BLOCKED_ACTIVE_WORK",
+    "El rol no puede cambiar mientras existan jornadas, reservas o correcciones activas."
+  ),
+  userProfileNoChange: () => new DomainError(
+    "USER_PROFILE_NO_CHANGE",
+    "Selecciona un estado o rol diferente del actual."
+  ),
   unauthenticated: () => new DomainError("UNAUTHENTICATED", "Debes iniciar sesión."),
   invalidArgument: () => new DomainError("INVALID_ARGUMENT", "La solicitud no tiene un formato válido."),
   userNotFound: () => new DomainError("USER_NOT_FOUND", "La cuenta no tiene un perfil operativo."),

@@ -1,0 +1,17 @@
+{
+  "operacion": "ROL_USUARIO_ACTUALIZADO",
+  "usuarioId": "uid-sin-acceso-prueba",
+  "nombreVisible": "Usuario sin acceso ficticio",
+  "rol": "SUPERVISOR",
+  "activo": true,
+  "version": 2,
+  "puedeCambiarRol": true,
+  "resumenTrabajoActivo": {
+    "jornadasActivas": 0,
+    "reservasActivas": 0,
+    "correccionesPendientes": 0,
+    "tieneTrabajoActivo": false,
+    "bloqueosCambioRol": []
+  },
+  "actualizadoEn": "2026-07-15T12:00:00.000Z"
+}

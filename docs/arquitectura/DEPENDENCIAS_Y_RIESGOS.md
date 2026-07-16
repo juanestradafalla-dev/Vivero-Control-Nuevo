@@ -149,3 +149,11 @@ No se agregan dependencias externas, migraciones Room ni índices de producción
 Las selecciones conservadas pueden quedar obsoletas mientras la jornada permanece cancelada. Esto es intencional: no se revalidan al reabrir y deben volver a validarse al editar o activar. El historial inmutable de cancelaciones crece con cada nuevo ciclo y requerirá una política de retención antes de producción.
 
 Persisten los riesgos de estructura y datos reales, calidad de señal, dispositivos Android reales, pérdida de claves Keystore y 9 alertas moderadas transitivas del backend, sin alertas altas ni críticas. No se implementan cancelación de jornadas activas, reapertura de jornadas activadas o cerradas, eliminación definitiva ni cierre forzado. Firebase real sigue sin configurarse ni desplegarse.
+
+## Actualización de la ETAPA 15
+
+No se agregan dependencias externas ni migraciones Room. La administración de perfiles reutiliza Auth Emulator, Functions, Firestore, transacciones, auditoría e idempotencia. Firebase Auth permanece fuera de las escrituras: desactivar un perfil central bloquea operaciones sin deshabilitar ni eliminar la cuenta técnica del emulador.
+
+Una desactivación con trabajo activo conserva deliberadamente reservas, correcciones y autorizaciones. Esto evita cambios silenciosos, pero exige una decisión posterior de liberación, reasignación o reactivación. El listener del perfil propio permite invalidar la sesión en línea; sin conectividad, cualquier intento central se rechazará cuando alcance el backend y el borrador local continuará protegido.
+
+Persisten los riesgos de estructura y datos reales, calidad de señal, dispositivos Android reales, pérdida de claves Keystore, retención local y alertas moderadas transitivas del backend. No se crean ni eliminan cuentas, no se cambian credenciales y no se editan autorizaciones activas. Firebase real sigue sin configurarse ni desplegarse.

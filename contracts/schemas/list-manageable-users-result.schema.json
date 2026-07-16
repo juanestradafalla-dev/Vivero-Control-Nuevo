@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/list-manageable-users-result.schema.json",
+  "title": "Resultado listarUsuariosAdministrables",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["usuarios"],
+  "properties": {
+    "usuarios": {"type": "array", "items": {"$ref": "manageable-user-summary.schema.json"}}
+  }
+}

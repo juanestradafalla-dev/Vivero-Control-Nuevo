@@ -1,0 +1,25 @@
+{
+  "id": "idempotencia-etapa-15-estado",
+  "actorUsuarioId": "uid-administrador",
+  "operacion": "ACTUALIZAR_ESTADO_USUARIO",
+  "claveHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "payloadHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "resultado": {
+    "operacion": "ESTADO_USUARIO_ACTUALIZADO",
+    "usuarioId": "uid-auxiliar-1",
+    "nombreVisible": "Auxiliar ficticio 1",
+    "rol": "AUXILIAR",
+    "activo": false,
+    "version": 2,
+    "puedeCambiarRol": true,
+    "resumenTrabajoActivo": {
+      "jornadasActivas": 0,
+      "reservasActivas": 0,
+      "correccionesPendientes": 0,
+      "tieneTrabajoActivo": false,
+      "bloqueosCambioRol": []
+    },
+    "actualizadoEn": "2026-07-15T12:00:00.000Z"
+  },
+  "creadoEn": "2026-07-15T12:00:00.000Z"
+}

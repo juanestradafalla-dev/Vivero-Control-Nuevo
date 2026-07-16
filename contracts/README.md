@@ -4,6 +4,8 @@ Los JSON Schema Draft 2020-12 son el lenguaje común de Campo, Maestro y backend
 
 La Etapa 14 agrega contratos estrictos para `cancelarJornadaBorrador`, `reabrirJornadaCancelada`, el resumen administrativo de cancelados y la cancelación inmutable. Cancelar solo acepta jornada, versión, motivo y clave; reabrir solo jornada, versión y clave. `INACTIVA` por `CANCELACION_BORRADOR` no equivale a cierre normal y conserva las selecciones preparatorias. Los ejemplos están en `examples/etapa-14/`.
 
+La Etapa 15 agrega contratos estrictos para `listarUsuariosAdministrables`, `actualizarEstadoUsuario` y `actualizarRolUsuario`. El listado excluye Firebase Auth y expone solo el perfil central versionado y un resumen de trabajo activo. Las actualizaciones aceptan ID, versión observada, estado o rol, motivo y clave idempotente. Los ejemplos están en `examples/etapa-15/`.
+
 La Etapa 13 agrega contratos estrictos para `cerrarJornada` y su resultado idempotente. La solicitud contiene solo jornada, versión observada y clave; el resultado central declara `INACTIVA`, nueva versión, cantidades conservadas y ocupaciones liberadas. `listarJornadasActivas` incluye la versión y el permiso de cierre calculado centralmente, sin exponer la identidad del creador a Campo. Los ejemplos están en `examples/etapa-13/`.
 
 La Etapa 12 agrega contratos para `activarJornada`, su resultado y el bloqueo determinista `ocupacionesLineasActivas/{lineaId}`. La solicitud solo contiene jornada, las tres versiones observadas y clave idempotente. El límite técnico combinado de líneas y participantes es 200; su exceso rechaza toda la activación y nunca habilita lotes parciales. Los ejemplos están en `examples/etapa-12/`.
@@ -51,6 +53,10 @@ Reglas de frontera:
 - cancelar un borrador exige motivo, versión observada y ausencia total de datos operativos;
 - reabrir solo acepta `INACTIVA` por `CANCELACION_BORRADOR` que nunca fue activada o cerrada;
 - cancelación y reapertura conservan selecciones y no crean `jornadaLineas`, autorizaciones, reservas u ocupaciones.
+- listar perfiles no acepta identidad del cliente y nunca devuelve correo, contraseña, token o datos internos de Firebase Auth;
+- cambiar estado o rol exige versión y motivo, conserva la historia y genera auditoría e idempotencia centrales;
+- desactivar no libera reservas ni reasigna correcciones; cambiar rol se bloquea con trabajo o autorizaciones activas;
+- los únicos roles válidos continúan siendo `AUXILIAR`, `SUPERVISOR` y `ADMINISTRADOR`.
 
 Los ejemplos ficticios de liberación están en `examples/etapa-08/`.
 

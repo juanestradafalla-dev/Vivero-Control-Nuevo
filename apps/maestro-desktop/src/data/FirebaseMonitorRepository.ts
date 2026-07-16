@@ -26,6 +26,7 @@ import type {
   DraftParticipantsData,
   ManageableDraftJourney,
   ManageableJourneysData,
+  ManageableUser,
   MonitorCount,
   MonitorCorrectionCandidate,
   MonitorCorrectionResponsibility,
@@ -188,6 +189,53 @@ function parseCancelledDraftJourney(value: unknown): CancelledDraftJourney {
   };
 }
 
+function parseManageableUser(value: unknown): ManageableUser {
+  if (typeof value !== "object" || value === null) throw new Error("Un perfil administrativo no es valido.");
+  const profile = value as Record<string, unknown>;
+  const work = profile.resumenTrabajoActivo;
+  if (
+    typeof profile.usuarioId !== "string" ||
+    typeof profile.nombreVisible !== "string" ||
+    !isRole(profile.rol) ||
+    typeof profile.activo !== "boolean" ||
+    !Number.isSafeInteger(profile.version) ||
+    typeof profile.puedeCambiarRol !== "boolean" ||
+    typeof work !== "object" ||
+    work === null
+  ) {
+    throw new Error("Un perfil administrativo no es valido.");
+  }
+  const summary = work as Record<string, unknown>;
+  const blockers = summary.bloqueosCambioRol;
+  if (
+    !Number.isSafeInteger(summary.jornadasActivas) ||
+    !Number.isSafeInteger(summary.reservasActivas) ||
+    !Number.isSafeInteger(summary.correccionesPendientes) ||
+    typeof summary.tieneTrabajoActivo !== "boolean" ||
+    !Array.isArray(blockers) ||
+    blockers.some((blocker) =>
+      blocker !== "JORNADA_ACTIVA" && blocker !== "RESERVA_ACTIVA" && blocker !== "CORRECCION_PENDIENTE"
+    )
+  ) {
+    throw new Error("El resumen de trabajo del perfil no es valido.");
+  }
+  return {
+    id: profile.usuarioId,
+    displayName: profile.nombreVisible,
+    role: profile.rol,
+    active: profile.activo,
+    version: profile.version as number,
+    canChangeRole: profile.puedeCambiarRol,
+    activeWork: {
+      activeJourneys: summary.jornadasActivas as number,
+      activeReservations: summary.reservasActivas as number,
+      pendingCorrections: summary.correccionesPendientes as number,
+      hasActiveWork: summary.tieneTrabajoActivo,
+      roleChangeBlockers: blockers,
+    },
+  };
+}
+
 export class FirebaseMonitorRepository implements MonitorRepository {
   readonly emulatorEnabled = true;
 
@@ -235,6 +283,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
         canReview: role === "SUPERVISOR" || role === "ADMINISTRADOR",
         canRelease: role === "SUPERVISOR" || role === "ADMINISTRADOR",
         canManageDraftJourneys: role === "SUPERVISOR" || role === "ADMINISTRADOR",
+        canManageUsers: role === "ADMINISTRADOR",
       };
     } catch (error) {
       await this.auth.signOut();
@@ -244,6 +293,24 @@ export class FirebaseMonitorRepository implements MonitorRepository {
 
   async signOut(): Promise<void> {
     await this.auth.signOut();
+  }
+
+  observeAccountStatus(
+    userId: string,
+    onActiveChanged: (active: boolean) => void,
+    onError: (message: string) => void,
+  ): MonitorUnsubscribe {
+    return onSnapshot(
+      doc(this.firestore, "usuarios", userId),
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          onError("La cuenta ya no tiene un perfil operativo.");
+          return;
+        }
+        onActiveChanged(snapshot.data().activo === true);
+      },
+      () => onError("No fue posible comprobar el estado de la cuenta."),
+    );
   }
 
   async listActiveJourneys(): Promise<readonly MonitorJourney[]> {
@@ -308,6 +375,80 @@ export class FirebaseMonitorRepository implements MonitorRepository {
         error instanceof Error ? error.message : "No fue posible consultar los borradores.",
         {cause: error},
       );
+    }
+  }
+
+  async listManageableUsers(): Promise<readonly ManageableUser[]> {
+    const callable = httpsCallable<Record<string, never>, {usuarios: unknown[]}>(
+      this.functions,
+      "listarUsuariosAdministrables",
+    );
+    try {
+      const response = await callable({});
+      if (!Array.isArray(response.data.usuarios)) {
+        throw new Error("La respuesta de usuarios no tiene formato valido.");
+      }
+      return response.data.usuarios.map(parseManageableUser);
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible consultar los usuarios.", {cause: error});
+    }
+  }
+
+  async updateUserStatus(
+    userId: string,
+    expectedVersion: number,
+    active: boolean,
+    reason: string,
+    idempotencyKey: string,
+  ): Promise<ManageableUser> {
+    const callable = httpsCallable(this.functions, "actualizarEstadoUsuario");
+    try {
+      const response = await callable({
+        usuarioId: userId,
+        versionEsperada: expectedVersion,
+        nuevoEstado: active ? "ACTIVO" : "INACTIVO",
+        motivo: reason,
+        claveIdempotencia: idempotencyKey,
+      });
+      if (
+        typeof response.data !== "object" ||
+        response.data === null ||
+        (response.data as Record<string, unknown>).operacion !== "ESTADO_USUARIO_ACTUALIZADO"
+      ) {
+        throw new Error("La respuesta del cambio de estado no es valida.");
+      }
+      return parseManageableUser(response.data);
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible actualizar el estado.", {cause: error});
+    }
+  }
+
+  async updateUserRole(
+    userId: string,
+    expectedVersion: number,
+    role: MonitorRole,
+    reason: string,
+    idempotencyKey: string,
+  ): Promise<ManageableUser> {
+    const callable = httpsCallable(this.functions, "actualizarRolUsuario");
+    try {
+      const response = await callable({
+        usuarioId: userId,
+        versionEsperada: expectedVersion,
+        nuevoRol: role,
+        motivo: reason,
+        claveIdempotencia: idempotencyKey,
+      });
+      if (
+        typeof response.data !== "object" ||
+        response.data === null ||
+        (response.data as Record<string, unknown>).operacion !== "ROL_USUARIO_ACTUALIZADO"
+      ) {
+        throw new Error("La respuesta del cambio de rol no es valida.");
+      }
+      return parseManageableUser(response.data);
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible actualizar el rol.", {cause: error});
     }
   }
 
@@ -851,11 +992,27 @@ export class DisabledMonitorRepository implements MonitorRepository {
 
   async signOut(): Promise<void> {}
 
+  observeAccountStatus(): MonitorUnsubscribe {
+    return () => undefined;
+  }
+
   async listActiveJourneys(): Promise<readonly MonitorJourney[]> {
     throw new Error("Firebase de producción permanece deshabilitado.");
   }
 
   async listManageableJourneys(): Promise<ManageableJourneysData> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
+  }
+
+  async listManageableUsers(): Promise<readonly ManageableUser[]> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
+  }
+
+  async updateUserStatus(): Promise<ManageableUser> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
+  }
+
+  async updateUserRole(): Promise<ManageableUser> {
     throw new Error("Firebase de produccion permanece deshabilitado.");
   }
 

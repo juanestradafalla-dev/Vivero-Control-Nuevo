@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/update-user-status-result.schema.json",
+  "title": "Resultado actualizarEstadoUsuario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["operacion", "usuarioId", "nombreVisible", "rol", "activo", "version", "puedeCambiarRol", "resumenTrabajoActivo", "actualizadoEn"],
+  "properties": {
+    "operacion": {"const": "ESTADO_USUARIO_ACTUALIZADO"},
+    "usuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "nombreVisible": {"type": "string", "minLength": 1, "maxLength": 160},
+    "rol": {"$ref": "../enums/roles.json"},
+    "activo": {"type": "boolean"},
+    "version": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "puedeCambiarRol": {"type": "boolean"},
+    "resumenTrabajoActivo": {"$ref": "user-active-work-summary.schema.json"},
+    "actualizadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

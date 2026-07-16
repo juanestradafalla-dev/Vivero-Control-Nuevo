@@ -70,6 +70,22 @@ class FirebaseCampoRepository(
         services.auth.signOut()
     }
 
+    override fun observeAccountActive(userId: String): Flow<Boolean> = callbackFlow {
+        val registration = services.firestore.collection("usuarios").document(userId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(CampoRepositoryException("PROFILE_MONITOR_ERROR", "No fue posible comprobar el estado de la cuenta.", error))
+                    return@addSnapshotListener
+                }
+                if (snapshot == null || !snapshot.exists()) {
+                    trySend(false)
+                    return@addSnapshotListener
+                }
+                trySend(snapshot.getBoolean("activo") == true)
+            }
+        awaitClose { registration.remove() }
+    }
+
     override suspend fun listActiveJourneys(): List<ActiveJourney> {
         try {
             val response = services.functions.getHttpsCallable("listarJornadasActivas")

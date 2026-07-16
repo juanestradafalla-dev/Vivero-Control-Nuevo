@@ -1,6 +1,11 @@
 import {afterEach, describe, expect, it} from "vitest";
 
-import {assertActiveJourneysReadEnvironment, assertEmulatorOnly} from "../src/index.js";
+import {
+  MAESTRO_STAGING_CALLABLES,
+  assertActiveJourneysReadEnvironment,
+  assertEmulatorOnly,
+  assertMaestroStagingEnvironment,
+} from "../src/index.js";
 
 const original = {
   functionsEmulator: process.env.FUNCTIONS_EMULATOR,
@@ -58,5 +63,48 @@ describe("frontera de Firebase staging", () => {
     staging();
 
     expect(() => assertEmulatorOnly()).toThrow(expect.objectContaining({code: "EMULATOR_ONLY"}));
+  });
+
+  it("permite en staging únicamente las Callables de preparación de Maestro", () => {
+    staging();
+    expect(MAESTRO_STAGING_CALLABLES).toEqual([
+      "listarJornadasAdministrables",
+      "crearJornadaBorrador",
+      "actualizarLineasJornadaBorrador",
+      "listarParticipantesJornadaBorrador",
+      "actualizarParticipantesJornadaBorrador",
+      "activarJornada",
+      "listarCatalogoAdministrable",
+      "crearUbicacion",
+      "crearLinea",
+      "listarUsuariosAdministrables",
+    ]);
+    for (const callableName of MAESTRO_STAGING_CALLABLES) {
+      expect(() => assertMaestroStagingEnvironment(callableName)).not.toThrow();
+    }
+    expect(() => assertMaestroStagingEnvironment("actualizarEstadoUsuario"))
+      .toThrow(expect.objectContaining({code: "EMULATOR_ONLY"}));
+    expect(() => assertMaestroStagingEnvironment("reservarLinea"))
+      .toThrow(expect.objectContaining({code: "EMULATOR_ONLY"}));
+  });
+
+  it("conserva las Callables de preparación en emulator demo", () => {
+    process.env.FUNCTIONS_EMULATOR = "true";
+    process.env.GCLOUD_PROJECT = "demo-vivero-control-etapa3";
+    delete process.env.APP_ENV;
+
+    for (const callableName of MAESTRO_STAGING_CALLABLES) {
+      expect(() => assertMaestroStagingEnvironment(callableName)).not.toThrow();
+    }
+  });
+
+  it("rechaza proyecto incorrecto y producción para la preparación de Maestro", () => {
+    staging("otro-proyecto-real");
+    expect(() => assertMaestroStagingEnvironment("crearJornadaBorrador"))
+      .toThrow(expect.objectContaining({code: "EMULATOR_ONLY"}));
+
+    staging("viverocontrol-3f83f", "production");
+    expect(() => assertMaestroStagingEnvironment("crearJornadaBorrador"))
+      .toThrow(expect.objectContaining({code: "EMULATOR_ONLY"}));
   });
 });

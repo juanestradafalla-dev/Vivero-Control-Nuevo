@@ -189,3 +189,9 @@ No se agregan dependencias externas ni cambios funcionales en Campo. La importac
 El bloqueo por hash se conserva incluso después de revertir para impedir que el mismo paquete se aplique nuevamente. Esto consume trazabilidad deliberadamente y requerirá una política histórica antes de producción. Una importación deja de ser reversible en cuanto cualquier recurso cambia, se selecciona o participa en actividad operativa; no existe reversión forzada.
 
 Solo se prueban paquetes ficticios. La jerarquía, fuente, fecha de corte, inventario y autorizaciones reales continúan pendientes. Tampoco están definidos el proceso productivo de aprobación, respaldo, corte, reversión excepcional ni recuperación ante datos reales incorrectos. Firebase real no está configurado y no existe despliegue, migración real, APK o instalador.
+
+## Primera fase de pruebas Firebase staging
+
+El build Android `staging` agrega una frontera real limitada al proyecto `viverocontrol-3f83f`: autenticación y `listarJornadasActivas`. No habilita operaciones mutables ni cambia el bloqueo compartido `assertEmulatorOnly`. Las credenciales de cuentas, API key y App ID no se versionan; el propietario debe configurarlos localmente y realizar cualquier despliegue posterior de forma explícita.
+
+Persisten riesgos de configuración manual de Firebase Authentication, perfiles incompletos, reglas o índices aún no desplegados, conectividad de celulares reales y coste operativo. El applicationId y los namespaces de Room, preferencias, WorkManager y Keystore aíslan staging del emulador, pero esta fase no valida datos reales, carga, señal, recuperación ni producción. No se ejecutó ningún despliegue.

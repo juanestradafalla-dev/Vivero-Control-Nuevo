@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/migration-validation-result.schema.json",
+  "title": "Resultado informativo de validarPaqueteMigracion",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formato", "hashPaquete", "cantidades", "erroresBloqueantes", "advertencias", "resumenConflictos", "aptoParaImportar", "soloValidacion"],
+  "properties": {
+    "formato": {"type": "string", "minLength": 1, "maxLength": 120},
+    "hashPaquete": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "cantidades": {"$ref": "#/$defs/cantidades"},
+    "erroresBloqueantes": {"type": "array", "items": {"$ref": "migration-validation-issue.schema.json"}},
+    "advertencias": {"type": "array", "items": {"$ref": "migration-validation-issue.schema.json"}},
+    "resumenConflictos": {"$ref": "#/$defs/resumenConflictos"},
+    "aptoParaImportar": {"type": "boolean", "description": "Indicador informativo; no autoriza ni ejecuta importación."},
+    "soloValidacion": {"const": true}
+  },
+  "$defs": {
+    "cantidad": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "cantidades": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ubicaciones", "lineas", "inventariosIniciales"],
+      "properties": {
+        "ubicaciones": {"$ref": "#/$defs/cantidad"},
+        "lineas": {"$ref": "#/$defs/cantidad"},
+        "inventariosIniciales": {"$ref": "#/$defs/cantidad"}
+      }
+    },
+    "estadoEntidades": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nuevos", "coincidentes", "bloqueados"],
+      "properties": {
+        "nuevos": {"$ref": "#/$defs/cantidad"},
+        "coincidentes": {"$ref": "#/$defs/cantidad"},
+        "bloqueados": {"$ref": "#/$defs/cantidad"}
+      }
+    },
+    "resumenConflictos": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ubicaciones", "lineas", "inventariosIniciales", "codigosExistentes", "clavesIncompatibles", "lineasConInventarioActual", "conflictosOperativos"],
+      "properties": {
+        "ubicaciones": {"$ref": "#/$defs/estadoEntidades"},
+        "lineas": {"$ref": "#/$defs/estadoEntidades"},
+        "inventariosIniciales": {"$ref": "#/$defs/estadoEntidades"},
+        "codigosExistentes": {"$ref": "#/$defs/cantidad"},
+        "clavesIncompatibles": {"$ref": "#/$defs/cantidad"},
+        "lineasConInventarioActual": {"$ref": "#/$defs/cantidad"},
+        "conflictosOperativos": {"$ref": "#/$defs/cantidad"}
+      }
+    }
+  }
+}

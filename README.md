@@ -2,7 +2,7 @@
 
 Sistema nuevo para operar inventario por línea mediante Vivero Campo (Android), Vivero Maestro (Windows) y un backend transaccional. Este repositorio no consulta, modifica ni reutiliza el proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 17
+## Estado: ETAPA 18
 
 La vertical disponible funciona exclusivamente con Firebase Emulator Suite y datos ficticios:
 
@@ -78,6 +78,12 @@ La vertical disponible funciona exclusivamente con Firebase Emulator Suite y dat
 59. Maestro muestra `SIN INICIALIZAR` o `INICIALIZADO`, exige fuente ficticia y confirmación explícita, y no ofrece edición, reemplazo, borrado o importación.
 60. Una aprobación posterior sustituye normalmente la versión 1, crea la versión 2 y registra diferencias sin alterar la carga inicial conservada.
 
+61. `paquete-migracion-catalogo-v1` define exclusivamente metadatos, ubicaciones, líneas e inventarios iniciales relacionados por `claveExterna`.
+62. `validarPaqueteMigracion` funciona solo para administradores activos y en Emulator Suite; valida estructura, cantidades, relaciones, secretos y conflictos sin escribir en Firestore.
+63. El resultado incluye hash SHA-256 determinista, cantidades, errores, advertencias y elementos nuevos, coincidentes o bloqueados; `aptoParaImportar` es exclusivamente informativo.
+64. Maestro permite seleccionar el JSON solo en memoria, validar primero su estructura, filtrar hallazgos y exportar un informe que no contiene el paquete ni secretos.
+65. La plantilla `data/templates/paquete-migracion-catalogo-v1.example.json` contiene solo valores `PRUEBA`, no representa el vivero real y no autoriza una importación.
+
 > **MODO DE PRUEBA — EMULADOR.** No existe Firebase real configurado, no hay credenciales de producción y ningún comando despliega recursos.
 
 Los conteos y las decisiones son inmutables desde clientes. Maestro no escribe directamente inventario, movimientos, decisiones, auditoría ni estados de línea.
@@ -115,7 +121,7 @@ Vivero-Control-Nuevo/
 |-- apps/maestro-desktop/    # Electron, React y bandeja de revisión
 |-- backend/                 # Callables, reglas, emuladores y seed ficticio
 |-- contracts/               # JSON Schema y ejemplos compartidos
-|-- data/templates/          # plantillas vacías para levantamiento futuro
+|-- data/templates/          # plantilla ficticia versionada; nunca paquetes reales
 |-- docs/                    # definición, arquitectura y pruebas
 `-- tests/                   # espacio para escenarios integrales futuros
 ```
@@ -138,7 +144,7 @@ Set-Location backend/functions
 npm run emulator:seed
 ```
 
-Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las veinticinco Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
+Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las veintiséis Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
 
 | Correo ficticio | Rol |
 |---|---|
@@ -183,6 +189,15 @@ npm run build
 npm run test:emulators
 npm audit --omit=dev --audit-level=high
 ```
+
+## Documentación de la ETAPA 18
+
+- [Validación previa de migración](docs/arquitectura/PREFLIGHT_MIGRACION_ETAPA_18.md)
+- [Pruebas y garantía de cero escrituras](docs/pruebas/PRUEBAS_ETAPA_18.md)
+- [Criterios de aceptación](docs/ETAPA_18_CRITERIOS_DE_ACEPTACION.md)
+- [Plantilla ficticia](data/templates/paquete-migracion-catalogo-v1.example.json)
+- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
+- [Contratos compartidos](contracts/README.md)
 
 ## Documentación de la ETAPA 17
 
@@ -263,4 +278,4 @@ npm audit --omit=dev --audit-level=high
 
 ## Exclusiones vigentes
 
-No están implementados: edición o eliminación de inventario inicial; importación masiva; migración o datos reales; ajustes manuales posteriores; cambios en movimientos históricos; cierre forzado o excepcional; cancelación de jornadas activas; reapertura de jornadas activadas o cerradas; eliminación definitiva; edición de jornadas cerradas; modificación histórica; creación o eliminación de cuentas Firebase Auth; cambio de correo, contraseña, nombre visible o recuperación de acceso; edición directa de autorizaciones activas; vencimiento automático; temporizadores de abandono; eliminación o recuperación administrativa de borradores locales; corrección simultánea por varios usuarios; Firebase de producción; despliegues; APK de producción; instalador Windows definitivo; descartes, despachos, químicos, aplicaciones ni reingresos.
+No están implementados: escritura o importación de paquetes; generación definitiva de IDs; migración, reversión o datos reales; edición o eliminación de inventario inicial; importación masiva; ajustes manuales posteriores; cambios en movimientos históricos; cierre forzado o excepcional; cancelación de jornadas activas; reapertura de jornadas activadas o cerradas; eliminación definitiva; edición de jornadas cerradas; modificación histórica; creación o eliminación de cuentas Firebase Auth; cambio de correo, contraseña, nombre visible o recuperación de acceso; edición directa de autorizaciones activas; vencimiento automático; temporizadores de abandono; eliminación o recuperación administrativa de borradores locales; corrección simultánea por varios usuarios; Firebase de producción; despliegues; APK de producción; instalador Windows definitivo; descartes, despachos, químicos, aplicaciones ni reingresos.

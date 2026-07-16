@@ -1,0 +1,30 @@
+{
+  "formato": "paquete-migracion-catalogo-v1",
+  "hashPaquete": "9a829fc2f1a7cdb9e774e50f9af27b751100b5257eb547457d19e3b76e66aa52",
+  "cantidades": {
+    "ubicaciones": 2,
+    "lineas": 1,
+    "inventariosIniciales": 1
+  },
+  "erroresBloqueantes": [],
+  "advertencias": [
+    {
+      "codigo": "VALIDACION_SIN_ESCRITURAS",
+      "severidad": "ADVERTENCIA",
+      "entidad": "PAQUETE",
+      "claveExterna": null,
+      "mensaje": "El resultado es informativo y no autoriza una importación."
+    }
+  ],
+  "resumenConflictos": {
+    "ubicaciones": {"nuevos": 2, "coincidentes": 0, "bloqueados": 0},
+    "lineas": {"nuevos": 1, "coincidentes": 0, "bloqueados": 0},
+    "inventariosIniciales": {"nuevos": 1, "coincidentes": 0, "bloqueados": 0},
+    "codigosExistentes": 0,
+    "clavesIncompatibles": 0,
+    "lineasConInventarioActual": 0,
+    "conflictosOperativos": 0
+  },
+  "aptoParaImportar": true,
+  "soloValidacion": true
+}

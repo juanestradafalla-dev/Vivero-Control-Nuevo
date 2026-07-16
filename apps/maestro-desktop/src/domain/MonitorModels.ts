@@ -257,6 +257,41 @@ export interface ManageableCatalogData {
   readonly lines: readonly ManageableCatalogLine[];
 }
 
+export type MigrationValidationEntity = "PAQUETE" | "UBICACION" | "LINEA" | "INVENTARIO_INICIAL";
+
+export interface MigrationValidationIssue {
+  readonly code: string;
+  readonly severity: "ERROR" | "ADVERTENCIA";
+  readonly entity: MigrationValidationEntity;
+  readonly externalKey?: string;
+  readonly message: string;
+}
+
+export interface MigrationEntitySummary {
+  readonly newItems: number;
+  readonly matchingItems: number;
+  readonly blockedItems: number;
+}
+
+export interface MigrationValidationReport {
+  readonly format: string;
+  readonly packageHash: string;
+  readonly counts: {readonly locations: number; readonly lines: number; readonly initialInventories: number};
+  readonly blockingErrors: readonly MigrationValidationIssue[];
+  readonly warnings: readonly MigrationValidationIssue[];
+  readonly conflicts: {
+    readonly locations: MigrationEntitySummary;
+    readonly lines: MigrationEntitySummary;
+    readonly initialInventories: MigrationEntitySummary;
+    readonly existingCodes: number;
+    readonly incompatibleKeys: number;
+    readonly linesWithCurrentInventory: number;
+    readonly operationalConflicts: number;
+  };
+  readonly eligibleToImport: boolean;
+  readonly validationOnly: true;
+}
+
 export type MonitorUnsubscribe = () => void;
 
 export interface MonitorRepository {
@@ -349,6 +384,7 @@ export interface MonitorRepository {
     sourceReference: string,
     idempotencyKey: string,
   ): Promise<void>;
+  validateMigrationPackage(packageData: unknown): Promise<MigrationValidationReport>;
   closeJourney(journeyId: string, expectedVersion: number, idempotencyKey: string): Promise<void>;
   approveCount(countId: string, idempotencyKey: string, exceptionReason?: string): Promise<void>;
   returnCount(countId: string, reason: string, idempotencyKey: string): Promise<void>;

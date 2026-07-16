@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/migration-catalog-package-v1.schema.json",
+  "title": "Paquete de migración de catálogo v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formato", "metadatos", "ubicaciones", "lineas", "inventariosIniciales"],
+  "properties": {
+    "formato": {"const": "paquete-migracion-catalogo-v1"},
+    "metadatos": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nombrePaquete", "creadoEn", "referenciaFuente"],
+      "properties": {
+        "nombrePaquete": {"type": "string", "minLength": 1, "maxLength": 240},
+        "creadoEn": {"type": "string", "format": "date-time"},
+        "referenciaFuente": {"type": "string", "minLength": 1, "maxLength": 500}
+      }
+    },
+    "ubicaciones": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claveExterna", "ubicacionPadreClaveExterna", "codigo", "tipo", "nombreVisible", "orden", "activa"],
+        "properties": {
+          "claveExterna": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+          "ubicacionPadreClaveExterna": {
+            "oneOf": [{"$ref": "comun.schema.json#/$defs/idRutaSegura"}, {"type": "null"}]
+          },
+          "codigo": {"type": "string", "minLength": 1, "maxLength": 120},
+          "tipo": {"type": "string", "minLength": 1, "maxLength": 80},
+          "nombreVisible": {"type": "string", "minLength": 1, "maxLength": 240},
+          "orden": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+          "activa": {"type": "boolean"}
+        }
+      }
+    },
+    "lineas": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claveExterna", "ubicacionClaveExterna", "codigo", "nombreVisible", "orden", "activa"],
+        "properties": {
+          "claveExterna": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+          "ubicacionClaveExterna": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+          "codigo": {"type": "string", "minLength": 1, "maxLength": 120},
+          "nombreVisible": {"type": "string", "minLength": 1, "maxLength": 240},
+          "orden": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+          "activa": {"type": "boolean"}
+        }
+      }
+    },
+    "inventariosIniciales": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["lineaClaveExterna", "hembras", "machos", "patrones", "referenciaFuente"],
+        "properties": {
+          "lineaClaveExterna": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+          "hembras": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+          "machos": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+          "patrones": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+          "referenciaFuente": {"type": "string", "minLength": 1, "maxLength": 500}
+        }
+      }
+    }
+  }
+}

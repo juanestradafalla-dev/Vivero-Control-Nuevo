@@ -564,6 +564,86 @@ export interface RegisterInitialInventoryResult extends InventoryValues {
   readonly registradaEn: string;
 }
 
+export interface MigrationPackageMetadata {
+  readonly nombrePaquete: string;
+  readonly creadoEn: string;
+  readonly referenciaFuente: string;
+}
+
+export interface MigrationPackageLocation {
+  readonly claveExterna: string;
+  readonly ubicacionPadreClaveExterna: string | null;
+  readonly codigo: string;
+  readonly tipo: string;
+  readonly nombreVisible: string;
+  readonly orden: number;
+  readonly activa: boolean;
+}
+
+export interface MigrationPackageLine {
+  readonly claveExterna: string;
+  readonly ubicacionClaveExterna: string;
+  readonly codigo: string;
+  readonly nombreVisible: string;
+  readonly orden: number;
+  readonly activa: boolean;
+}
+
+export interface MigrationPackageInitialInventory {
+  readonly lineaClaveExterna: string;
+  readonly hembras: number;
+  readonly machos: number;
+  readonly patrones: number;
+  readonly referenciaFuente: string;
+}
+
+export interface MigrationCatalogPackageV1 {
+  readonly formato: "paquete-migracion-catalogo-v1";
+  readonly metadatos: MigrationPackageMetadata;
+  readonly ubicaciones: readonly MigrationPackageLocation[];
+  readonly lineas: readonly MigrationPackageLine[];
+  readonly inventariosIniciales: readonly MigrationPackageInitialInventory[];
+}
+
+export type MigrationValidationEntity = "PAQUETE" | "UBICACION" | "LINEA" | "INVENTARIO_INICIAL";
+
+export interface MigrationValidationIssue {
+  readonly codigo: string;
+  readonly severidad: "ERROR" | "ADVERTENCIA";
+  readonly entidad: MigrationValidationEntity;
+  readonly claveExterna: string | null;
+  readonly mensaje: string;
+}
+
+export interface MigrationEntityConflictSummary {
+  readonly nuevos: number;
+  readonly coincidentes: number;
+  readonly bloqueados: number;
+}
+
+export interface MigrationValidationResult {
+  readonly formato: string;
+  readonly hashPaquete: string;
+  readonly cantidades: {
+    readonly ubicaciones: number;
+    readonly lineas: number;
+    readonly inventariosIniciales: number;
+  };
+  readonly erroresBloqueantes: readonly MigrationValidationIssue[];
+  readonly advertencias: readonly MigrationValidationIssue[];
+  readonly resumenConflictos: {
+    readonly ubicaciones: MigrationEntityConflictSummary;
+    readonly lineas: MigrationEntityConflictSummary;
+    readonly inventariosIniciales: MigrationEntityConflictSummary;
+    readonly codigosExistentes: number;
+    readonly clavesIncompatibles: number;
+    readonly lineasConInventarioActual: number;
+    readonly conflictosOperativos: number;
+  };
+  readonly aptoParaImportar: boolean;
+  readonly soloValidacion: true;
+}
+
 /** Contrato de frontera reservado para una futura operación de revisión; no es enviarConteo. */
 export interface SubmitCountRequest {
   readonly jornadaLineaId: string;

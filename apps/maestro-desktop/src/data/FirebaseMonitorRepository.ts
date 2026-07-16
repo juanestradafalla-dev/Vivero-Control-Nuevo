@@ -44,6 +44,9 @@ import type {
   MonitorSnapshot,
   MonitorUnsubscribe,
   MonitorUser,
+  MigrationEntitySummary,
+  MigrationValidationIssue,
+  MigrationValidationReport,
 } from "../domain/MonitorModels";
 import {sortMonitorLines} from "../domain/MonitorModels";
 
@@ -316,6 +319,79 @@ function parseCatalogLine(value: unknown): ManageableCatalogLine {
     ...(typeof line.motivoNoElegibleInventarioInicial === "string"
       ? {initialInventoryIneligibleReason: line.motivoNoElegibleInventarioInicial}
       : {}),
+  };
+}
+
+function parseMigrationIssue(value: unknown): MigrationValidationIssue {
+  if (typeof value !== "object" || value === null) throw new Error("El hallazgo de migración no es válido.");
+  const issue = value as Record<string, unknown>;
+  if (
+    typeof issue.codigo !== "string" ||
+    (issue.severidad !== "ERROR" && issue.severidad !== "ADVERTENCIA") ||
+    !["PAQUETE", "UBICACION", "LINEA", "INVENTARIO_INICIAL"].includes(String(issue.entidad)) ||
+    (issue.claveExterna !== null && typeof issue.claveExterna !== "string") ||
+    typeof issue.mensaje !== "string"
+  ) throw new Error("El hallazgo de migración no es válido.");
+  return {
+    code: issue.codigo,
+    severity: issue.severidad,
+    entity: issue.entidad as MigrationValidationIssue["entity"],
+    ...(typeof issue.claveExterna === "string" ? {externalKey: issue.claveExterna} : {}),
+    message: issue.mensaje,
+  };
+}
+
+function parseMigrationEntitySummary(value: unknown): MigrationEntitySummary {
+  if (typeof value !== "object" || value === null) throw new Error("El resumen de migración no es válido.");
+  const summary = value as Record<string, unknown>;
+  if (
+    !Number.isSafeInteger(summary.nuevos) || !Number.isSafeInteger(summary.coincidentes) ||
+    !Number.isSafeInteger(summary.bloqueados)
+  ) throw new Error("El resumen de migración no es válido.");
+  return {
+    newItems: summary.nuevos as number,
+    matchingItems: summary.coincidentes as number,
+    blockedItems: summary.bloqueados as number,
+  };
+}
+
+function parseMigrationValidationReport(value: unknown): MigrationValidationReport {
+  if (typeof value !== "object" || value === null) throw new Error("El informe de migración no es válido.");
+  const report = value as Record<string, unknown>;
+  const counts = report.cantidades as Record<string, unknown> | null;
+  const conflicts = report.resumenConflictos as Record<string, unknown> | null;
+  if (
+    typeof report.formato !== "string" || typeof report.hashPaquete !== "string" ||
+    !Array.isArray(report.erroresBloqueantes) || !Array.isArray(report.advertencias) ||
+    typeof counts !== "object" || counts === null || typeof conflicts !== "object" || conflicts === null ||
+    !Number.isSafeInteger(counts.ubicaciones) || !Number.isSafeInteger(counts.lineas) ||
+    !Number.isSafeInteger(counts.inventariosIniciales) || typeof report.aptoParaImportar !== "boolean" ||
+    report.soloValidacion !== true || !Number.isSafeInteger(conflicts.codigosExistentes) ||
+    !Number.isSafeInteger(conflicts.clavesIncompatibles) ||
+    !Number.isSafeInteger(conflicts.lineasConInventarioActual) ||
+    !Number.isSafeInteger(conflicts.conflictosOperativos)
+  ) throw new Error("El informe de migración no es válido.");
+  return {
+    format: report.formato,
+    packageHash: report.hashPaquete,
+    counts: {
+      locations: counts.ubicaciones as number,
+      lines: counts.lineas as number,
+      initialInventories: counts.inventariosIniciales as number,
+    },
+    blockingErrors: report.erroresBloqueantes.map(parseMigrationIssue),
+    warnings: report.advertencias.map(parseMigrationIssue),
+    conflicts: {
+      locations: parseMigrationEntitySummary(conflicts.ubicaciones),
+      lines: parseMigrationEntitySummary(conflicts.lineas),
+      initialInventories: parseMigrationEntitySummary(conflicts.inventariosIniciales),
+      existingCodes: conflicts.codigosExistentes as number,
+      incompatibleKeys: conflicts.clavesIncompatibles as number,
+      linesWithCurrentInventory: conflicts.lineasConInventarioActual as number,
+      operationalConflicts: conflicts.conflictosOperativos as number,
+    },
+    eligibleToImport: report.aptoParaImportar,
+    validationOnly: true,
   };
 }
 
@@ -652,6 +728,15 @@ export class FirebaseMonitorRepository implements MonitorRepository {
       });
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : "No fue posible registrar el inventario inicial.", {cause: error});
+    }
+  }
+
+  async validateMigrationPackage(packageData: unknown): Promise<MigrationValidationReport> {
+    const callable = httpsCallable<unknown, unknown>(this.functions, "validarPaqueteMigracion");
+    try {
+      return parseMigrationValidationReport((await callable(packageData)).data);
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible validar el paquete.", {cause: error});
     }
   }
 
@@ -1232,6 +1317,10 @@ export class DisabledMonitorRepository implements MonitorRepository {
   }
 
   async registerInitialInventory(): Promise<void> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
+  }
+
+  async validateMigrationPackage(): Promise<MigrationValidationReport> {
     throw new Error("Firebase de produccion permanece deshabilitado.");
   }
 

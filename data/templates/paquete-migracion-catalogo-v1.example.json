@@ -1,0 +1,47 @@
+{
+  "formato": "paquete-migracion-catalogo-v1",
+  "metadatos": {
+    "nombrePaquete": "PRUEBA - catálogo ficticio para validar ETAPA 18",
+    "creadoEn": "2026-07-16T12:00:00.000Z",
+    "referenciaFuente": "PRUEBA FICTICIA - plantilla sin datos reales"
+  },
+  "ubicaciones": [
+    {
+      "claveExterna": "UB-PRUEBA-RAIZ",
+      "ubicacionPadreClaveExterna": null,
+      "codigo": "PRUEBA-RAIZ",
+      "tipo": "TIPO-PRUEBA",
+      "nombreVisible": "PRUEBA - ubicación raíz ficticia",
+      "orden": 1,
+      "activa": true
+    },
+    {
+      "claveExterna": "UB-PRUEBA-HIJA",
+      "ubicacionPadreClaveExterna": "UB-PRUEBA-RAIZ",
+      "codigo": "PRUEBA-HIJA",
+      "tipo": "TIPO-PRUEBA",
+      "nombreVisible": "PRUEBA - ubicación hija ficticia",
+      "orden": 1,
+      "activa": true
+    }
+  ],
+  "lineas": [
+    {
+      "claveExterna": "LINEA-PRUEBA-MIG-001",
+      "ubicacionClaveExterna": "UB-PRUEBA-HIJA",
+      "codigo": "PRUEBA-LINEA-001",
+      "nombreVisible": "PRUEBA - línea ficticia para preflight",
+      "orden": 1,
+      "activa": true
+    }
+  ],
+  "inventariosIniciales": [
+    {
+      "lineaClaveExterna": "LINEA-PRUEBA-MIG-001",
+      "hembras": 120,
+      "machos": 60,
+      "patrones": 30,
+      "referenciaFuente": "PRUEBA FICTICIA - planilla simulada ETAPA 18"
+    }
+  ]
+}

@@ -11,6 +11,7 @@ import type {
 import {sortMonitorLines} from "../domain/MonitorModels";
 import {CatalogSection} from "./CatalogSection";
 import {DraftJourneysSection} from "./DraftJourneysSection";
+import {MigrationValidationSection} from "./MigrationValidationSection";
 import {UsersSection} from "./UsersSection";
 import "./app.css";
 
@@ -67,7 +68,9 @@ export function App({repository}: AppProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [user, setUser] = useState<MonitorUser>();
-  const [activeSection, setActiveSection] = useState<"MONITOR" | "JOURNEYS" | "USERS" | "CATALOG">("MONITOR");
+  const [activeSection, setActiveSection] = useState<
+    "MONITOR" | "JOURNEYS" | "USERS" | "CATALOG" | "MIGRATION"
+  >("MONITOR");
   const [journeys, setJourneys] = useState<readonly MonitorJourney[]>([]);
   const [selectedJourneyId, setSelectedJourneyId] = useState<string>();
   const [snapshot, setSnapshot] = useState<MonitorSnapshot>();
@@ -476,12 +479,26 @@ export function App({repository}: AppProps) {
               Catálogo
             </button>
           )}
+          {user.role === "ADMINISTRADOR" && (
+            <button
+              className={activeSection === "MIGRATION" ? "workspace-tab workspace-tab--active" : "workspace-tab"}
+              type="button"
+              onClick={() => {
+                setReviewDialog(undefined);
+                setReassignmentDialog(undefined);
+                setReleaseDialog(undefined);
+                setActiveSection("MIGRATION");
+              }}
+            >
+              Migración — Validación
+            </button>
+          )}
         </nav>
       )}
 
       {!user ? (
         <section className="login-panel" aria-labelledby="login-title">
-          <p className="eyebrow">ETAPA 17</p>
+          <p className="eyebrow">ETAPA 18</p>
           <h1 id="login-title">Acceso a revisión</h1>
           <p>Use únicamente una cuenta ficticia cargada en Firebase Emulator Suite.</p>
           <form onSubmit={handleSignIn}>
@@ -506,6 +523,8 @@ export function App({repository}: AppProps) {
           repository={repository}
           onCatalogChanged={() => setDraftRefreshVersion((version) => version + 1)}
         />
+      ) : activeSection === "MIGRATION" && user.role === "ADMINISTRADOR" ? (
+        <MigrationValidationSection repository={repository} />
       ) : activeSection === "JOURNEYS" ? (
         <DraftJourneysSection
           key={draftRefreshVersion}

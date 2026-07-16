@@ -88,7 +88,10 @@ export const expectedSchemas = [
   "catalog-uniqueness-lock.schema.json",
   "register-initial-inventory-request.schema.json",
   "register-initial-inventory-result.schema.json",
-  "initial-inventory-load.schema.json"
+  "initial-inventory-load.schema.json",
+  "migration-catalog-package-v1.schema.json",
+  "migration-validation-issue.schema.json",
+  "migration-validation-result.schema.json"
 ];
 
 export const expectedEnums = new Map([

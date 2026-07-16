@@ -24,8 +24,8 @@ async function assertInvalid(schemaFilename, exampleFilename) {
 }
 
 test("compila todos los esquemas Draft 2020-12 y resuelve sus referencias", () => {
-  assert.equal(registry.entityCount, 83);
-  assert.equal(registry.schemaCount, 84);
+  assert.equal(registry.entityCount, 86);
+  assert.equal(registry.schemaCount, 87);
   assert.equal(registry.enumCount, 5);
 });
 
@@ -419,4 +419,26 @@ test("rechaza total enviado por el cliente en la carga inicial", async () => {
     "register-initial-inventory-request.schema.json",
     "etapa-17/register-initial-inventory-request-with-total.json"
   );
+});
+
+test("acepta la plantilla ficticia versionada de migración y su informe", async () => {
+  const template = JSON.parse(await readFile(
+    new URL("../data/templates/paquete-migracion-catalogo-v1.example.json", root),
+    "utf8"
+  ));
+  const packageResult = validateContract(registry, "migration-catalog-package-v1.schema.json", template);
+  assert.equal(packageResult.valid, true, JSON.stringify(packageResult, null, 2));
+  await assertValid("migration-validation-result.schema.json", "etapa-18/migration-validation-result.json");
+});
+
+test("rechaza IDs internos, total calculado y campos adicionales en el paquete", async () => {
+  const template = JSON.parse(await readFile(
+    new URL("../data/templates/paquete-migracion-catalogo-v1.example.json", root),
+    "utf8"
+  ));
+  template.lineas[0].lineaId = "ID-FIRESTORE-PROHIBIDO";
+  template.inventariosIniciales[0].total = 210;
+  const result = validateContract(registry, "migration-catalog-package-v1.schema.json", template);
+  assert.equal(result.valid, false);
+  assert.ok(result.schemaErrors.length >= 2);
 });

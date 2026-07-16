@@ -33,6 +33,7 @@ import {
 } from "./domain/draftParticipants.js";
 import {ListActiveJourneysService} from "./domain/listActiveJourneys.js";
 import {RegisterInitialInventoryService} from "./domain/initialInventory.js";
+import {ValidateMigrationPackageService} from "./domain/migrationPreflight.js";
 import {ReassignCountCorrectionService} from "./domain/reassignCorrection.js";
 import {ReleaseReservationService} from "./domain/releaseReservation.js";
 import {ReserveLineService} from "./domain/reserveLine.js";
@@ -199,6 +200,21 @@ const updateCatalogLocationService = new UpdateCatalogLocationService(firestore)
 const createCatalogLineService = new CreateCatalogLineService(firestore);
 const updateCatalogLineService = new UpdateCatalogLineService(firestore);
 const registerInitialInventoryService = new RegisterInitialInventoryService(firestore);
+const validateMigrationPackageService = new ValidateMigrationPackageService(firestore);
+
+export const validarPaqueteMigracion = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    return await validateMigrationPackageService.execute(request.data, {actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en validarPaqueteMigracion", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
 
 export const registrarInventarioInicial = onCall({region: "us-central1"}, async (request) => {
   try {

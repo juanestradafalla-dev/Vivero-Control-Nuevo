@@ -304,6 +304,17 @@ input:focus { outline: 3px solid #9ccca8; border-color: #1b6f3b; }
 .catalog-admin-line--inactive { background: #f5f5f2; color: #6e7771; }
 .catalog-inventory { display: grid; gap: 3px; margin-top: 6px; padding: 7px 9px; border-radius: 8px; background: #e8f5ec; }
 .catalog-inventory--empty { background: #fff4d6; }
+.migration-validation { display: grid; gap: 18px; }
+.migration-safety-banner { display: grid; gap: 4px; padding: 14px 16px; border: 2px solid #1b6f3b; border-radius: 12px; background: #e8f5ec; color: #164c32; }
+.migration-file-picker, .migration-local-summary { display: grid; gap: 10px; max-width: 760px; }
+.migration-local-summary { padding: 16px; border-radius: 12px; background: #f2f7f3; }
+.migration-report { display: grid; gap: 18px; padding-top: 12px; }
+.migration-report-summary, .migration-conflicts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.migration-report-summary span, .migration-conflicts span { display: grid; gap: 4px; padding: 12px; border-radius: 10px; background: #f2f7f3; overflow-wrap: anywhere; }
+.migration-issues { display: grid; gap: 10px; }
+.migration-issue { display: grid; gap: 5px; padding: 12px; border-left: 5px solid #b78013; border-radius: 8px; background: #fff8e8; }
+.migration-issue--error { border-left-color: #a93232; background: #fff0f0; }
+.migration-issue p { margin: 0; }
 .draft-participants { display: grid; gap: 18px; margin-top: 32px; padding-top: 28px; border-top: 2px solid #d6e5d8; }
 .draft-participants h3 { margin: 10px 0 0; color: #164c32; font-size: 1.2rem; }
 .participant-list { display: grid; gap: 10px; }

@@ -1,5 +1,5 @@
 import {act, cleanup, fireEvent, render, screen, waitFor, within} from "@testing-library/react";
-import {afterEach, describe, expect, it} from "vitest";
+import {afterEach, describe, expect, it, vi} from "vitest";
 
 import type {
   DraftActivationResult,
@@ -12,6 +12,7 @@ import type {
   ManageableCatalogLocation,
   ManageableJourneysData,
   ManageableUser,
+  MigrationValidationReport,
   MonitorJourney,
   MonitorRepository,
   MonitorSnapshot,
@@ -125,6 +126,28 @@ class FakeMonitorRepository implements MonitorRepository {
   inventoryRegistrations: Array<{
     lineId: string; females: number; males: number; rootstocks: number; source: string; key: string;
   }> = [];
+  migrationValidationCalls: unknown[] = [];
+  migrationValidationReport: MigrationValidationReport = {
+    format: "paquete-migracion-catalogo-v1",
+    packageHash: "a".repeat(64),
+    counts: {locations: 2, lines: 1, initialInventories: 1},
+    blockingErrors: [{
+      code: "CONFLICTO_OPERATIVO", severity: "ERROR", entity: "LINEA",
+      externalKey: "LINEA-PRUEBA-1", message: "La línea está ocupada por una jornada activa.",
+    }],
+    warnings: [{
+      code: "CODIGO_EXISTENTE", severity: "ADVERTENCIA", entity: "UBICACION",
+      externalKey: "UB-PRUEBA", message: "El código ya existe en el emulador.",
+    }],
+    conflicts: {
+      locations: {newItems: 1, matchingItems: 1, blockedItems: 0},
+      lines: {newItems: 0, matchingItems: 0, blockedItems: 1},
+      initialInventories: {newItems: 0, matchingItems: 0, blockedItems: 1},
+      existingCodes: 1, incompatibleKeys: 0, linesWithCurrentInventory: 0, operationalConflicts: 1,
+    },
+    eligibleToImport: false,
+    validationOnly: true,
+  };
   manageableCatalog: ManageableCatalogData = {
     locations: [
       {id: "UBICACION-RAIZ", code: "RAIZ", type: "VIVERO", displayName: "Raíz ficticia", order: 1, active: true, version: 1, activeChildCount: 1, activeLineCount: 0},
@@ -362,6 +385,10 @@ class FakeMonitorRepository implements MonitorRepository {
       ...this.manageableCatalog,
       lines: this.manageableCatalog.lines.map((item) => item.id === line.id ? updated : item),
     };
+  }
+  async validateMigrationPackage(packageData: unknown): Promise<MigrationValidationReport> {
+    this.migrationValidationCalls.push(packageData);
+    return this.migrationValidationReport;
   }
   async updateUserStatus(
     userId: string,
@@ -1347,10 +1374,51 @@ describe("jornadas en borrador de Vivero Maestro", () => {
     expect(repository.catalogListCalls).toBeGreaterThan(1);
   });
 
+  it("valida localmente, presenta y exporta un informe de migración sin importar", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.user = {...supervisor, role: "ADMINISTRADOR", canManageUsers: true, canManageCatalog: true};
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: /Migraci.n.*Validaci.n/}));
+    await screen.findByRole("heading", {name: /Migraci.n.*Validaci.n/});
+
+    const payload = {
+      formato: "paquete-migracion-catalogo-v1",
+      metadatos: {nombrePaquete: "PRUEBA", creadoEn: "2026-07-16T12:00:00.000Z", referenciaFuente: "PRUEBA"},
+      ubicaciones: [{claveExterna: "UB-PRUEBA"}],
+      lineas: [{claveExterna: "LINEA-PRUEBA"}],
+      inventariosIniciales: [{lineaClaveExterna: "LINEA-PRUEBA"}],
+    };
+    const file = new File([JSON.stringify(payload)], "paquete-prueba.json", {type: "application/json"});
+    Object.defineProperty(file, "text", {value: async () => JSON.stringify(payload)});
+    fireEvent.change(screen.getByLabelText("Archivo JSON de migración"), {target: {files: [file]}});
+    await screen.findByText(/Estructura local v.lida/);
+    fireEvent.click(screen.getByRole("button", {name: "Validar paquete en emulador"}));
+
+    await screen.findByRole("heading", {name: "Resultado de validación"});
+    expect(repository.migrationValidationCalls).toHaveLength(1);
+    expect(screen.getByText(/No se realiz. ninguna importaci.n/)).toBeInTheDocument();
+    expect(screen.getByText(/CONFLICTO_OPERATIVO/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Filtrar severidad"), {target: {value: "ADVERTENCIA"}});
+    expect(screen.queryByText(/CONFLICTO_OPERATIVO/)).not.toBeInTheDocument();
+    expect(screen.getByText(/CODIGO_EXISTENTE/)).toBeInTheDocument();
+
+    const createObjectUrl = vi.fn(() => "blob:informe-prueba");
+    const revokeObjectUrl = vi.fn();
+    Object.defineProperty(URL, "createObjectURL", {configurable: true, value: createObjectUrl});
+    Object.defineProperty(URL, "revokeObjectURL", {configurable: true, value: revokeObjectUrl});
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    fireEvent.click(screen.getByRole("button", {name: "Exportar informe seguro"}));
+    expect(createObjectUrl).toHaveBeenCalledOnce();
+    expect(click).toHaveBeenCalledOnce();
+    expect(revokeObjectUrl).toHaveBeenCalledWith("blob:informe-prueba");
+    click.mockRestore();
+  });
+
   it("oculta Catalogo a supervisor y auxiliar", async () => {
     const supervisorRepository = new FakeMonitorRepository();
     await signIn(supervisorRepository);
     expect(screen.queryByRole("button", {name: "Catálogo"})).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: /Migraci.n.*Validaci.n/})).not.toBeInTheDocument();
     cleanup();
     const auxiliaryRepository = new FakeMonitorRepository();
     auxiliaryRepository.user = {
@@ -1365,6 +1433,7 @@ describe("jornadas en borrador de Vivero Maestro", () => {
     };
     await signIn(auxiliaryRepository);
     expect(screen.queryByRole("button", {name: "Catálogo"})).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: /Migraci.n.*Validaci.n/})).not.toBeInTheDocument();
   });
 
   it("invalida de forma segura una sesion desactivada desde otra sesion", async () => {

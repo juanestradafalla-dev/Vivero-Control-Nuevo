@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/migration-validation-issue.schema.json",
+  "title": "Hallazgo de validación previa de migración",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["codigo", "severidad", "entidad", "claveExterna", "mensaje"],
+  "properties": {
+    "codigo": {"type": "string", "minLength": 1, "maxLength": 120},
+    "severidad": {"enum": ["ERROR", "ADVERTENCIA"]},
+    "entidad": {"enum": ["PAQUETE", "UBICACION", "LINEA", "INVENTARIO_INICIAL"]},
+    "claveExterna": {
+      "oneOf": [{"type": "string", "minLength": 1, "maxLength": 128}, {"type": "null"}]
+    },
+    "mensaje": {"type": "string", "minLength": 1, "maxLength": 500}
+  }
+}

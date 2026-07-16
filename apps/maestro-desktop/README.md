@@ -50,6 +50,6 @@ El empaquetado requiere el archivo local `.env.local` con el entorno staging val
 npm run package:win:staging
 ```
 
-El resultado local es `release/Vivero-Maestro-Staging-Setup-0.1.0.exe`. Se instala por usuario mediante NSIS, crea accesos directos en Escritorio y menú Inicio, no exige elevación, no se firma digitalmente y no publica artefactos ni configura actualizaciones automáticas. `release/`, los ejecutables y `.env.local` permanecen ignorados por Git.
+El resultado local es `release/Vivero-Maestro-Staging-Setup-0.1.1.exe`. Se instala por usuario mediante NSIS, crea accesos directos en Escritorio y menú Inicio, no exige elevación, no se firma digitalmente y no publica artefactos ni configura actualizaciones automáticas. `release/`, los ejecutables y `.env.local` permanecen ignorados por Git.
 
 No incluye edición de versiones, liberación automática, temporizadores, activación, cierre, cancelación o eliminación de jornadas fuera de las operaciones ya habilitadas para staging.

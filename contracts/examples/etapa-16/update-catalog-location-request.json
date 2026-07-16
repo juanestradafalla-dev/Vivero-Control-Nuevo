@@ -1,0 +1,5 @@
+{
+  "ubicacionId": "UBICACION-RAIZ-16", "versionEsperada": 1,
+  "nombreVisible": "Sector norte actualizado", "orden": 11, "activa": true,
+  "motivo": "Ajuste ficticio de presentación.", "claveIdempotencia": "actualizar-ubicacion-etapa-16"
+}

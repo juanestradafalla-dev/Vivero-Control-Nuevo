@@ -287,6 +287,21 @@ input:focus { outline: 3px solid #9ccca8; border-color: #1b6f3b; }
 .catalog-line small { color: #66766d; }
 .catalog-line em { color: #875d0c; font-size: .78rem; }
 .catalog-line--disabled { color: #718078; background: #f6f6f3; cursor: not-allowed; }
+.catalog-admin { display: grid; gap: 18px; padding: 24px; }
+.catalog-admin-filters { display: grid; grid-template-columns: minmax(220px, 2fr) repeat(2, minmax(150px, 1fr)); gap: 12px; }
+.catalog-tree { display: grid; gap: 12px; }
+.catalog-tree-node { border: 1px solid #cfe0d2; border-radius: 12px; background: #fff; overflow: hidden; }
+.catalog-tree-node > summary { display: flex; justify-content: space-between; gap: 16px; padding: 13px 15px; cursor: pointer; color: #164c32; background: #eef7ef; }
+.catalog-tree-node > summary small { color: #607168; }
+.catalog-node-body { display: grid; gap: 10px; padding: 13px 15px; }
+.catalog-node-body p { margin: 0; color: #607168; }
+.catalog-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.catalog-tree-children { display: grid; gap: 10px; margin-left: 20px; }
+.catalog-admin-line { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 13px; border: 1px solid #dbe7dd; border-radius: 10px; }
+.catalog-admin-line > div { display: grid; gap: 3px; }
+.catalog-admin-line span, .catalog-admin-line em { color: #64736b; font-size: .84rem; }
+.catalog-admin-line em { color: #875d0c; }
+.catalog-admin-line--inactive { background: #f5f5f2; color: #6e7771; }
 .draft-participants { display: grid; gap: 18px; margin-top: 32px; padding-top: 28px; border-top: 2px solid #d6e5d8; }
 .draft-participants h3 { margin: 10px 0 0; color: #164c32; font-size: 1.2rem; }
 .participant-list { display: grid; gap: 10px; }
@@ -327,4 +342,7 @@ input:focus { outline: 3px solid #9ccca8; border-color: #1b6f3b; }
   .close-blockers { grid-column: 1; }
   .users-filters { grid-template-columns: 1fr; }
   .user-card__actions { align-items: stretch; flex-direction: column; }
+  .catalog-admin-filters { grid-template-columns: 1fr; }
+  .catalog-tree-node > summary, .catalog-admin-line { align-items: flex-start; flex-direction: column; }
+  .catalog-tree-children { margin-left: 8px; }
 }

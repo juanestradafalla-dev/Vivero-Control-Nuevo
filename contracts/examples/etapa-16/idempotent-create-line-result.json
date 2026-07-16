@@ -1,0 +1,12 @@
+{
+  "id": "IDEMPOTENCIA-CATALOGO-16", "actorUsuarioId": "uid-administrador",
+  "operacion": "CREAR_LINEA", "claveHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "payloadHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "resultado": {
+    "operacion": "LINEA_CREADA", "lineaId": "LINEA-16", "ubicacionId": "UBICACION-RAIZ-16",
+    "codigo": "LINEA-01", "nombreVisible": "Línea ficticia 01", "orden": 1,
+    "activa": true, "version": 1, "ocupadaEnJornadaActiva": false, "seleccionesBorrador": 0,
+    "actualizadaEn": "2026-07-15T12:00:00.000Z"
+  },
+  "creadoEn": "2026-07-15T12:00:00.000Z"
+}

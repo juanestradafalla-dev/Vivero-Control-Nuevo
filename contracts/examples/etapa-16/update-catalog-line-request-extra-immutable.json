@@ -1,0 +1,5 @@
+{
+  "lineaId": "LINEA-16", "versionEsperada": 1, "codigo": "CODIGO-NUEVO-NO-PERMITIDO",
+  "nombreVisible": "Línea ficticia", "orden": 1, "activa": true,
+  "motivo": "Intento inválido.", "claveIdempotencia": "inmutable-linea-etapa-16"
+}

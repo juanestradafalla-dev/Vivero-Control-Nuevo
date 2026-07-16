@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/update-catalog-location-request.schema.json",
+  "title": "Solicitud actualizarUbicacion",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ubicacionId", "versionEsperada", "nombreVisible", "orden", "activa", "motivo", "claveIdempotencia"],
+  "properties": {
+    "ubicacionId": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+    "versionEsperada": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "nombreVisible": {"type": "string", "minLength": 1, "maxLength": 240, "pattern": ".*\\S.*"},
+    "orden": {"type": "integer", "minimum": 0, "maximum": 1000000},
+    "activa": {"type": "boolean"},
+    "motivo": {"type": "string", "minLength": 1, "maxLength": 2000, "pattern": ".*\\S.*"},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}
+  }
+}

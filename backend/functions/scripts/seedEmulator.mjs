@@ -1,6 +1,7 @@
 import {getApps, initializeApp} from "firebase-admin/app";
 import {getAuth} from "firebase-admin/auth";
 import {getFirestore, Timestamp} from "firebase-admin/firestore";
+import {createHash} from "node:crypto";
 import {pathToFileURL} from "node:url";
 
 import {
@@ -76,6 +77,10 @@ async function clearJourneyAuthorizations(database) {
   }
 }
 
+function catalogLockId(kind, scope, code) {
+  return createHash("sha256").update(`${kind}:${scope}:${code}`, "utf8").digest("hex");
+}
+
 export async function seedEmulator() {
   const projectId = configureEmulatorEnvironment();
   const app = getApps().find((candidate) => candidate.name === "etapa-3-seed") ??
@@ -102,7 +107,10 @@ export async function seedEmulator() {
     "jornadas",
     "seleccionesLineasJornada",
     "seleccionesParticipantesJornada",
-    "ocupacionesLineasActivas"
+    "ocupacionesLineasActivas",
+    "bloqueosCodigosCatalogo",
+    "lineas",
+    "ubicaciones"
   ]) {
     await clearCollection(database, collectionName);
   }
@@ -130,7 +138,16 @@ export async function seedEmulator() {
     {id: "CAMA-PRUEBA-2", codigo: "CAMA-PRUEBA-2", tipo: "CAMA", ubicacionPadreId: "MODULO-PRUEBA-2", nombreVisible: "Cama ficticia 2", orden: 1}
   ];
   for (const location of locationDocuments) {
-    batch.set(database.collection("ubicaciones").doc(location.id), {...location, activa: true, creadaEn: now});
+    batch.set(database.collection("ubicaciones").doc(location.id), {
+      ...location, ubicacionPadreId: location.ubicacionPadreId ?? null,
+      codigoNormalizado: location.codigo, activa: true, version: 1, creadaEn: now, actualizadaEn: now
+    });
+    const scope = location.ubicacionPadreId ?? "ROOT";
+    const lockId = catalogLockId("UBICACION", scope, location.codigo);
+    batch.set(database.collection("bloqueosCodigosCatalogo").doc(lockId), {
+      id: lockId, recursoTipo: "UBICACION", recursoId: location.id,
+      ambitoId: scope, codigoNormalizado: location.codigo, creadoEn: now
+    });
   }
   visibleLocations.forEach((location, index) => {
     const lineId = `LINEA-PRUEBA-${index + 1}`;
@@ -138,9 +155,11 @@ export async function seedEmulator() {
       id: lineId,
       ubicacionId: "CAMA-PRUEBA-1",
       codigo: lineId,
+      codigoNormalizado: lineId,
       nombreVisible: location.nombreVisible,
       orden: location.orden,
       activa: true,
+      version: 1,
       creadaEn: now,
       actualizadaEn: now
     });
@@ -151,9 +170,11 @@ export async function seedEmulator() {
       id: lineId,
       ubicacionId: "CAMA-PRUEBA-2",
       codigo: lineId,
+      codigoNormalizado: lineId,
       nombreVisible: location.nombreVisible,
       orden: location.orden,
       activa: true,
+      version: 1,
       creadaEn: secondJourneyCreatedAt,
       actualizadaEn: secondJourneyCreatedAt
     });
@@ -166,9 +187,11 @@ export async function seedEmulator() {
       id: line.id,
       ubicacionId: line.locationId,
       codigo: line.id,
+      codigoNormalizado: line.id,
       nombreVisible: line.name,
       orden: line.order,
       activa: true,
+      version: 1,
       creadaEn: now,
       actualizadaEn: now
     });
@@ -183,11 +206,31 @@ export async function seedEmulator() {
       id: line.id,
       ubicacionId: "CAMA-PRUEBA-2",
       codigo: line.id,
+      codigoNormalizado: line.id,
       nombreVisible: line.name,
       orden: line.order,
       activa: line.active,
+      version: 1,
       creadaEn: now,
       actualizadaEn: now
+    });
+  }
+
+  const seededLineIds = [
+    ...visibleLocations.map((_, index) => `LINEA-PRUEBA-${index + 1}`),
+    ...secondJourneyLocations.map((_, index) => `LINEA-PRUEBA-B-${index + 1}`),
+    "LINEA-PRUEBA-SIN-ACCESO", "LINEA-PRUEBA-INACTIVA",
+    FREE_CATALOG_LINE_ID, SECOND_FREE_CATALOG_LINE_ID, INACTIVE_CATALOG_LINE_ID
+  ];
+  for (const lineId of seededLineIds) {
+    const locationId = lineId.startsWith("LINEA-PRUEBA-") && !lineId.startsWith("LINEA-PRUEBA-B-") &&
+      !["LINEA-PRUEBA-SIN-ACCESO", "LINEA-PRUEBA-INACTIVA"].includes(lineId)
+      ? "CAMA-PRUEBA-1"
+      : "CAMA-PRUEBA-2";
+    const lockId = catalogLockId("LINEA", locationId, lineId);
+    batch.set(database.collection("bloqueosCodigosCatalogo").doc(lockId), {
+      id: lockId, recursoTipo: "LINEA", recursoId: lineId,
+      ambitoId: locationId, codigoNormalizado: lineId, creadoEn: now
     });
   }
 

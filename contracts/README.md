@@ -2,6 +2,8 @@
 
 Los JSON Schema Draft 2020-12 son el lenguaje común de Campo, Maestro y backend.
 
+La Etapa 16 agrega contratos estrictos para listar, crear y actualizar ubicaciones y líneas. El árbol usa `ubicacionPadreId` sin fijar niveles productivos; códigos normalizados y campos estructurales solo aparecen en solicitudes de creación. Actualizar acepta exclusivamente nombre visible, orden, estado, versión, motivo y clave. Los ejemplos ficticios están en `examples/etapa-16/`.
+
 La Etapa 14 agrega contratos estrictos para `cancelarJornadaBorrador`, `reabrirJornadaCancelada`, el resumen administrativo de cancelados y la cancelación inmutable. Cancelar solo acepta jornada, versión, motivo y clave; reabrir solo jornada, versión y clave. `INACTIVA` por `CANCELACION_BORRADOR` no equivale a cierre normal y conserva las selecciones preparatorias. Los ejemplos están en `examples/etapa-14/`.
 
 La Etapa 15 agrega contratos estrictos para `listarUsuariosAdministrables`, `actualizarEstadoUsuario` y `actualizarRolUsuario`. El listado excluye Firebase Auth y expone solo el perfil central versionado y un resumen de trabajo activo. Las actualizaciones aceptan ID, versión observada, estado o rol, motivo y clave idempotente. Los ejemplos están en `examples/etapa-15/`.
@@ -59,6 +61,13 @@ Reglas de frontera:
 - los únicos roles válidos continúan siendo `AUXILIAR`, `SUPERVISOR` y `ADMINISTRADOR`.
 
 Los ejemplos ficticios de liberación están en `examples/etapa-08/`.
+
+Reglas del catálogo de la Etapa 16:
+
+- código, tipo y padre de una ubicación son inmutables después de crear;
+- código y ubicación de una línea son inmutables después de crear;
+- una selección de borrador puede conservar una línea inactiva, pero activar vuelve a validar el catálogo;
+- los tipos de ubicación actuales son fixtures ficticios y no fijan la jerarquía real.
 
 ```powershell
 npm ci

@@ -1,0 +1,6 @@
+{
+  "operacion": "UBICACION_CREADA", "ubicacionId": "UBICACION-RAIZ-16", "codigo": "SECTOR-NORTE",
+  "tipo": "TIPO-FICTICIO", "ubicacionPadreId": null, "nombreVisible": "Sector norte ficticio",
+  "orden": 10, "activa": true, "version": 1, "cantidadHijosActivos": 0,
+  "cantidadLineasActivas": 0, "actualizadaEn": "2026-07-15T12:00:00.000Z"
+}

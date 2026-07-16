@@ -4,6 +4,8 @@ import type {
   CancelDraftJourneyRequest,
   CreateDraftJourneyRequest,
   CloseJourneyRequest,
+  CreateCatalogLineRequest,
+  CreateCatalogLocationRequest,
   InitiateCountCorrectionRequest,
   ListDraftJourneyParticipantsRequest,
   ReassignCountCorrectionRequest,
@@ -12,6 +14,8 @@ import type {
   ReserveLineRequest,
   ReturnCountRequest,
   SendCountRequest,
+  UpdateCatalogLineRequest,
+  UpdateCatalogLocationRequest,
   UpdateUserRoleRequest,
   UpdateUserStatusRequest,
   UpdateDraftJourneyLinesRequest,
@@ -61,6 +65,18 @@ const updateUserStatusFields = new Set([
 const updateUserRoleFields = new Set([
   "usuarioId", "versionEsperada", "nuevoRol", "motivo", "claveIdempotencia"
 ]);
+const createCatalogLocationFields = new Set([
+  "codigo", "tipo", "ubicacionPadreId", "nombreVisible", "orden", "claveIdempotencia"
+]);
+const updateCatalogLocationFields = new Set([
+  "ubicacionId", "versionEsperada", "nombreVisible", "orden", "activa", "motivo", "claveIdempotencia"
+]);
+const createCatalogLineFields = new Set([
+  "ubicacionId", "codigo", "nombreVisible", "orden", "claveIdempotencia"
+]);
+const updateCatalogLineFields = new Set([
+  "lineaId", "versionEsperada", "nombreVisible", "orden", "activa", "motivo", "claveIdempotencia"
+]);
 const REVIEW_REASON_LIMIT = 2000;
 const JOURNEY_NAME_LIMIT = 200;
 const DRAFT_LINE_LIMIT = 400;
@@ -75,6 +91,99 @@ export function parseListActiveJourneysRequest(value: unknown): void {
 
 export const parseListManageableJourneysRequest = parseListActiveJourneysRequest;
 export const parseListManageableUsersRequest = parseListActiveJourneysRequest;
+export const parseListManageableCatalogRequest = parseListActiveJourneysRequest;
+
+function validCatalogText(value: unknown, limit: number): value is string {
+  return typeof value === "string" && value.trim().length > 0 && value.length <= limit;
+}
+
+function validCatalogOrder(value: unknown): value is number {
+  return Number.isSafeInteger(value) && (value as number) >= 0 && (value as number) <= 1_000_000;
+}
+
+export function parseCreateCatalogLocationRequest(value: unknown): CreateCatalogLocationRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw domainErrors.invalidArgument();
+  const record = value as Record<string, unknown>;
+  if (
+    Object.keys(record).some((field) => !createCatalogLocationFields.has(field)) ||
+    !validCatalogText(record.codigo, 120) || !validCatalogText(record.tipo, 80) ||
+    !validCatalogText(record.nombreVisible, 240) || !validCatalogOrder(record.orden) ||
+    (record.ubicacionPadreId !== null &&
+      (typeof record.ubicacionPadreId !== "string" || !safeIdPattern.test(record.ubicacionPadreId))) ||
+    typeof record.claveIdempotencia !== "string" || !idempotencyPattern.test(record.claveIdempotencia)
+  ) throw domainErrors.invalidArgument();
+  return {
+    codigo: (record.codigo as string).trim(),
+    tipo: (record.tipo as string).trim(),
+    ubicacionPadreId: record.ubicacionPadreId as string | null,
+    nombreVisible: (record.nombreVisible as string).trim(),
+    orden: record.orden as number,
+    claveIdempotencia: record.claveIdempotencia
+  };
+}
+
+export function parseUpdateCatalogLocationRequest(value: unknown): UpdateCatalogLocationRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw domainErrors.invalidArgument();
+  const record = value as Record<string, unknown>;
+  if (
+    Object.keys(record).some((field) => !updateCatalogLocationFields.has(field)) ||
+    typeof record.ubicacionId !== "string" || !safeIdPattern.test(record.ubicacionId) ||
+    !Number.isSafeInteger(record.versionEsperada) || (record.versionEsperada as number) < 1 ||
+    !validCatalogText(record.nombreVisible, 240) || !validCatalogOrder(record.orden) ||
+    typeof record.activa !== "boolean" || !validReason(record.motivo) ||
+    typeof record.claveIdempotencia !== "string" || !idempotencyPattern.test(record.claveIdempotencia)
+  ) throw domainErrors.invalidArgument();
+  return {
+    ubicacionId: record.ubicacionId,
+    versionEsperada: record.versionEsperada as number,
+    nombreVisible: (record.nombreVisible as string).trim(),
+    orden: record.orden as number,
+    activa: record.activa,
+    motivo: (record.motivo as string).trim(),
+    claveIdempotencia: record.claveIdempotencia
+  };
+}
+
+export function parseCreateCatalogLineRequest(value: unknown): CreateCatalogLineRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw domainErrors.invalidArgument();
+  const record = value as Record<string, unknown>;
+  if (
+    Object.keys(record).some((field) => !createCatalogLineFields.has(field)) ||
+    typeof record.ubicacionId !== "string" || !safeIdPattern.test(record.ubicacionId) ||
+    !validCatalogText(record.codigo, 120) || !validCatalogText(record.nombreVisible, 240) ||
+    !validCatalogOrder(record.orden) || typeof record.claveIdempotencia !== "string" ||
+    !idempotencyPattern.test(record.claveIdempotencia)
+  ) throw domainErrors.invalidArgument();
+  return {
+    ubicacionId: record.ubicacionId,
+    codigo: (record.codigo as string).trim(),
+    nombreVisible: (record.nombreVisible as string).trim(),
+    orden: record.orden as number,
+    claveIdempotencia: record.claveIdempotencia
+  };
+}
+
+export function parseUpdateCatalogLineRequest(value: unknown): UpdateCatalogLineRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw domainErrors.invalidArgument();
+  const record = value as Record<string, unknown>;
+  if (
+    Object.keys(record).some((field) => !updateCatalogLineFields.has(field)) ||
+    typeof record.lineaId !== "string" || !safeIdPattern.test(record.lineaId) ||
+    !Number.isSafeInteger(record.versionEsperada) || (record.versionEsperada as number) < 1 ||
+    !validCatalogText(record.nombreVisible, 240) || !validCatalogOrder(record.orden) ||
+    typeof record.activa !== "boolean" || !validReason(record.motivo) ||
+    typeof record.claveIdempotencia !== "string" || !idempotencyPattern.test(record.claveIdempotencia)
+  ) throw domainErrors.invalidArgument();
+  return {
+    lineaId: record.lineaId,
+    versionEsperada: record.versionEsperada as number,
+    nombreVisible: (record.nombreVisible as string).trim(),
+    orden: record.orden as number,
+    activa: record.activa,
+    motivo: (record.motivo as string).trim(),
+    claveIdempotencia: record.claveIdempotencia
+  };
+}
 
 function parseUserAdministrativeUpdate(
   value: unknown,

@@ -8,7 +8,7 @@
   "properties": {
     "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "actorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
-    "operacion": {"enum": ["RESERVAR_LINEA", "ENVIAR_CONTEO", "APROBAR_CONTEO", "DEVOLVER_CONTEO", "INICIAR_CORRECCION_CONTEO", "REASIGNAR_CORRECCION_CONTEO", "LIBERAR_RESERVA_LINEA", "CREAR_JORNADA_BORRADOR", "ACTUALIZAR_LINEAS_JORNADA_BORRADOR", "ACTUALIZAR_PARTICIPANTES_JORNADA_BORRADOR", "ACTIVAR_JORNADA", "CERRAR_JORNADA", "CANCELAR_JORNADA_BORRADOR", "REABRIR_JORNADA_CANCELADA", "ACTUALIZAR_ESTADO_USUARIO", "ACTUALIZAR_ROL_USUARIO"]},
+    "operacion": {"enum": ["RESERVAR_LINEA", "ENVIAR_CONTEO", "APROBAR_CONTEO", "DEVOLVER_CONTEO", "INICIAR_CORRECCION_CONTEO", "REASIGNAR_CORRECCION_CONTEO", "LIBERAR_RESERVA_LINEA", "CREAR_JORNADA_BORRADOR", "ACTUALIZAR_LINEAS_JORNADA_BORRADOR", "ACTUALIZAR_PARTICIPANTES_JORNADA_BORRADOR", "ACTIVAR_JORNADA", "CERRAR_JORNADA", "CANCELAR_JORNADA_BORRADOR", "REABRIR_JORNADA_CANCELADA", "ACTUALIZAR_ESTADO_USUARIO", "ACTUALIZAR_ROL_USUARIO", "CREAR_UBICACION", "ACTUALIZAR_UBICACION", "CREAR_LINEA", "ACTUALIZAR_LINEA"]},
     "claveHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "payloadHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "resultado": {
@@ -28,7 +28,9 @@
         {"$ref": "cancel-draft-journey-result.schema.json"},
         {"$ref": "reopen-cancelled-journey-result.schema.json"},
         {"$ref": "update-user-status-result.schema.json"},
-        {"$ref": "update-user-role-result.schema.json"}
+        {"$ref": "update-user-role-result.schema.json"},
+        {"$ref": "catalog-location-result.schema.json"},
+        {"$ref": "catalog-line-result.schema.json"}
       ]
     },
     "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}

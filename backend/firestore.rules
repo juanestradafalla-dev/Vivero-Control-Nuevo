@@ -59,6 +59,10 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /bloqueosCodigosCatalogo/{bloqueoId} {
+      allow read, write: if false;
+    }
+
     match /jornadas/{jornadaId} {
       allow read: if hasJourneyAccess(jornadaId);
       allow write: if false;

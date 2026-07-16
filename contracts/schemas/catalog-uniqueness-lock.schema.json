@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/catalog-uniqueness-lock.schema.json",
+  "title": "Bloqueo determinista de unicidad del catálogo",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "recursoTipo", "recursoId", "ambitoId", "codigoNormalizado", "creadoEn"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "recursoTipo": {"enum": ["UBICACION", "LINEA"]},
+    "recursoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "ambitoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "codigoNormalizado": {"type": "string", "minLength": 1, "maxLength": 120},
+    "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

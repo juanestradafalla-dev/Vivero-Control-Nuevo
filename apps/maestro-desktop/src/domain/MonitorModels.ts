@@ -9,6 +9,7 @@ export interface MonitorUser {
   readonly canRelease: boolean;
   readonly canManageDraftJourneys: boolean;
   readonly canManageUsers: boolean;
+  readonly canManageCatalog?: boolean;
 }
 
 export interface MonitorJourney {
@@ -121,7 +122,7 @@ export interface DraftCatalogLine {
   readonly id: string;
   readonly displayName: string;
   readonly selectable: boolean;
-  readonly unavailableReason?: "JORNADA_ACTIVA";
+  readonly unavailableReason?: "JORNADA_ACTIVA" | "LINEA_INACTIVA";
   readonly location: MonitorLocation;
 }
 
@@ -210,6 +211,36 @@ export interface ManageableUser {
   readonly activeWork: UserActiveWorkSummary;
 }
 
+export interface ManageableCatalogLocation {
+  readonly id: string;
+  readonly code: string;
+  readonly type: string;
+  readonly parentId?: string;
+  readonly displayName: string;
+  readonly order: number;
+  readonly active: boolean;
+  readonly version: number;
+  readonly activeChildCount: number;
+  readonly activeLineCount: number;
+}
+
+export interface ManageableCatalogLine {
+  readonly id: string;
+  readonly locationId: string;
+  readonly code: string;
+  readonly displayName: string;
+  readonly order: number;
+  readonly active: boolean;
+  readonly version: number;
+  readonly occupiedByActiveJourney: boolean;
+  readonly draftSelectionCount: number;
+}
+
+export interface ManageableCatalogData {
+  readonly locations: readonly ManageableCatalogLocation[];
+  readonly lines: readonly ManageableCatalogLine[];
+}
+
 export type MonitorUnsubscribe = () => void;
 
 export interface MonitorRepository {
@@ -262,6 +293,38 @@ export interface MonitorRepository {
     reason: string,
     idempotencyKey: string,
   ): Promise<ManageableUser>;
+  listManageableCatalog(): Promise<ManageableCatalogData>;
+  createCatalogLocation(
+    code: string,
+    type: string,
+    parentId: string | undefined,
+    displayName: string,
+    order: number,
+    idempotencyKey: string,
+  ): Promise<ManageableCatalogLocation>;
+  updateCatalogLocation(
+    location: ManageableCatalogLocation,
+    displayName: string,
+    order: number,
+    active: boolean,
+    reason: string,
+    idempotencyKey: string,
+  ): Promise<ManageableCatalogLocation>;
+  createCatalogLine(
+    locationId: string,
+    code: string,
+    displayName: string,
+    order: number,
+    idempotencyKey: string,
+  ): Promise<ManageableCatalogLine>;
+  updateCatalogLine(
+    line: ManageableCatalogLine,
+    displayName: string,
+    order: number,
+    active: boolean,
+    reason: string,
+    idempotencyKey: string,
+  ): Promise<ManageableCatalogLine>;
   closeJourney(journeyId: string, expectedVersion: number, idempotencyKey: string): Promise<void>;
   approveCount(countId: string, idempotencyKey: string, exceptionReason?: string): Promise<void>;
   returnCount(countId: string, reason: string, idempotencyKey: string): Promise<void>;

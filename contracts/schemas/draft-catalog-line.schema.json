@@ -9,14 +9,14 @@
     "lineaId": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
     "nombreVisible": {"type": "string", "minLength": 1, "maxLength": 240},
     "seleccionable": {"type": "boolean"},
-    "motivoNoSeleccionable": {"const": "JORNADA_ACTIVA"},
+    "motivoNoSeleccionable": {"enum": ["JORNADA_ACTIVA", "LINEA_INACTIVA"]},
     "ubicacion": {"$ref": "comun.schema.json#/$defs/ubicacionVisible"}
   },
   "allOf": [
     {
       "if": {"properties": {"seleccionable": {"const": false}}, "required": ["seleccionable"]},
       "then": {
-        "properties": {"motivoNoSeleccionable": {"const": "JORNADA_ACTIVA"}},
+        "properties": {"motivoNoSeleccionable": {"enum": ["JORNADA_ACTIVA", "LINEA_INACTIVA"]}},
         "required": ["motivoNoSeleccionable"]
       }
     }

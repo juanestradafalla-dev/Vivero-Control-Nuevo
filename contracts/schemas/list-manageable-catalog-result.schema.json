@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/list-manageable-catalog-result.schema.json",
+  "title": "Resultado listarCatalogoAdministrable",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ubicaciones", "lineas"],
+  "properties": {
+    "ubicaciones": {"type": "array", "items": {"$ref": "catalog-location-summary.schema.json"}},
+    "lineas": {"type": "array", "items": {"$ref": "catalog-line-summary.schema.json"}}
+  }
+}

@@ -302,6 +302,24 @@ describe("lecturas mínimas y escrituras críticas cerradas en la ETAPA 5", () =
     await assertFails(setDoc(doc(database, "idempotencia/resultado-directo"), {operacion: "NO_PERMITIDA"}));
   });
 
+  it("rechaza escrituras directas del catalogo y acceso a sus bloqueos de unicidad", async () => {
+    const database = testEnvironment.authenticatedContext("uid-administrador").firestore();
+    await assertFails(setDoc(doc(database, "ubicaciones/UBICACION-DIRECTA"), {
+      codigo: "DIRECTA", tipo: "FIXTURE", activa: true
+    }));
+    await assertFails(updateDoc(doc(database, "ubicaciones/VIVERO-PRUEBA"), {activa: false}));
+    await assertFails(deleteDoc(doc(database, "ubicaciones/VIVERO-PRUEBA")));
+    await assertFails(setDoc(doc(database, "lineas/LINEA-DIRECTA"), {
+      ubicacionId: "CAMA-PRUEBA-1", codigo: "DIRECTA", activa: true
+    }));
+    await assertFails(updateDoc(doc(database, "lineas/LINEA-CATALOGO-LIBRE-1"), {activa: false}));
+    await assertFails(deleteDoc(doc(database, "lineas/LINEA-CATALOGO-LIBRE-1")));
+    await assertFails(getDoc(doc(database, "bloqueosCodigosCatalogo/BLOQUEO-DIRECTO")));
+    await assertFails(setDoc(doc(database, "bloqueosCodigosCatalogo/BLOQUEO-DIRECTO"), {
+      codigoNormalizado: "DIRECTO"
+    }));
+  });
+
   it("rechaza lectura y escritura directa de borradores y su seleccion preparatoria", async () => {
     for (const uid of ["uid-auxiliar-1", "uid-supervisor", "uid-administrador"]) {
       const database = testEnvironment.authenticatedContext(uid).firestore();

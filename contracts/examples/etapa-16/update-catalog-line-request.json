@@ -1,0 +1,5 @@
+{
+  "lineaId": "LINEA-16", "versionEsperada": 1, "nombreVisible": "Línea ficticia actualizada",
+  "orden": 2, "activa": false, "motivo": "Línea fuera de uso en la prueba.",
+  "claveIdempotencia": "actualizar-linea-etapa-16"
+}

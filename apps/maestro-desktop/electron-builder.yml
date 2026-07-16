@@ -1,7 +1,38 @@
-appId: com.arles.viveromaestro
-productName: Vivero Maestro
+appId: com.arles.viveromaestro.staging
+productName: Vivero Maestro Staging
+asar: true
+npmRebuild: false
 directories:
   output: release
 files:
-  - dist/**
-  - dist-electron/**
+  - dist/**/*
+  - dist-electron/main.js
+  - dist-electron/preload.cjs
+  - package.json
+  - "!dist/**/*.map"
+  - "!dist-electron/**/*.map"
+  - "!node_modules/**/*"
+  - "!**/*.env*"
+  - "!**/google-services.json"
+  - "!**/Privado/**/*"
+  - "!**/*.ts"
+  - "!**/*.tsx"
+  - "!**/*.test.*"
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: Vivero-Maestro-Staging-Setup-${version}.${ext}
+  executableName: Vivero Maestro Staging
+  requestedExecutionLevel: asInvoker
+  signAndEditExecutable: false
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Vivero Maestro Staging
+  packElevateHelper: false

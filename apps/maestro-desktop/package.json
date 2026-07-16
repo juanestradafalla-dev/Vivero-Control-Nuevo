@@ -14,7 +14,11 @@
     "build:electron": "tsc -p tsconfig.electron.json",
     "test": "vitest run",
     "lint": "eslint . --max-warnings=0",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.electron.json"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.electron.json",
+    "validate:staging-env": "node scripts/validate-staging-env.mjs",
+    "verify:staging": "npm run validate:staging-env && npm run lint && npm run typecheck && npm test && npm run build",
+    "package:win:unpacked": "npm run verify:staging && electron-builder --win dir --x64 --config electron-builder.yml",
+    "package:win:staging": "npm run verify:staging && electron-builder --win nsis --x64 --config electron-builder.yml --publish never"
   },
   "engines": {
     "node": ">=22.12.0"
@@ -36,6 +40,7 @@
     "concurrently": "10.0.3",
     "cross-env": "10.1.0",
     "electron": "43.1.0",
+    "electron-builder": "26.15.3",
     "eslint": "10.7.0",
     "globals": "17.7.0",
     "jsdom": "29.1.1",

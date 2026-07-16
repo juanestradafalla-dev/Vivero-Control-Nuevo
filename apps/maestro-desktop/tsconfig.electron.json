@@ -8,7 +8,7 @@
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "sourceMap": true,
+    "sourceMap": false,
     "types": ["node", "electron"]
   },
   "include": ["electron/**/*.ts", "electron/**/*.cts"]

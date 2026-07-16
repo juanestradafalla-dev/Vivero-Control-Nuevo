@@ -157,3 +157,11 @@ No se agregan dependencias externas ni migraciones Room. La administración de p
 Una desactivación con trabajo activo conserva deliberadamente reservas, correcciones y autorizaciones. Esto evita cambios silenciosos, pero exige una decisión posterior de liberación, reasignación o reactivación. El listener del perfil propio permite invalidar la sesión en línea; sin conectividad, cualquier intento central se rechazará cuando alcance el backend y el borrador local continuará protegido.
 
 Persisten los riesgos de estructura y datos reales, calidad de señal, dispositivos Android reales, pérdida de claves Keystore, retención local y alertas moderadas transitivas del backend. No se crean ni eliminan cuentas, no se cambian credenciales y no se editan autorizaciones activas. Firebase real sigue sin configurarse ni desplegarse.
+
+## Actualización de la ETAPA 16
+
+No se agregan dependencias externas, migraciones Room ni datos productivos. El catálogo reutiliza transacciones, versiones, auditoría, idempotencia y el bloqueo emulator-only. `bloqueosCodigosCatalogo` serializa la unicidad normalizada entre hermanos y dentro de cada ubicación, y permanece inaccesible desde clientes.
+
+La jerarquía real del vivero continúa pendiente. `VIVERO`, `MODULO` y `CAMA` son únicamente fixtures para conservar las pruebas existentes y no constituyen una decisión productiva. El adaptador de fotografía visible mantiene compatibilidad con Campo mientras `jornadaLineas.ubicacion` permanece histórica e inmutable.
+
+Desactivar una línea elegida en un borrador conserva deliberadamente la selección y la vuelve inválida. Esto exige corregir el borrador antes de activar, pero evita cambios silenciosos. No existe eliminación física ni cascada. Tampoco existe importación, migración o inicialización de inventario. Persisten los riesgos de estructura y datos reales, señal, dispositivos, retención local, Keystore y dependencias transitivas moderadas. Firebase real sigue sin configurarse ni desplegarse.

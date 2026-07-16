@@ -2,7 +2,7 @@
 
 Sistema nuevo para operar inventario por línea mediante Vivero Campo (Android), Vivero Maestro (Windows) y un backend transaccional. Este repositorio no consulta, modifica ni reutiliza el proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 15
+## Estado: ETAPA 16
 
 La vertical disponible funciona exclusivamente con Firebase Emulator Suite y datos ficticios:
 
@@ -66,6 +66,12 @@ La vertical disponible funciona exclusivamente con Firebase Emulator Suite y dat
 49. Desactivar conserva reservas, correcciones, autorizaciones e historia para su liberación o reasignación supervisada; toda nueva operación central queda bloqueada inmediatamente.
 50. Maestro limita “Usuarios” a administradores y Campo/Maestro invalidan una sesión desactivada sin borrar borradores locales ni tokens cifrados.
 
+51. `listarCatalogoAdministrable` entrega a administradores activos el árbol genérico de ubicaciones y sus líneas, con versión, estado y advertencias.
+52. `crearUbicacion`, `actualizarUbicacion`, `crearLinea` y `actualizarLinea` normalizan códigos, usan bloqueos deterministas y confirman escrituras versionadas, auditadas e idempotentes.
+53. Código, tipo y padre de una ubicación, y código y ubicación de una línea, permanecen inmutables; ninguna desactivación se propaga en cascada.
+54. Maestro limita “Catálogo” a administradores, muestra el árbol expandible y refresca los borradores después de cada cambio central.
+55. Una línea desactivada conserva sus selecciones preparatorias y aparece inválida hasta corregirlas; una línea ocupada por jornada `ACTIVA` no puede modificarse y su fotografía histórica permanece intacta.
+
 > **MODO DE PRUEBA — EMULADOR.** No existe Firebase real configurado, no hay credenciales de producción y ningún comando despliega recursos.
 
 Los conteos y las decisiones son inmutables desde clientes. Maestro no escribe directamente inventario, movimientos, decisiones, auditoría ni estados de línea.
@@ -126,7 +132,7 @@ Set-Location backend/functions
 npm run emulator:seed
 ```
 
-Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las veinte Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
+Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las veinticinco Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
 
 | Correo ficticio | Rol |
 |---|---|
@@ -172,11 +178,11 @@ npm run test:emulators
 npm audit --omit=dev --audit-level=high
 ```
 
-## Documentación de la ETAPA 15
+## Documentación de la ETAPA 16
 
-- [Administración central de perfiles y acceso](docs/arquitectura/ADMINISTRACION_PERFILES_ETAPA_15.md)
-- [Pruebas y seguridad](docs/pruebas/PRUEBAS_ETAPA_15.md)
-- [Criterios de aceptación](docs/ETAPA_15_CRITERIOS_DE_ACEPTACION.md)
+- [Catálogo central de ubicaciones y líneas](docs/arquitectura/CATALOGO_UBICACIONES_LINEAS_ETAPA_16.md)
+- [Pruebas y concurrencia](docs/pruebas/PRUEBAS_ETAPA_16.md)
+- [Criterios de aceptación](docs/ETAPA_16_CRITERIOS_DE_ACEPTACION.md)
 - [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
 - [Contratos compartidos](contracts/README.md)
 

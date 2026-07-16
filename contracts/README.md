@@ -78,6 +78,16 @@ Reglas del inventario inicial de la Etapa 17:
 - la carga inmutable se conserva aunque una aprobación posterior lleve el inventario oficial a versión 2;
 - no se crea movimiento durante la inicialización y nunca se supone inventario cero.
 
+Reglas del preflight de migración de la Etapa 18:
+
+- `migration-catalog-package-v1.schema.json` solo admite metadatos, ubicaciones, líneas e inventarios iniciales;
+- las relaciones usan `claveExterna`; IDs internos de Firestore, usuarios y datos personales no pertenecen al formato;
+- el cliente no puede enviar `total`: el validador lo calcula y verifica dentro del rango seguro;
+- `migration-validation-result.schema.json` separa errores bloqueantes, advertencias y resumen de conflictos;
+- el hash SHA-256 se calcula sobre una representación normalizada y ordenada de forma determinista;
+- `aptoParaImportar` es informativo: no autoriza ni ejecuta escrituras;
+- la plantilla oficial está en `data/templates/paquete-migracion-catalogo-v1.example.json` y contiene solo datos `PRUEBA`.
+
 ```powershell
 npm ci
 npm run validate

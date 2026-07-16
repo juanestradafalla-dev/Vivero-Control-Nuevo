@@ -95,6 +95,7 @@ export async function seedEmulator() {
   for (const collectionName of [
     "conteos",
     "inventarioOficialLineas",
+    "cargasInventarioInicial",
     "movimientosInventario",
     "decisionesRevision",
     "reasignacionesCorreccion",

@@ -4,7 +4,7 @@
   "title": "Línea administrable",
   "type": "object",
   "additionalProperties": false,
-  "required": ["lineaId", "ubicacionId", "codigo", "nombreVisible", "orden", "activa", "version", "ocupadaEnJornadaActiva", "seleccionesBorrador"],
+  "required": ["lineaId", "ubicacionId", "codigo", "nombreVisible", "orden", "activa", "version", "ocupadaEnJornadaActiva", "seleccionesBorrador", "inventario", "elegibleInventarioInicial", "motivoNoElegibleInventarioInicial"],
   "properties": {
     "lineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "ubicacionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
@@ -14,6 +14,9 @@
     "activa": {"type": "boolean"},
     "version": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
     "ocupadaEnJornadaActiva": {"type": "boolean"},
-    "seleccionesBorrador": {"type": "integer", "minimum": 0}
+    "seleccionesBorrador": {"type": "integer", "minimum": 0},
+    "inventario": {"oneOf": [{"$ref": "catalog-line-inventory-summary.schema.json"}, {"type": "null"}]},
+    "elegibleInventarioInicial": {"type": "boolean"},
+    "motivoNoElegibleInventarioInicial": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "null"}]}
   }
 }

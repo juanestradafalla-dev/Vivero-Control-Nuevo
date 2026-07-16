@@ -131,6 +131,10 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /cargasInventarioInicial/{cargaId} {
+      allow read, write: if false;
+    }
+
     match /movimientosInventario/{movimientoId} {
       allow read: if canSupervise(resource.data.jornadaId);
       allow create, update, delete: if false;

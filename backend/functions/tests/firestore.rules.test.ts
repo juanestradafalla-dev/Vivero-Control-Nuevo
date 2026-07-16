@@ -101,6 +101,9 @@ beforeAll(async () => {
       lineaId: "LINEA-PRUEBA-1",
       conteoAprobadoId: "CONTEO-AUXILIAR-1"
     });
+    await setDoc(doc(database, "cargasInventarioInicial/LINEA-PRUEBA-1"), {
+      id: "LINEA-PRUEBA-1", lineaId: "LINEA-PRUEBA-1", total: 1000, inmutable: true
+    });
   });
 });
 
@@ -223,6 +226,8 @@ describe("lecturas mínimas y escrituras críticas cerradas en la ETAPA 5", () =
     await assertFails(setDoc(doc(database, "decisionesRevision/DECISION-DIRECTA"), {decision: "APROBAR"}));
     await assertFails(updateDoc(doc(database, "inventarioOficialLineas/LINEA-PRUEBA-1"), {total: 1}));
     await assertFails(setDoc(doc(database, "movimientosInventario/MOVIMIENTO-DIRECTO"), {total: 1}));
+    await assertFails(getDoc(doc(database, "cargasInventarioInicial/LINEA-PRUEBA-1")));
+    await assertFails(setDoc(doc(database, "cargasInventarioInicial/LINEA-DIRECTA"), {total: 1}));
     await assertFails(deleteDoc(doc(database, "decisionesRevision/DECISION-AUXILIAR-1")));
   });
 

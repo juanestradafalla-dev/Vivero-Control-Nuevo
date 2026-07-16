@@ -234,6 +234,22 @@ export interface ManageableCatalogLine {
   readonly version: number;
   readonly occupiedByActiveJourney: boolean;
   readonly draftSelectionCount: number;
+  readonly inventory?: ManageableCatalogInventory;
+  readonly initialInventoryEligible?: boolean;
+  readonly initialInventoryIneligibleReason?: string;
+}
+
+export interface ManageableCatalogInventory {
+  readonly females: number;
+  readonly males: number;
+  readonly rootstocks: number;
+  readonly total: number;
+  readonly version: number;
+  readonly origin: string;
+  readonly actorUserId: string;
+  readonly actorDisplayName: string;
+  readonly updatedAt: string;
+  readonly initialSourceReference?: string;
 }
 
 export interface ManageableCatalogData {
@@ -325,6 +341,14 @@ export interface MonitorRepository {
     reason: string,
     idempotencyKey: string,
   ): Promise<ManageableCatalogLine>;
+  registerInitialInventory(
+    line: ManageableCatalogLine,
+    females: number,
+    males: number,
+    rootstocks: number,
+    sourceReference: string,
+    idempotencyKey: string,
+  ): Promise<void>;
   closeJourney(journeyId: string, expectedVersion: number, idempotencyKey: string): Promise<void>;
   approveCount(countId: string, idempotencyKey: string, exceptionReason?: string): Promise<void>;
   returnCount(countId: string, reason: string, idempotencyKey: string): Promise<void>;

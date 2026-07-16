@@ -198,6 +198,24 @@ export const domainErrors = {
     "La línea pertenece a una jornada activa y no puede modificarse."
   ),
   catalogNoChange: () => new DomainError("CATALOG_NO_CHANGE", "No hay cambios para guardar."),
+  initialInventoryLineInactive: () => new DomainError(
+    "INVENTORY_INITIAL_LINE_INACTIVE", "La línea debe estar activa para registrar su inventario inicial."
+  ),
+  initialInventoryStaleVersion: () => new DomainError(
+    "INVENTORY_INITIAL_STALE_VERSION", "La línea cambió. Actualiza el catálogo antes de continuar."
+  ),
+  inventoryAlreadyExists: () => new DomainError(
+    "INVENTORY_ALREADY_EXISTS", "La línea ya tiene inventario oficial y la carga inicial es inmutable."
+  ),
+  initialInventoryZeroNotAllowed: () => new DomainError(
+    "INVENTORY_INITIAL_ZERO_NOT_ALLOWED", "El inventario inicial total cero no está permitido en esta etapa."
+  ),
+  initialInventorySourceInvalid: () => new DomainError(
+    "INVENTORY_INITIAL_SOURCE_INVALID", "La referencia debe identificar claramente una fuente ficticia de prueba."
+  ),
+  initialInventoryOperationalActivity: () => new DomainError(
+    "INVENTORY_INITIAL_OPERATIONAL_ACTIVITY", "La línea ya inició actividad operativa y no admite una carga inicial."
+  ),
   unauthenticated: () => new DomainError("UNAUTHENTICATED", "Debes iniciar sesión."),
   invalidArgument: () => new DomainError("INVALID_ARGUMENT", "La solicitud no tiene un formato válido."),
   userNotFound: () => new DomainError("USER_NOT_FOUND", "La cuenta no tiene un perfil operativo."),

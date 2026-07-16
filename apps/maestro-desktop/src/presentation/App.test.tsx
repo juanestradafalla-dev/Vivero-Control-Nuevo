@@ -122,6 +122,9 @@ class FakeMonitorRepository implements MonitorRepository {
   roleUpdates: Array<{userId: string; version: number; role: string; reason: string; key: string}> = [];
   catalogListCalls = 0;
   catalogChanged = 0;
+  inventoryRegistrations: Array<{
+    lineId: string; females: number; males: number; rootstocks: number; source: string; key: string;
+  }> = [];
   manageableCatalog: ManageableCatalogData = {
     locations: [
       {id: "UBICACION-RAIZ", code: "RAIZ", type: "VIVERO", displayName: "Raíz ficticia", order: 1, active: true, version: 1, activeChildCount: 1, activeLineCount: 0},
@@ -333,6 +336,32 @@ class FakeMonitorRepository implements MonitorRepository {
       lines: this.manageableCatalog.lines.map((item) => item.id === line.id ? updated : item),
     };
     return updated;
+  }
+  async registerInitialInventory(
+    line: ManageableCatalogLine,
+    females: number,
+    males: number,
+    rootstocks: number,
+    source: string,
+    key: string,
+  ): Promise<void> {
+    this.inventoryRegistrations.push({lineId: line.id, females, males, rootstocks, source, key});
+    const updated: ManageableCatalogLine = {
+      ...line,
+      inventory: {
+        females, males, rootstocks, total: females + males + rootstocks,
+        version: 1, origin: "CARGA_INICIAL_ADMINISTRATIVA_EMULADOR",
+        actorUserId: "uid-administrador", actorDisplayName: "Administrador Pruebas",
+        updatedAt: "2026-07-15T12:00:00.000Z", initialSourceReference: source,
+      },
+      initialInventoryEligible: false,
+      initialInventoryIneligibleReason: "INVENTARIO_EXISTENTE",
+    };
+    this.catalogChanged += 1;
+    this.manageableCatalog = {
+      ...this.manageableCatalog,
+      lines: this.manageableCatalog.lines.map((item) => item.id === line.id ? updated : item),
+    };
   }
   async updateUserStatus(
     userId: string,
@@ -1284,6 +1313,38 @@ describe("jornadas en borrador de Vivero Maestro", () => {
     await screen.findByText("Línea actualizada y versionada.");
     expect(repository.manageableCatalog.lines.find((line) => line.id === "LINEA-CATALOGO-1"))
       .toMatchObject({active: false, version: 2, draftSelectionCount: 1});
+  });
+
+  it("registra inventario inicial ficticio con total visual, confirmacion y refresco", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.user = {...supervisor, role: "ADMINISTRADOR", canManageUsers: true, canManageCatalog: true};
+    repository.manageableCatalog = {
+      ...repository.manageableCatalog,
+      lines: repository.manageableCatalog.lines.map((line) => line.id === "LINEA-CATALOGO-1"
+        ? {...line, initialInventoryEligible: true}
+        : {...line, initialInventoryEligible: false, initialInventoryIneligibleReason: "ACTIVIDAD_OPERATIVA"}),
+    };
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: /Cat/}));
+    await screen.findByRole("heading", {name: /Cat/});
+    const freeArticle = screen.getByText(/L.*nea libre/).closest("article");
+    fireEvent.click(within(freeArticle!).getByRole("button", {name: "Registrar inventario inicial"}));
+    const inventoryDialog = screen.getByRole("dialog", {name: "Registrar inventario inicial"});
+    fireEvent.change(screen.getByLabelText("Hembras iniciales"), {target: {value: "10"}});
+    fireEvent.change(screen.getByLabelText("Machos iniciales"), {target: {value: "5"}});
+    fireEvent.change(screen.getByLabelText("Patrones iniciales"), {target: {value: "2"}});
+    expect(screen.getByText("17")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Referencia de fuente ficticia"), {
+      target: {value: "Planilla ficticia de prueba Maestro"},
+    });
+    fireEvent.click(screen.getByLabelText(/Confirmo que son datos ficticios/));
+    fireEvent.click(within(inventoryDialog).getByRole("button", {name: "Registrar inventario inicial"}));
+    await screen.findByText("Inventario inicial ficticio registrado de forma inmutable.");
+    expect(repository.inventoryRegistrations).toHaveLength(1);
+    expect(repository.inventoryRegistrations[0]).toMatchObject({females: 10, males: 5, rootstocks: 2});
+    expect(screen.getByText(/H 10/)).toBeInTheDocument();
+    expect(screen.getByText(/CARGA_INICIAL_ADMINISTRATIVA_EMULADOR/)).toBeInTheDocument();
+    expect(repository.catalogListCalls).toBeGreaterThan(1);
   });
 
   it("oculta Catalogo a supervisor y auxiliar", async () => {

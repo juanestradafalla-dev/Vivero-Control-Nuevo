@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/register-initial-inventory-result.schema.json",
+  "title": "Resultado de registrarInventarioInicial",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["lineaId", "cargaInventarioInicialId", "jornadaId", "jornadaLineaId", "hembras", "machos", "patrones", "total", "versionInventario", "origen", "conteoAprobadoId", "referenciaFuente", "registradaPorUsuarioId", "registradaPorNombreVisible", "registradaEn"],
+  "properties": {
+    "lineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "cargaInventarioInicialId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaId": {"oneOf": [{"$ref": "comun.schema.json#/$defs/idGlobal"}, {"type": "null"}]},
+    "jornadaLineaId": {"oneOf": [{"$ref": "comun.schema.json#/$defs/idGlobal"}, {"type": "null"}]},
+    "hembras": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "machos": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "patrones": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "total": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "versionInventario": {"const": 1},
+    "origen": {"const": "CARGA_INICIAL_ADMINISTRATIVA_EMULADOR"},
+    "conteoAprobadoId": {"type": "null"},
+    "referenciaFuente": {"type": "string", "minLength": 1, "maxLength": 500},
+    "registradaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "registradaPorNombreVisible": {"type": "string", "minLength": 1, "maxLength": 240},
+    "registradaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

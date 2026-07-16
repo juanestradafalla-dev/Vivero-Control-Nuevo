@@ -4,6 +4,8 @@
 
 Esta preparación permite que Vivero Campo autentique cuentas creadas manualmente en Firebase Authentication y consulte sus jornadas activas en el proyecto staging exacto `viverocontrol-3f83f`. No es producción y no habilita escrituras operativas.
 
+La base Firestore del proyecto ya existe en la ubicación multirregional `nam5`. No debe recrearse, eliminarse ni intentarse cambiar su ubicación. Las Cloud Functions permanecen en `us-central1`; tanto la Callable publicada como el cliente Android deben conservar esa región.
+
 El build `debug` permanece conectado a Emulator Suite. El build `staging`:
 
 - instala `com.arles.viverocampo.staging` con firma debug;

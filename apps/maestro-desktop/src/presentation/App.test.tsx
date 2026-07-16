@@ -90,6 +90,7 @@ const journeyOne: MonitorJourney = {
 };
 
 class FakeMonitorRepository implements MonitorRepository {
+  readonly environment: "EMULATOR" | "STAGING" | "DISABLED" = "EMULATOR";
   readonly emulatorEnabled = true;
   private onSnapshot?: (snapshot: MonitorSnapshot) => void;
   private onAccountActiveChanged?: (active: boolean) => void;
@@ -660,6 +661,17 @@ async function signIn(repository: FakeMonitorRepository): Promise<void> {
 }
 
 describe("bandeja de revisión de Vivero Maestro", () => {
+  it("identifica staging y mantiene habilitado el acceso", () => {
+    const repository = new FakeMonitorRepository();
+    Object.defineProperty(repository, "environment", {value: "STAGING"});
+
+    render(<App repository={repository} />);
+
+    expect(screen.getByText("STAGING")).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Iniciar sesión"})).toBeEnabled();
+    expect(screen.getByText(/cuenta administradora de pruebas/)).toBeInTheDocument();
+  });
+
   it("selecciona automáticamente una única jornada autorizada", async () => {
     const repository = new FakeMonitorRepository();
     await signIn(repository);

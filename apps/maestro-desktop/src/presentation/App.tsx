@@ -405,6 +405,17 @@ export function App({repository}: AppProps) {
     return (stateFilter === "TODOS" || line.state === stateFilter) &&
       haystack.includes(search.trim().toLocaleLowerCase("es"));
   });
+  const staging = repository.environment === "STAGING";
+  const environmentLabel = repository.environment === "EMULATOR"
+    ? "MODO DE PRUEBA — EMULADOR"
+    : staging
+      ? "STAGING"
+      : "FIREBASE DESHABILITADO";
+  const environmentClass = repository.environment === "DISABLED"
+    ? "environment-banner environment-banner--danger"
+    : staging
+      ? "environment-banner environment-banner--staging"
+      : "environment-banner";
 
   return (
     <main className="app-shell">
@@ -426,8 +437,8 @@ export function App({repository}: AppProps) {
         )}
       </header>
 
-      <div className={repository.emulatorEnabled ? "environment-banner" : "environment-banner environment-banner--danger"}>
-        {repository.emulatorEnabled ? "MODO DE PRUEBA — EMULADOR" : "FIREBASE DESHABILITADO — SIN PRODUCCIÓN"}
+      <div className={environmentClass}>
+        {environmentLabel}
       </div>
 
       {(user?.canManageDraftJourneys || user?.canManageUsers || user?.canManageCatalog) && (
@@ -479,7 +490,7 @@ export function App({repository}: AppProps) {
               Catálogo
             </button>
           )}
-          {user.role === "ADMINISTRADOR" && (
+          {user.role === "ADMINISTRADOR" && !staging && (
             <button
               className={activeSection === "MIGRATION" ? "workspace-tab workspace-tab--active" : "workspace-tab"}
               type="button"
@@ -500,7 +511,11 @@ export function App({repository}: AppProps) {
         <section className="login-panel" aria-labelledby="login-title">
           <p className="eyebrow">ETAPA 19</p>
           <h1 id="login-title">Acceso a revisión</h1>
-          <p>Use únicamente una cuenta ficticia cargada en Firebase Emulator Suite.</p>
+          <p>
+            {staging
+              ? "Use una cuenta administradora de pruebas del proyecto staging autorizado."
+              : "Use únicamente una cuenta ficticia cargada en Firebase Emulator Suite."}
+          </p>
           <form onSubmit={handleSignIn}>
             <label>
               Correo
@@ -511,7 +526,7 @@ export function App({repository}: AppProps) {
               <input autoComplete="current-password" type="password" required value={password} onChange={(event) => setPassword(event.target.value)} />
             </label>
             {error && <p className="alert" role="alert">{error}</p>}
-            <button className="button" type="submit" disabled={loading || !repository.emulatorEnabled}>
+            <button className="button" type="submit" disabled={loading || repository.environment === "DISABLED"}>
               {loading ? "Ingresando…" : "Iniciar sesión"}
             </button>
           </form>

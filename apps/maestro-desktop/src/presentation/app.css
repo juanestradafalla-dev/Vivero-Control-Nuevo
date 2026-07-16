@@ -59,6 +59,7 @@ button, input, select { font: inherit; }
 }
 
 .environment-banner--danger { color: #fff; background: #9e1d1d; }
+.environment-banner--staging { color: #fff; background: #185f78; }
 
 .login-panel, .monitor {
   width: min(1120px, calc(100% - 40px));

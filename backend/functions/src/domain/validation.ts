@@ -7,9 +7,11 @@ import type {
   CreateCatalogLineRequest,
   CreateCatalogLocationRequest,
   InitiateCountCorrectionRequest,
+  ImportMigrationPackageRequest,
   ListDraftJourneyParticipantsRequest,
   ReassignCountCorrectionRequest,
   RegisterInitialInventoryRequest,
+  RevertMigrationImportRequest,
   ReopenCancelledJourneyRequest,
   ReleaseReservationRequest,
   ReserveLineRequest,
@@ -81,6 +83,9 @@ const updateCatalogLineFields = new Set([
 const registerInitialInventoryFields = new Set([
   "lineaId", "versionLineaEsperada", "hembras", "machos", "patrones", "referenciaFuente", "claveIdempotencia"
 ]);
+const importMigrationFields = new Set(["paquete", "hashEsperado", "confirmacionHash", "claveIdempotencia"]);
+const revertMigrationFields = new Set(["importacionId", "versionEsperada", "motivo", "claveIdempotencia"]);
+const sha256Pattern = /^[a-f0-9]{64}$/;
 const REVIEW_REASON_LIMIT = 2000;
 const JOURNEY_NAME_LIMIT = 200;
 const DRAFT_LINE_LIMIT = 400;
@@ -96,6 +101,43 @@ export function parseListActiveJourneysRequest(value: unknown): void {
 export const parseListManageableJourneysRequest = parseListActiveJourneysRequest;
 export const parseListManageableUsersRequest = parseListActiveJourneysRequest;
 export const parseListManageableCatalogRequest = parseListActiveJourneysRequest;
+export const parseListMigrationImportsRequest = parseListActiveJourneysRequest;
+
+export function parseImportMigrationPackageRequest(value: unknown): ImportMigrationPackageRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw domainErrors.invalidArgument();
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).some((field) => !importMigrationFields.has(field)) ||
+      typeof record.paquete !== "object" || record.paquete === null || Array.isArray(record.paquete) ||
+      typeof record.hashEsperado !== "string" || !sha256Pattern.test(record.hashEsperado) ||
+      typeof record.confirmacionHash !== "string" || !sha256Pattern.test(record.confirmacionHash) ||
+      typeof record.claveIdempotencia !== "string" || !idempotencyPattern.test(record.claveIdempotencia)) {
+    throw domainErrors.invalidArgument();
+  }
+  return {
+    paquete: record.paquete as ImportMigrationPackageRequest["paquete"],
+    hashEsperado: record.hashEsperado,
+    confirmacionHash: record.confirmacionHash,
+    claveIdempotencia: record.claveIdempotencia
+  };
+}
+
+export function parseRevertMigrationImportRequest(value: unknown): RevertMigrationImportRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw domainErrors.invalidArgument();
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).some((field) => !revertMigrationFields.has(field)) ||
+      typeof record.importacionId !== "string" || !safeIdPattern.test(record.importacionId) ||
+      !Number.isSafeInteger(record.versionEsperada) || (record.versionEsperada as number) < 1 ||
+      typeof record.motivo !== "string" || record.motivo.length > 2000 ||
+      typeof record.claveIdempotencia !== "string" || !idempotencyPattern.test(record.claveIdempotencia)) {
+    throw domainErrors.invalidArgument();
+  }
+  return {
+    importacionId: record.importacionId,
+    versionEsperada: record.versionEsperada as number,
+    motivo: record.motivo.trim(),
+    claveIdempotencia: record.claveIdempotencia
+  };
+}
 
 function validCatalogText(value: unknown, limit: number): value is string {
   return typeof value === "string" && value.trim().length > 0 && value.length <= limit;

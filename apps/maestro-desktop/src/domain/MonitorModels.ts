@@ -292,6 +292,55 @@ export interface MigrationValidationReport {
   readonly validationOnly: true;
 }
 
+export interface MigrationImportMapEntry {
+  readonly externalKey: string;
+  readonly internalId: string;
+  readonly codeLockId: string;
+}
+
+export interface MigrationImportResult {
+  readonly importId: string;
+  readonly packageHash: string;
+  readonly status: "APLICADA";
+  readonly version: 1;
+  readonly counts: MigrationValidationReport["counts"];
+  readonly writes: number;
+  readonly map: {
+    readonly locations: readonly MigrationImportMapEntry[];
+    readonly lines: readonly MigrationImportMapEntry[];
+  };
+  readonly appliedByUserId: string;
+  readonly appliedAt: string;
+}
+
+export interface MigrationImportSummary {
+  readonly importId: string;
+  readonly packageHash: string;
+  readonly status: "APLICADA" | "REVERTIDA";
+  readonly version: number;
+  readonly counts: MigrationValidationReport["counts"];
+  readonly writes: number;
+  readonly appliedByUserId: string;
+  readonly appliedByDisplayName: string;
+  readonly appliedAt: string;
+  readonly reversalEligible: boolean;
+  readonly reversalBlockers: readonly string[];
+  readonly revertedByUserId?: string;
+  readonly revertedAt?: string;
+  readonly reversalReason?: string;
+}
+
+export interface MigrationReversalResult {
+  readonly importId: string;
+  readonly packageHash: string;
+  readonly status: "REVERTIDA";
+  readonly version: number;
+  readonly deletedDocuments: number;
+  readonly revertedByUserId: string;
+  readonly revertedAt: string;
+  readonly reason: string;
+}
+
 export type MonitorUnsubscribe = () => void;
 
 export interface MonitorRepository {
@@ -385,6 +434,17 @@ export interface MonitorRepository {
     idempotencyKey: string,
   ): Promise<void>;
   validateMigrationPackage(packageData: unknown): Promise<MigrationValidationReport>;
+  importMigrationPackage(
+    packageData: unknown,
+    expectedHash: string,
+    idempotencyKey: string,
+  ): Promise<MigrationImportResult>;
+  listMigrationImports(): Promise<readonly MigrationImportSummary[]>;
+  revertMigrationImport(
+    migrationImport: MigrationImportSummary,
+    reason: string,
+    idempotencyKey: string,
+  ): Promise<MigrationReversalResult>;
   closeJourney(journeyId: string, expectedVersion: number, idempotencyKey: string): Promise<void>;
   approveCount(countId: string, idempotencyKey: string, exceptionReason?: string): Promise<void>;
   returnCount(countId: string, reason: string, idempotencyKey: string): Promise<void>;

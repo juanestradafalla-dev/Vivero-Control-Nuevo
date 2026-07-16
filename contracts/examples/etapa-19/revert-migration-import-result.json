@@ -1,0 +1,10 @@
+{
+  "importacionId": "IMPORTACION-PRUEBA-19",
+  "hashPaquete": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "estado": "REVERTIDA",
+  "version": 2,
+  "documentosEliminados": 6,
+  "revertidaPorUsuarioId": "ADMIN-PRUEBA",
+  "revertidaEn": "2026-07-16T14:00:00.000Z",
+  "motivo": "PRUEBA de reversión antes de cualquier uso"
+}

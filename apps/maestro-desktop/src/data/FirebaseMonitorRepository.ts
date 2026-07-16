@@ -45,6 +45,10 @@ import type {
   MonitorUnsubscribe,
   MonitorUser,
   MigrationEntitySummary,
+  MigrationImportMapEntry,
+  MigrationImportResult,
+  MigrationImportSummary,
+  MigrationReversalResult,
   MigrationValidationIssue,
   MigrationValidationReport,
 } from "../domain/MonitorModels";
@@ -395,6 +399,84 @@ function parseMigrationValidationReport(value: unknown): MigrationValidationRepo
   };
 }
 
+function parseMigrationImportMapEntry(value: unknown): MigrationImportMapEntry {
+  if (typeof value !== "object" || value === null) throw new Error("El mapa de migración no es válido.");
+  const entry = value as Record<string, unknown>;
+  if (typeof entry.claveExterna !== "string" || typeof entry.idInterno !== "string" ||
+      typeof entry.bloqueoCodigoId !== "string") throw new Error("El mapa de migración no es válido.");
+  return {externalKey: entry.claveExterna, internalId: entry.idInterno, codeLockId: entry.bloqueoCodigoId};
+}
+
+function parseMigrationCounts(value: unknown): MigrationValidationReport["counts"] {
+  if (typeof value !== "object" || value === null) throw new Error("Las cantidades de migración no son válidas.");
+  const counts = value as Record<string, unknown>;
+  if (!Number.isSafeInteger(counts.ubicaciones) || !Number.isSafeInteger(counts.lineas) ||
+      !Number.isSafeInteger(counts.inventariosIniciales)) throw new Error("Las cantidades de migración no son válidas.");
+  return {
+    locations: counts.ubicaciones as number,
+    lines: counts.lineas as number,
+    initialInventories: counts.inventariosIniciales as number,
+  };
+}
+
+function parseMigrationImportResult(value: unknown): MigrationImportResult {
+  if (typeof value !== "object" || value === null) throw new Error("El resultado de importación no es válido.");
+  const result = value as Record<string, unknown>;
+  const map = result.mapa as Record<string, unknown> | null;
+  if (typeof result.importacionId !== "string" || typeof result.hashPaquete !== "string" ||
+      result.estado !== "APLICADA" || result.version !== 1 || !Number.isSafeInteger(result.escriturasRealizadas) ||
+      typeof result.aplicadaPorUsuarioId !== "string" || typeof result.aplicadaEn !== "string" ||
+      typeof map !== "object" || map === null || !Array.isArray(map.ubicaciones) || !Array.isArray(map.lineas)) {
+    throw new Error("El resultado de importación no es válido.");
+  }
+  return {
+    importId: result.importacionId, packageHash: result.hashPaquete, status: "APLICADA", version: 1,
+    counts: parseMigrationCounts(result.cantidades), writes: result.escriturasRealizadas as number,
+    map: {locations: map.ubicaciones.map(parseMigrationImportMapEntry), lines: map.lineas.map(parseMigrationImportMapEntry)},
+    appliedByUserId: result.aplicadaPorUsuarioId, appliedAt: result.aplicadaEn,
+  };
+}
+
+function parseMigrationImportSummary(value: unknown): MigrationImportSummary {
+  if (typeof value !== "object" || value === null) throw new Error("El historial de migración no es válido.");
+  const summary = value as Record<string, unknown>;
+  if (typeof summary.importacionId !== "string" || typeof summary.hashPaquete !== "string" ||
+      (summary.estado !== "APLICADA" && summary.estado !== "REVERTIDA") || !Number.isSafeInteger(summary.version) ||
+      !Number.isSafeInteger(summary.escriturasRealizadas) || typeof summary.aplicadaPorUsuarioId !== "string" ||
+      typeof summary.aplicadaPorNombreVisible !== "string" || typeof summary.aplicadaEn !== "string" ||
+      typeof summary.reversionElegible !== "boolean" || !Array.isArray(summary.bloqueosReversion) ||
+      !summary.bloqueosReversion.every((entry) => typeof entry === "string")) {
+    throw new Error("El historial de migración no es válido.");
+  }
+  return {
+    importId: summary.importacionId, packageHash: summary.hashPaquete, status: summary.estado,
+    version: summary.version as number, counts: parseMigrationCounts(summary.cantidades),
+    writes: summary.escriturasRealizadas as number, appliedByUserId: summary.aplicadaPorUsuarioId,
+    appliedByDisplayName: summary.aplicadaPorNombreVisible, appliedAt: summary.aplicadaEn,
+    reversalEligible: summary.reversionElegible,
+    reversalBlockers: summary.bloqueosReversion as string[],
+    ...(typeof summary.revertidaPorUsuarioId === "string" ? {revertedByUserId: summary.revertidaPorUsuarioId} : {}),
+    ...(typeof summary.revertidaEn === "string" ? {revertedAt: summary.revertidaEn} : {}),
+    ...(typeof summary.motivoReversion === "string" ? {reversalReason: summary.motivoReversion} : {}),
+  };
+}
+
+function parseMigrationReversalResult(value: unknown): MigrationReversalResult {
+  if (typeof value !== "object" || value === null) throw new Error("El resultado de reversión no es válido.");
+  const result = value as Record<string, unknown>;
+  if (typeof result.importacionId !== "string" || typeof result.hashPaquete !== "string" ||
+      result.estado !== "REVERTIDA" || !Number.isSafeInteger(result.version) ||
+      !Number.isSafeInteger(result.documentosEliminados) || typeof result.revertidaPorUsuarioId !== "string" ||
+      typeof result.revertidaEn !== "string" || typeof result.motivo !== "string") {
+    throw new Error("El resultado de reversión no es válido.");
+  }
+  return {
+    importId: result.importacionId, packageHash: result.hashPaquete, status: "REVERTIDA",
+    version: result.version as number, deletedDocuments: result.documentosEliminados as number,
+    revertedByUserId: result.revertidaPorUsuarioId, revertedAt: result.revertidaEn, reason: result.motivo,
+  };
+}
+
 export class FirebaseMonitorRepository implements MonitorRepository {
   readonly emulatorEnabled = true;
 
@@ -737,6 +819,56 @@ export class FirebaseMonitorRepository implements MonitorRepository {
       return parseMigrationValidationReport((await callable(packageData)).data);
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : "No fue posible validar el paquete.", {cause: error});
+    }
+  }
+
+  async importMigrationPackage(
+    packageData: unknown,
+    expectedHash: string,
+    idempotencyKey: string,
+  ): Promise<MigrationImportResult> {
+    const callable = httpsCallable<unknown, unknown>(this.functions, "importarPaqueteMigracion");
+    try {
+      return parseMigrationImportResult((await callable({
+        paquete: packageData,
+        hashEsperado: expectedHash,
+        confirmacionHash: expectedHash,
+        claveIdempotencia: idempotencyKey,
+      })).data);
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible importar el paquete.", {cause: error});
+    }
+  }
+
+  async listMigrationImports(): Promise<readonly MigrationImportSummary[]> {
+    const callable = httpsCallable<unknown, unknown>(this.functions, "listarImportacionesMigracion");
+    try {
+      const response = (await callable({})).data;
+      if (typeof response !== "object" || response === null ||
+          !Array.isArray((response as Record<string, unknown>).importaciones)) {
+        throw new Error("El historial de migración no es válido.");
+      }
+      return ((response as Record<string, unknown>).importaciones as unknown[]).map(parseMigrationImportSummary);
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible consultar las importaciones.", {cause: error});
+    }
+  }
+
+  async revertMigrationImport(
+    migrationImport: MigrationImportSummary,
+    reason: string,
+    idempotencyKey: string,
+  ): Promise<MigrationReversalResult> {
+    const callable = httpsCallable<unknown, unknown>(this.functions, "revertirImportacionMigracion");
+    try {
+      return parseMigrationReversalResult((await callable({
+        importacionId: migrationImport.importId,
+        versionEsperada: migrationImport.version,
+        motivo: reason,
+        claveIdempotencia: idempotencyKey,
+      })).data);
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible revertir la importación.", {cause: error});
     }
   }
 
@@ -1321,6 +1453,18 @@ export class DisabledMonitorRepository implements MonitorRepository {
   }
 
   async validateMigrationPackage(): Promise<MigrationValidationReport> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
+  }
+
+  async importMigrationPackage(): Promise<MigrationImportResult> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
+  }
+
+  async listMigrationImports(): Promise<readonly MigrationImportSummary[]> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
+  }
+
+  async revertMigrationImport(): Promise<MigrationReversalResult> {
     throw new Error("Firebase de produccion permanece deshabilitado.");
   }
 

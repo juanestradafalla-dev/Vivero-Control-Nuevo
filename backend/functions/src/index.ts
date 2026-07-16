@@ -34,6 +34,11 @@ import {
 import {ListActiveJourneysService} from "./domain/listActiveJourneys.js";
 import {RegisterInitialInventoryService} from "./domain/initialInventory.js";
 import {ValidateMigrationPackageService} from "./domain/migrationPreflight.js";
+import {
+  ImportMigrationPackageService,
+  ListMigrationImportsService,
+  RevertMigrationImportService
+} from "./domain/migrationImport.js";
 import {ReassignCountCorrectionService} from "./domain/reassignCorrection.js";
 import {ReleaseReservationService} from "./domain/releaseReservation.js";
 import {ReserveLineService} from "./domain/reserveLine.js";
@@ -48,13 +53,16 @@ import {
   parseCreateCatalogLocationRequest,
   parseCreateDraftJourneyRequest,
   parseInitiateCountCorrectionRequest,
+  parseImportMigrationPackageRequest,
   parseListActiveJourneysRequest,
   parseListDraftJourneyParticipantsRequest,
   parseListManageableJourneysRequest,
   parseListManageableCatalogRequest,
   parseListManageableUsersRequest,
+  parseListMigrationImportsRequest,
   parseReassignCountCorrectionRequest,
   parseRegisterInitialInventoryRequest,
+  parseRevertMigrationImportRequest,
   parseReopenCancelledJourneyRequest,
   parseReleaseReservationRequest,
   parseReserveLineRequest,
@@ -69,7 +77,7 @@ import {
 } from "./domain/validation.js";
 import {firestore} from "./firebase.js";
 
-function assertEmulatorOnly(): void {
+export function assertEmulatorOnly(): void {
   const projectId = process.env.GCLOUD_PROJECT ?? process.env.GOOGLE_CLOUD_PROJECT ?? "";
   if (process.env.FUNCTIONS_EMULATOR !== "true" || !projectId.startsWith("demo-")) {
     throw domainErrors.emulatorOnly();
@@ -131,7 +139,15 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
     "INVENTORY_ALREADY_EXISTS",
     "INVENTORY_INITIAL_ZERO_NOT_ALLOWED",
     "INVENTORY_INITIAL_SOURCE_INVALID",
-    "INVENTORY_INITIAL_OPERATIONAL_ACTIVITY"
+    "INVENTORY_INITIAL_OPERATIONAL_ACTIVITY",
+    "MIGRATION_HASH_MISMATCH",
+    "MIGRATION_PACKAGE_NOT_ELIGIBLE",
+    "MIGRATION_IMPORT_LIMIT_EXCEEDED",
+    "MIGRATION_HASH_ALREADY_IMPORTED",
+    "MIGRATION_IMPORT_NOT_APPLIED",
+    "MIGRATION_IMPORT_STALE_VERSION",
+    "MIGRATION_REVERSAL_REASON_REQUIRED",
+    "MIGRATION_REVERSAL_BLOCKED"
   ].includes(code)) return "failed-precondition";
   if (["RESERVATION_NOT_ACTIVE", "LINE_RESERVATION_MISMATCH", "LINE_NOT_IN_COUNT"].includes(code)) {
     return "failed-precondition";
@@ -163,7 +179,8 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
     "RESERVATION_NOT_FOUND",
     "COUNT_NOT_FOUND",
     "CATALOG_LOCATION_NOT_FOUND",
-    "CATALOG_LINE_NOT_FOUND"
+    "CATALOG_LINE_NOT_FOUND",
+    "MIGRATION_IMPORT_NOT_FOUND"
   ].includes(code)) {
     return "not-found";
   }
@@ -201,6 +218,56 @@ const createCatalogLineService = new CreateCatalogLineService(firestore);
 const updateCatalogLineService = new UpdateCatalogLineService(firestore);
 const registerInitialInventoryService = new RegisterInitialInventoryService(firestore);
 const validateMigrationPackageService = new ValidateMigrationPackageService(firestore);
+const importMigrationPackageService = new ImportMigrationPackageService(firestore);
+const listMigrationImportsService = new ListMigrationImportsService(firestore);
+const revertMigrationImportService = new RevertMigrationImportService(firestore);
+
+export const importarPaqueteMigracion = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    return await importMigrationPackageService.execute(
+      parseImportMigrationPackageRequest(request.data), {actorId: request.auth.uid}
+    );
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en importarPaqueteMigracion", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const listarImportacionesMigracion = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    parseListMigrationImportsRequest(request.data);
+    return await listMigrationImportsService.execute({actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en listarImportacionesMigracion", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const revertirImportacionMigracion = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    return await revertMigrationImportService.execute(
+      parseRevertMigrationImportRequest(request.data), {actorId: request.auth.uid}
+    );
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en revertirImportacionMigracion", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
 
 export const validarPaqueteMigracion = onCall({region: "us-central1"}, async (request) => {
   try {

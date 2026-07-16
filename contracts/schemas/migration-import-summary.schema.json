@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/migration-import-summary.schema.json",
+  "title": "Resumen histórico de importación",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["importacionId", "hashPaquete", "estado", "version", "cantidades", "escriturasRealizadas", "aplicadaPorUsuarioId", "aplicadaPorNombreVisible", "aplicadaEn", "reversionElegible", "bloqueosReversion"],
+  "properties": {
+    "importacionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "hashPaquete": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "estado": {"enum": ["APLICADA", "REVERTIDA"]},
+    "version": {"type": "integer", "minimum": 1},
+    "cantidades": {"$ref": "migration-validation-result.schema.json#/$defs/cantidades"},
+    "escriturasRealizadas": {"type": "integer", "minimum": 1, "maximum": 450},
+    "aplicadaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "aplicadaPorNombreVisible": {"type": "string", "minLength": 1, "maxLength": 240},
+    "aplicadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "reversionElegible": {"type": "boolean"},
+    "bloqueosReversion": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "revertidaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "revertidaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "motivoReversion": {"type": "string", "minLength": 1, "maxLength": 2000}
+  }
+}

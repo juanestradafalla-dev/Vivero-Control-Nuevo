@@ -315,6 +315,12 @@ input:focus { outline: 3px solid #9ccca8; border-color: #1b6f3b; }
 .migration-issue { display: grid; gap: 5px; padding: 12px; border-left: 5px solid #b78013; border-radius: 8px; background: #fff8e8; }
 .migration-issue--error { border-left-color: #a93232; background: #fff0f0; }
 .migration-issue p { margin: 0; }
+.migration-import-confirmation, .migration-import-result, .migration-reversal-confirmation { display: grid; gap: 12px; padding: 16px; border: 2px solid #1b6f3b; border-radius: 12px; background: #f2f7f3; }
+.migration-import-confirmation label, .migration-reversal-confirmation label { display: grid; gap: 6px; max-width: 620px; }
+.migration-import-result details, .migration-import-result details code { display: grid; gap: 6px; overflow-wrap: anywhere; }
+.migration-history { display: grid; gap: 14px; padding-top: 20px; border-top: 1px solid #c8d8cc; }
+.migration-history-item { display: flex; align-items: start; justify-content: space-between; gap: 16px; padding: 14px; border-radius: 10px; background: #f2f7f3; }
+.migration-history-item > div { display: grid; gap: 5px; overflow-wrap: anywhere; }
 .draft-participants { display: grid; gap: 18px; margin-top: 32px; padding-top: 28px; border-top: 2px solid #d6e5d8; }
 .draft-participants h3 { margin: 10px 0 0; color: #164c32; font-size: 1.2rem; }
 .participant-list { display: grid; gap: 10px; }

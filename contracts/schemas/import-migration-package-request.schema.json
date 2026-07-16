@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/import-migration-package-request.schema.json",
+  "title": "Solicitud de importación controlada en emulador",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["paquete", "hashEsperado", "confirmacionHash", "claveIdempotencia"],
+  "properties": {
+    "paquete": {"$ref": "migration-catalog-package-v1.schema.json"},
+    "hashEsperado": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "confirmacionHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}
+  }
+}

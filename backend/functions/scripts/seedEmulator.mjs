@@ -104,6 +104,8 @@ export async function seedEmulator() {
     "reservas",
     "idempotencia",
     "auditoria",
+    "importacionesMigracion",
+    "bloqueosHashesMigracion",
     "jornadaLineas",
     "jornadas",
     "seleccionesLineasJornada",

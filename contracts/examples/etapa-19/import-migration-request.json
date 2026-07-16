@@ -1,0 +1,37 @@
+{
+  "paquete": {
+    "formato": "paquete-migracion-catalogo-v1",
+    "metadatos": {
+      "nombrePaquete": "PRUEBA ficticia ETAPA 19",
+      "creadoEn": "2026-07-16T12:00:00.000Z",
+      "referenciaFuente": "PRUEBA FICTICIA EMULADOR"
+    },
+    "ubicaciones": [{
+      "claveExterna": "UB-PRUEBA-19",
+      "ubicacionPadreClaveExterna": null,
+      "codigo": "PRUEBA-19",
+      "tipo": "TIPO-PRUEBA",
+      "nombreVisible": "PRUEBA ubicación",
+      "orden": 1,
+      "activa": true
+    }],
+    "lineas": [{
+      "claveExterna": "LINEA-PRUEBA-19",
+      "ubicacionClaveExterna": "UB-PRUEBA-19",
+      "codigo": "LINEA-PRUEBA-19",
+      "nombreVisible": "PRUEBA línea",
+      "orden": 1,
+      "activa": true
+    }],
+    "inventariosIniciales": [{
+      "lineaClaveExterna": "LINEA-PRUEBA-19",
+      "hembras": 10,
+      "machos": 5,
+      "patrones": 2,
+      "referenciaFuente": "PRUEBA FICTICIA EMULADOR"
+    }]
+  },
+  "hashEsperado": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "confirmacionHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "claveIdempotencia": "IMPORTAR-PRUEBA-ETAPA-19"
+}

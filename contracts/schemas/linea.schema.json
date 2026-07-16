@@ -7,6 +7,8 @@
   "required": ["id", "ubicacionId", "codigo", "nombreVisible", "orden", "activa", "version", "creadaEn", "actualizadaEn"],
   "properties": {
     "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "claveExterna": {"type": "string", "minLength": 1, "maxLength": 128},
+    "creadaPorImportacionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "ubicacionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "codigo": {"type": "string", "minLength": 1, "maxLength": 120},
     "nombreVisible": {"type": "string", "minLength": 1, "maxLength": 240},

@@ -1,0 +1,22 @@
+{
+  "importacionId": "IMPORTACION-PRUEBA-19",
+  "hashPaquete": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "estado": "APLICADA",
+  "version": 1,
+  "cantidades": {"ubicaciones": 1, "lineas": 1, "inventariosIniciales": 1},
+  "escriturasRealizadas": 10,
+  "mapa": {
+    "ubicaciones": [{
+      "claveExterna": "UB-PRUEBA-19",
+      "idInterno": "UBICACION-INTERNA-PRUEBA-19",
+      "bloqueoCodigoId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }],
+    "lineas": [{
+      "claveExterna": "LINEA-PRUEBA-19",
+      "idInterno": "LINEA-INTERNA-PRUEBA-19",
+      "bloqueoCodigoId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }]
+  },
+  "aplicadaPorUsuarioId": "ADMIN-PRUEBA",
+  "aplicadaEn": "2026-07-16T13:00:00.000Z"
+}

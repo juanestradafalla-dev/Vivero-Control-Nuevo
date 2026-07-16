@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/revert-migration-import-request.schema.json",
+  "title": "Solicitud de reversión segura de una importación",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["importacionId", "versionEsperada", "motivo", "claveIdempotencia"],
+  "properties": {
+    "importacionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "versionEsperada": {"type": "integer", "minimum": 1},
+    "motivo": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}
+  }
+}

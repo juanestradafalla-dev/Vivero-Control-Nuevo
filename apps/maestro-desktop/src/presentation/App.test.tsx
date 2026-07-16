@@ -12,6 +12,9 @@ import type {
   ManageableCatalogLocation,
   ManageableJourneysData,
   ManageableUser,
+  MigrationImportResult,
+  MigrationImportSummary,
+  MigrationReversalResult,
   MigrationValidationReport,
   MonitorJourney,
   MonitorRepository,
@@ -127,6 +130,18 @@ class FakeMonitorRepository implements MonitorRepository {
     lineId: string; females: number; males: number; rootstocks: number; source: string; key: string;
   }> = [];
   migrationValidationCalls: unknown[] = [];
+  migrationImportCalls: Array<{packageData: unknown; hash: string; key: string}> = [];
+  migrationReversalCalls: Array<{importId: string; reason: string; key: string}> = [];
+  migrationImports: MigrationImportSummary[] = [];
+  migrationImportResult: MigrationImportResult = {
+    importId: "IMPORTACION-PRUEBA-19", packageHash: "a".repeat(64), status: "APLICADA", version: 1,
+    counts: {locations: 2, lines: 1, initialInventories: 1}, writes: 12,
+    map: {
+      locations: [{externalKey: "UB-PRUEBA", internalId: "UB-INTERNA", codeLockId: "b".repeat(64)}],
+      lines: [{externalKey: "LINEA-PRUEBA", internalId: "LINEA-INTERNA", codeLockId: "c".repeat(64)}],
+    },
+    appliedByUserId: "uid-administrador", appliedAt: "2026-07-16T13:00:00.000Z",
+  };
   migrationValidationReport: MigrationValidationReport = {
     format: "paquete-migracion-catalogo-v1",
     packageHash: "a".repeat(64),
@@ -389,6 +404,39 @@ class FakeMonitorRepository implements MonitorRepository {
   async validateMigrationPackage(packageData: unknown): Promise<MigrationValidationReport> {
     this.migrationValidationCalls.push(packageData);
     return this.migrationValidationReport;
+  }
+  async importMigrationPackage(
+    packageData: unknown,
+    hash: string,
+    key: string,
+  ): Promise<MigrationImportResult> {
+    this.migrationImportCalls.push({packageData, hash, key});
+    this.migrationImports = [{
+      importId: this.migrationImportResult.importId, packageHash: hash, status: "APLICADA", version: 1,
+      counts: this.migrationImportResult.counts, writes: this.migrationImportResult.writes,
+      appliedByUserId: "uid-administrador", appliedByDisplayName: "Administrador Pruebas",
+      appliedAt: this.migrationImportResult.appliedAt, reversalEligible: true, reversalBlockers: [],
+    }];
+    return this.migrationImportResult;
+  }
+  async listMigrationImports(): Promise<readonly MigrationImportSummary[]> {
+    return this.migrationImports;
+  }
+  async revertMigrationImport(
+    migrationImport: MigrationImportSummary,
+    reason: string,
+    key: string,
+  ): Promise<MigrationReversalResult> {
+    this.migrationReversalCalls.push({importId: migrationImport.importId, reason, key});
+    this.migrationImports = this.migrationImports.map((entry) => entry.importId === migrationImport.importId ? {
+      ...entry, status: "REVERTIDA", version: entry.version + 1, reversalEligible: false,
+      reversalBlockers: ["IMPORTACION_NO_APLICADA"], reversalReason: reason,
+    } : entry);
+    return {
+      importId: migrationImport.importId, packageHash: migrationImport.packageHash, status: "REVERTIDA",
+      version: migrationImport.version + 1, deletedDocuments: 8, revertedByUserId: "uid-administrador",
+      revertedAt: "2026-07-16T14:00:00.000Z", reason,
+    };
   }
   async updateUserStatus(
     userId: string,
@@ -1412,6 +1460,57 @@ describe("jornadas en borrador de Vivero Maestro", () => {
     expect(click).toHaveBeenCalledOnce();
     expect(revokeObjectUrl).toHaveBeenCalledWith("blob:informe-prueba");
     click.mockRestore();
+  });
+
+  it("confirma por fragmento de hash, importa en emulador y revierte solo una importación elegible", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.user = {...supervisor, role: "ADMINISTRADOR", canManageUsers: true, canManageCatalog: true};
+    repository.migrationValidationReport = {
+      ...repository.migrationValidationReport,
+      blockingErrors: [], warnings: [], eligibleToImport: true,
+      conflicts: {
+        locations: {newItems: 2, matchingItems: 0, blockedItems: 0},
+        lines: {newItems: 1, matchingItems: 0, blockedItems: 0},
+        initialInventories: {newItems: 1, matchingItems: 0, blockedItems: 0},
+        existingCodes: 0, incompatibleKeys: 0, linesWithCurrentInventory: 0, operationalConflicts: 0,
+      },
+    };
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: /Migraci.n.*Validaci.n/}));
+
+    const payload = {
+      formato: "paquete-migracion-catalogo-v1",
+      metadatos: {nombrePaquete: "PRUEBA", creadoEn: "2026-07-16T12:00:00.000Z", referenciaFuente: "PRUEBA"},
+      ubicaciones: [{claveExterna: "UB-PRUEBA"}], lineas: [{claveExterna: "LINEA-PRUEBA"}],
+      inventariosIniciales: [{lineaClaveExterna: "LINEA-PRUEBA"}],
+    };
+    const file = new File([JSON.stringify(payload)], "paquete-prueba.json", {type: "application/json"});
+    Object.defineProperty(file, "text", {value: async () => JSON.stringify(payload)});
+    fireEvent.change(screen.getByLabelText("Archivo JSON de migración"), {target: {files: [file]}});
+    await screen.findByText(/Estructura local v.lida/);
+    fireEvent.click(screen.getByRole("button", {name: "Validar paquete en emulador"}));
+
+    await screen.findByRole("heading", {name: "Importar en emulador"});
+    expect(screen.getByText(/12 escrituras/)).toBeInTheDocument();
+    const importButton = screen.getByRole("button", {name: "Importar en emulador"});
+    expect(importButton).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Confirmar fragmento del hash"), {target: {value: "aaaaaaaaaaaa"}});
+    fireEvent.click(importButton);
+
+    await screen.findByRole("heading", {name: "Importación APLICADA"});
+    expect(repository.migrationImportCalls).toHaveLength(1);
+    expect(screen.getByText(/UB-PRUEBA.*UB-INTERNA/)).toBeInTheDocument();
+    const reverseButton = await screen.findByRole("button", {name: "Revertir importación"});
+    fireEvent.click(reverseButton);
+    fireEvent.change(screen.getByLabelText("Motivo de reversión"), {
+      target: {value: "PRUEBA reversión antes de cualquier uso"},
+    });
+    fireEvent.click(screen.getByRole("button", {name: "Confirmar reversión"}));
+
+    await screen.findByText(/Importación revertida: 8 documentos/);
+    expect(repository.migrationReversalCalls).toHaveLength(1);
+    expect(screen.getByText(/REVERTIDA.*IMPORTACION-PRUEBA-19/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: "Revertir importación"})).not.toBeInTheDocument();
   });
 
   it("oculta Catalogo a supervisor y auxiliar", async () => {

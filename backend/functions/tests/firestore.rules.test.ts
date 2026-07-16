@@ -325,6 +325,17 @@ describe("lecturas mínimas y escrituras críticas cerradas en la ETAPA 5", () =
     }));
   });
 
+  it("niega acceso directo al historial y a los bloqueos de migración", async () => {
+    const database = testEnvironment.authenticatedContext("uid-administrador").firestore();
+    await assertFails(getDoc(doc(database, "importacionesMigracion/IMPORTACION-DIRECTA")));
+    await assertFails(getDocs(collection(database, "importacionesMigracion")));
+    await assertFails(setDoc(doc(database, "importacionesMigracion/IMPORTACION-DIRECTA"), {estado: "APLICADA"}));
+    await assertFails(updateDoc(doc(database, "importacionesMigracion/IMPORTACION-DIRECTA"), {estado: "REVERTIDA"}));
+    await assertFails(deleteDoc(doc(database, "importacionesMigracion/IMPORTACION-DIRECTA")));
+    await assertFails(getDoc(doc(database, "bloqueosHashesMigracion/HASH-DIRECTO")));
+    await assertFails(setDoc(doc(database, "bloqueosHashesMigracion/HASH-DIRECTO"), {hashPaquete: "prohibido"}));
+  });
+
   it("rechaza lectura y escritura directa de borradores y su seleccion preparatoria", async () => {
     for (const uid of ["uid-auxiliar-1", "uid-supervisor", "uid-administrador"]) {
       const database = testEnvironment.authenticatedContext(uid).firestore();

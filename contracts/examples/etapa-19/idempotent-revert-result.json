@@ -1,0 +1,18 @@
+{
+  "id": "IDEMPOTENCIA-REVERSION-PRUEBA-19",
+  "actorUsuarioId": "ADMIN-PRUEBA",
+  "operacion": "REVERTIR_IMPORTACION_MIGRACION",
+  "claveHash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "payloadHash": "1111111111111111111111111111111111111111111111111111111111111111",
+  "resultado": {
+    "importacionId": "IMPORTACION-PRUEBA-19",
+    "hashPaquete": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "estado": "REVERTIDA",
+    "version": 2,
+    "documentosEliminados": 6,
+    "revertidaPorUsuarioId": "ADMIN-PRUEBA",
+    "revertidaEn": "2026-07-16T14:00:00.000Z",
+    "motivo": "PRUEBA de reversión antes de cualquier uso"
+  },
+  "creadoEn": "2026-07-16T14:00:00.000Z"
+}

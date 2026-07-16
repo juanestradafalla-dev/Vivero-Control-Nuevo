@@ -2,6 +2,13 @@
 
 Aplicación Electron/React de la Etapa 11 para revisar conteos y preparar jornadas en borrador dentro de Firebase Emulator Suite.
 
+Admite dos modos explícitos mediante un archivo local `.env.local` ignorado por Git:
+
+- `emulator`: exige `VITE_USE_FIREBASE_EMULATORS=true` y un proyecto `demo-*`;
+- `staging`: exige `VITE_USE_FIREBASE_EMULATORS=false`, `VITE_APP_ENV=staging` y el proyecto exacto `viverocontrol-3f83f`.
+
+La configuración Web se proporciona únicamente con las seis variables documentadas en `.env.example`. El ejemplo contiene solo valores ficticios; no se usa `google-services.json` ni se versionan valores de staging.
+
 - Consulta jornadas activas autorizadas y permite seleccionar una.
 - Al cambiar cancela todas las suscripciones anteriores y limpia el snapshot para no mezclar jornadas.
 

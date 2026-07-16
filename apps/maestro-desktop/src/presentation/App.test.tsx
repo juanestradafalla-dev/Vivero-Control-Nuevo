@@ -90,6 +90,7 @@ const journeyOne: MonitorJourney = {
 };
 
 class FakeMonitorRepository implements MonitorRepository {
+  readonly environment: "EMULATOR" | "STAGING" | "DISABLED" = "EMULATOR";
   readonly emulatorEnabled = true;
   private onSnapshot?: (snapshot: MonitorSnapshot) => void;
   private onAccountActiveChanged?: (active: boolean) => void;
@@ -660,6 +661,184 @@ async function signIn(repository: FakeMonitorRepository): Promise<void> {
 }
 
 describe("bandeja de revisión de Vivero Maestro", () => {
+  it("identifica staging y mantiene habilitado el acceso", () => {
+    const repository = new FakeMonitorRepository();
+    Object.defineProperty(repository, "environment", {value: "STAGING"});
+
+    render(<App repository={repository} />);
+
+    expect(screen.getByText("STAGING")).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Iniciar sesión"})).toBeEnabled();
+    expect(screen.getByText(/cuenta administradora de pruebas/)).toBeInTheDocument();
+  });
+
+  it("limita en staging usuarios, catalogo, jornadas y monitor a las operaciones habilitadas", async () => {
+    const repository = new FakeMonitorRepository();
+    Object.defineProperty(repository, "environment", {value: "STAGING"});
+    repository.user = {
+      ...supervisor,
+      id: "uid-administrador",
+      displayName: "Administrador Pruebas",
+      role: "ADMINISTRADOR",
+      canManageUsers: true,
+      canManageCatalog: true,
+    };
+    repository.manageableCatalog = {
+      ...repository.manageableCatalog,
+      lines: repository.manageableCatalog.lines.map((line) => ({...line, initialInventoryEligible: true})),
+    };
+    repository.currentSnapshot = {
+      ...snapshot,
+      lines: [
+        pendingLine,
+        {
+          ...pendingLine,
+          id: "JORNADA-1__LINEA-EN-CONTEO",
+          lineId: "LINEA-EN-CONTEO",
+          state: "EN_CONTEO",
+          location: {...pendingLine.location, displayName: "Línea en conteo"},
+          reservation: {
+            id: "RESERVA-STAGING-1",
+            userDisplayName: "Auxiliar Conteo",
+            type: "INICIAL",
+            deviceId: "DISPOSITIVO-STAGING",
+            reservedAt: "2026-07-15T14:00:00.000Z",
+          },
+        },
+        {
+          ...pendingLine,
+          id: "JORNADA-1__LINEA-DEVUELTA",
+          lineId: "LINEA-DEVUELTA",
+          state: "DEVUELTA",
+          location: {...pendingLine.location, displayName: "Línea devuelta"},
+          count: {...pendingLine.count, returnReason: "Recontar"},
+        },
+      ],
+    };
+
+    await signIn(repository);
+    expect(screen.getByText("Estas operaciones todavía no están habilitadas en staging")).toBeInTheDocument();
+    for (const action of ["Cerrar jornada", "Aprobar", "Devolver"]) {
+      expect(screen.queryByRole("button", {name: action})).not.toBeInTheDocument();
+    }
+    fireEvent.change(screen.getByLabelText("Estado"), {target: {value: "EN_CONTEO"}});
+    expect(screen.queryByRole("button", {name: "Liberar reserva"})).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Estado"), {target: {value: "DEVUELTA"}});
+    expect(screen.queryByRole("button", {name: /Reasignar|Corregir/i})).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", {name: "Usuarios"}));
+    await screen.findByRole("heading", {name: "Usuarios"});
+    expect(screen.getByText("Auxiliar Uno")).toBeInTheDocument();
+    for (const action of ["Desactivar", "Reactivar", "Cambiar rol"]) {
+      expect(screen.queryByRole("button", {name: action})).not.toBeInTheDocument();
+    }
+
+    fireEvent.click(screen.getByRole("button", {name: /Catálogo/}));
+    await screen.findByRole("heading", {name: /Catálogo/});
+    expect(screen.getByRole("button", {name: /Nueva ubicación raíz/})).toBeInTheDocument();
+    expect(screen.getAllByRole("button", {name: /Nueva línea/}).length).toBeGreaterThan(0);
+    for (const action of [/Editar ubicación/i, /Editar línea/i, /Registrar inventario inicial/i]) {
+      expect(screen.queryByRole("button", {name: action})).not.toBeInTheDocument();
+    }
+
+    fireEvent.click(screen.getByRole("button", {name: "Jornadas"}));
+    await screen.findByRole("heading", {name: "Jornadas"});
+    expect(screen.getByRole("button", {name: "Crear borrador"})).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", {name: /Borrador semanal/}));
+    expect(screen.getByRole("button", {name: "Revisar selección"})).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Revisar participantes"})).toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Activar jornada"})).toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: "Cancelar borrador"})).not.toBeInTheDocument();
+  });
+
+  it("oculta la reapertura de borradores cancelados en staging", async () => {
+    const repository = new FakeMonitorRepository();
+    Object.defineProperty(repository, "environment", {value: "STAGING"});
+    repository.user = {
+      ...supervisor,
+      id: "uid-administrador",
+      displayName: "Administrador Pruebas",
+      role: "ADMINISTRADOR",
+      canManageUsers: true,
+      canManageCatalog: true,
+    };
+    await repository.cancelDraftJourney(
+      "JORNADA-BORRADOR-1",
+      1,
+      "Cancelación previa de prueba",
+      "cancelacion-staging-prueba-0001",
+    );
+
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Jornadas"}));
+    fireEvent.click(await screen.findByRole("button", {name: /Borrador semanal/}));
+    expect(screen.getByText(/BORRADOR CANCELADO/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: "Reabrir borrador"})).not.toBeInTheDocument();
+  });
+
+  it("conserva en staging el recorrido permitido de preparacion y activacion", async () => {
+    const repository = new FakeMonitorRepository();
+    Object.defineProperty(repository, "environment", {value: "STAGING"});
+    repository.user = {
+      ...supervisor,
+      id: "uid-administrador",
+      displayName: "Administrador Pruebas",
+      role: "ADMINISTRADOR",
+      canManageUsers: true,
+      canManageCatalog: true,
+    };
+    repository.participantsData = {
+      ...repository.participantsData,
+      participants: [
+        ...repository.participantsData.participants,
+        {id: "uid-administrador", displayName: "Administrador Pruebas", role: "ADMINISTRADOR", canCount: false},
+      ],
+    };
+
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: /Catálogo/}));
+    await screen.findByRole("heading", {name: /Catálogo/});
+    fireEvent.click(screen.getByRole("button", {name: /Nueva ubicación raíz/}));
+    fireEvent.change(screen.getByLabelText("Código"), {target: {value: "STAGING-PRUEBA"}});
+    fireEvent.change(screen.getByLabelText("Tipo técnico"), {target: {value: "FIXTURE"}});
+    fireEvent.change(screen.getByLabelText("Nombre visible"), {target: {value: "Ubicación staging prueba"}});
+    fireEvent.click(screen.getByRole("button", {name: "Crear"}));
+    await screen.findByText("Ubicación creada mediante operación central.");
+    const createdLocation = screen.getByText("Ubicación staging prueba").closest("details");
+    expect(createdLocation).not.toBeNull();
+    fireEvent.click(within(createdLocation!).getByRole("button", {name: /Nueva línea/}));
+    fireEvent.change(screen.getByLabelText("Código"), {target: {value: "LINEA-STAGING"}});
+    fireEvent.change(screen.getByLabelText("Nombre visible"), {target: {value: "Línea staging prueba"}});
+    fireEvent.click(screen.getByRole("button", {name: "Crear"}));
+    await screen.findByText("Línea creada mediante operación central.");
+    expect(screen.getByText("Línea staging prueba")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", {name: "Jornadas"}));
+    await screen.findByRole("heading", {name: "Jornadas"});
+    fireEvent.change(screen.getByLabelText("Nombre de la nueva jornada"), {
+      target: {value: "Borrador permitido staging"},
+    });
+    fireEvent.click(screen.getByRole("button", {name: "Crear borrador"}));
+    await waitFor(() => expect(repository.createdDrafts).toHaveLength(1));
+    fireEvent.click(await screen.findByRole("button", {name: /Borrador semanal/}));
+    fireEvent.click(screen.getByRole("checkbox", {name: /Linea libre 2/}));
+    fireEvent.click(screen.getByRole("button", {name: "Revisar selección"}));
+    fireEvent.click(screen.getByRole("button", {name: "Confirmar y guardar"}));
+    await waitFor(() => expect(repository.updatedDrafts).toHaveLength(1));
+    await screen.findByText("Auxiliar Uno");
+    const reviewParticipants = screen.getByRole("button", {name: "Revisar participantes"});
+    await waitFor(() => expect(reviewParticipants).toBeEnabled());
+    fireEvent.click(reviewParticipants);
+    fireEvent.click(await screen.findByRole("button", {name: "Confirmar participantes"}));
+    await waitFor(() => expect(repository.updatedParticipants).toHaveLength(1));
+    const activateButton = screen.getByRole("button", {name: "Activar jornada"});
+    await waitFor(() => expect(activateButton).toBeEnabled());
+    fireEvent.click(activateButton);
+    fireEvent.click(screen.getByRole("button", {name: "Confirmar activación"}));
+    await waitFor(() => expect(repository.activatedDrafts).toHaveLength(1));
+    expect(await screen.findByText(/Jornada activada correctamente/)).toHaveTextContent("Campo ya puede verla");
+  });
+
   it("selecciona automáticamente una única jornada autorizada", async () => {
     const repository = new FakeMonitorRepository();
     await signIn(repository);

@@ -14,8 +14,10 @@ if (!rootElement) {
 let repository: MonitorRepository;
 try {
   repository = FirebaseMonitorRepository.create();
-} catch {
-  repository = new DisabledMonitorRepository();
+} catch (error) {
+  repository = new DisabledMonitorRepository(
+    error instanceof Error ? error.message : "Configuración Firebase inválida. La aplicación permanece desconectada.",
+  );
 }
 
 createRoot(rootElement).render(

@@ -10,6 +10,7 @@ import type {
 interface CatalogSectionProps {
   readonly repository: MonitorRepository;
   readonly onCatalogChanged: () => void;
+  readonly creationOnly: boolean;
 }
 
 interface CreateForm {
@@ -49,7 +50,7 @@ function initialCreate(kind: CreateForm["kind"], parentId = ""): CreateForm {
   return {kind, parentId, code: "", type: kind === "LOCATION" ? "TIPO-FICTICIO" : "", displayName: "", order: "0", key: crypto.randomUUID()};
 }
 
-export function CatalogSection({repository, onCatalogChanged}: CatalogSectionProps) {
+export function CatalogSection({repository, onCatalogChanged, creationOnly}: CatalogSectionProps) {
   const [data, setData] = useState<ManageableCatalogData>(emptyData);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("TODOS");
@@ -255,7 +256,7 @@ export function CatalogSection({repository, onCatalogChanged}: CatalogSectionPro
           <p>Padre: {location.parentId ?? "RAÍZ"} · Orden: {location.order}</p>
           <p>{location.activeChildCount} hija(s) activa(s) · {location.activeLineCount} línea(s) activa(s)</p>
           <div className="catalog-actions">
-            <button className="button button--secondary" type="button" onClick={() => openLocationEdit(location)}>Editar ubicación</button>
+            {!creationOnly && <button className="button button--secondary" type="button" onClick={() => openLocationEdit(location)}>Editar ubicación</button>}
             {location.active && <button className="button button--secondary" type="button" onClick={() => setCreateForm(initialCreate("LOCATION", location.id))}>Nueva hija</button>}
             {location.active && <button className="button button--secondary" type="button" onClick={() => setCreateForm(initialCreate("LINE", location.id))}>Nueva línea</button>}
           </div>
@@ -280,14 +281,16 @@ export function CatalogSection({repository, onCatalogChanged}: CatalogSectionPro
                   <span>No elegible: {line.initialInventoryIneligibleReason ?? "actividad o estado incompatible"}</span>
                 ) : null}
               </div>
-              {!line.inventory && line.initialInventoryEligible && (
+              {!creationOnly && !line.inventory && line.initialInventoryEligible && (
                 <button className="button" type="button" onClick={() => openInitialInventory(line)}>
                   Registrar inventario inicial
                 </button>
               )}
-              <button className="button button--secondary" type="button" disabled={line.occupiedByActiveJourney} onClick={() => openLineEdit(line)}>
-                Editar línea
-              </button>
+              {!creationOnly && (
+                <button className="button button--secondary" type="button" disabled={line.occupiedByActiveJourney} onClick={() => openLineEdit(line)}>
+                  Editar línea
+                </button>
+              )}
             </article>
           ))}
           <div className="catalog-tree-children">
@@ -331,7 +334,7 @@ export function CatalogSection({repository, onCatalogChanged}: CatalogSectionPro
         </section></div>
       )}
 
-      {editForm && (
+      {!creationOnly && editForm && (
         <div className="dialog-backdrop" role="presentation"><section className="review-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-catalog-title">
           <h2 id="edit-catalog-title">Editar {editForm.kind === "LOCATION" ? "ubicación" : "línea"}</h2>
           <p>Código inmutable: {editForm.target.code} · versión observada {editForm.target.version}</p>
@@ -347,7 +350,7 @@ export function CatalogSection({repository, onCatalogChanged}: CatalogSectionPro
         </section></div>
       )}
 
-      {inventoryForm && (() => {
+      {!creationOnly && inventoryForm && (() => {
         const females = Number(inventoryForm.females);
         const males = Number(inventoryForm.males);
         const rootstocks = Number(inventoryForm.rootstocks);

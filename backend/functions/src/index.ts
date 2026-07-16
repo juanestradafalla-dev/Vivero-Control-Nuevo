@@ -78,6 +78,18 @@ import {
 import {firestore} from "./firebase.js";
 
 const STAGING_PROJECT_ID = "viverocontrol-3f83f";
+export const MAESTRO_STAGING_CALLABLES = Object.freeze([
+  "listarJornadasAdministrables",
+  "crearJornadaBorrador",
+  "actualizarLineasJornadaBorrador",
+  "listarParticipantesJornadaBorrador",
+  "actualizarParticipantesJornadaBorrador",
+  "activarJornada",
+  "listarCatalogoAdministrable",
+  "crearUbicacion",
+  "crearLinea",
+  "listarUsuariosAdministrables",
+]);
 
 export function assertEmulatorOnly(): void {
   const projectId = process.env.GCLOUD_PROJECT ?? process.env.GOOGLE_CLOUD_PROJECT ?? "";
@@ -92,6 +104,16 @@ export function assertActiveJourneysReadEnvironment(): void {
   const stagingAllowed = process.env.FUNCTIONS_EMULATOR !== "true" &&
     projectId === STAGING_PROJECT_ID && process.env.APP_ENV === "staging";
   if (!emulatorAllowed && !stagingAllowed) throw domainErrors.emulatorOnly();
+}
+
+export function assertMaestroStagingEnvironment(callableName: string): void {
+  const projectId = process.env.GCLOUD_PROJECT ?? process.env.GOOGLE_CLOUD_PROJECT ?? "";
+  const emulatorAllowed = process.env.FUNCTIONS_EMULATOR === "true" && projectId.startsWith("demo-");
+  const stagingAllowed = process.env.FUNCTIONS_EMULATOR !== "true" &&
+    projectId === STAGING_PROJECT_ID && process.env.APP_ENV === "staging";
+  if (!MAESTRO_STAGING_CALLABLES.includes(callableName) || (!emulatorAllowed && !stagingAllowed)) {
+    throw domainErrors.emulatorOnly();
+  }
 }
 
 function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof HttpsError>[0] {
@@ -311,7 +333,7 @@ export const registrarInventarioInicial = onCall({region: "us-central1"}, async 
 
 export const listarCatalogoAdministrable = onCall({region: "us-central1"}, async (request) => {
   try {
-    assertEmulatorOnly();
+    assertMaestroStagingEnvironment("listarCatalogoAdministrable");
     if (!request.auth?.uid) throw domainErrors.unauthenticated();
     parseListManageableCatalogRequest(request.data);
     return await listManageableCatalogService.execute({actorId: request.auth.uid});
@@ -324,7 +346,7 @@ export const listarCatalogoAdministrable = onCall({region: "us-central1"}, async
 
 export const crearUbicacion = onCall({region: "us-central1"}, async (request) => {
   try {
-    assertEmulatorOnly();
+    assertMaestroStagingEnvironment("crearUbicacion");
     if (!request.auth?.uid) throw domainErrors.unauthenticated();
     return await createCatalogLocationService.execute(
       parseCreateCatalogLocationRequest(request.data), {actorId: request.auth.uid}
@@ -352,7 +374,7 @@ export const actualizarUbicacion = onCall({region: "us-central1"}, async (reques
 
 export const crearLinea = onCall({region: "us-central1"}, async (request) => {
   try {
-    assertEmulatorOnly();
+    assertMaestroStagingEnvironment("crearLinea");
     if (!request.auth?.uid) throw domainErrors.unauthenticated();
     return await createCatalogLineService.execute(parseCreateCatalogLineRequest(request.data), {actorId: request.auth.uid});
   } catch (error) {
@@ -376,7 +398,7 @@ export const actualizarLinea = onCall({region: "us-central1"}, async (request) =
 
 export const listarUsuariosAdministrables = onCall({region: "us-central1"}, async (request) => {
   try {
-    assertEmulatorOnly();
+    assertMaestroStagingEnvironment("listarUsuariosAdministrables");
     if (!request.auth?.uid) throw domainErrors.unauthenticated();
     parseListManageableUsersRequest(request.data);
     return await listManageableUsersService.execute({actorId: request.auth.uid});
@@ -466,7 +488,7 @@ export const cerrarJornada = onCall({region: "us-central1"}, async (request) => 
 
 export const activarJornada = onCall({region: "us-central1"}, async (request) => {
   try {
-    assertEmulatorOnly();
+    assertMaestroStagingEnvironment("activarJornada");
     if (!request.auth?.uid) throw domainErrors.unauthenticated();
     const payload = parseActivateJourneyRequest(request.data);
     return await activateJourneyService.execute(payload, {actorId: request.auth.uid});
@@ -481,7 +503,7 @@ export const activarJornada = onCall({region: "us-central1"}, async (request) =>
 
 export const listarParticipantesJornadaBorrador = onCall({region: "us-central1"}, async (request) => {
   try {
-    assertEmulatorOnly();
+    assertMaestroStagingEnvironment("listarParticipantesJornadaBorrador");
     if (!request.auth?.uid) throw domainErrors.unauthenticated();
     const payload = parseListDraftJourneyParticipantsRequest(request.data);
     return await listDraftJourneyParticipantsService.execute(payload, {actorId: request.auth.uid});
@@ -496,7 +518,7 @@ export const listarParticipantesJornadaBorrador = onCall({region: "us-central1"}
 
 export const actualizarParticipantesJornadaBorrador = onCall({region: "us-central1"}, async (request) => {
   try {
-    assertEmulatorOnly();
+    assertMaestroStagingEnvironment("actualizarParticipantesJornadaBorrador");
     if (!request.auth?.uid) throw domainErrors.unauthenticated();
     const payload = parseUpdateDraftJourneyParticipantsRequest(request.data);
     return await updateDraftJourneyParticipantsService.execute(payload, {actorId: request.auth.uid});
@@ -511,7 +533,7 @@ export const actualizarParticipantesJornadaBorrador = onCall({region: "us-centra
 
 export const crearJornadaBorrador = onCall({region: "us-central1"}, async (request) => {
   try {
-    assertEmulatorOnly();
+    assertMaestroStagingEnvironment("crearJornadaBorrador");
     if (!request.auth?.uid) throw domainErrors.unauthenticated();
     const payload = parseCreateDraftJourneyRequest(request.data);
     return await createDraftJourneyService.execute(payload, {actorId: request.auth.uid});
@@ -526,7 +548,7 @@ export const crearJornadaBorrador = onCall({region: "us-central1"}, async (reque
 
 export const actualizarLineasJornadaBorrador = onCall({region: "us-central1"}, async (request) => {
   try {
-    assertEmulatorOnly();
+    assertMaestroStagingEnvironment("actualizarLineasJornadaBorrador");
     if (!request.auth?.uid) throw domainErrors.unauthenticated();
     const payload = parseUpdateDraftJourneyLinesRequest(request.data);
     return await updateDraftJourneyLinesService.execute(payload, {actorId: request.auth.uid});
@@ -541,7 +563,7 @@ export const actualizarLineasJornadaBorrador = onCall({region: "us-central1"}, a
 
 export const listarJornadasAdministrables = onCall({region: "us-central1"}, async (request) => {
   try {
-    assertEmulatorOnly();
+    assertMaestroStagingEnvironment("listarJornadasAdministrables");
     if (!request.auth?.uid) throw domainErrors.unauthenticated();
     parseListManageableJourneysRequest(request.data);
     return await listManageableJourneysService.execute({actorId: request.auth.uid});

@@ -59,6 +59,18 @@ button, input, select { font: inherit; }
 }
 
 .environment-banner--danger { color: #fff; background: #9e1d1d; }
+.environment-banner--staging { color: #fff; background: #185f78; }
+
+.staging-restriction-notice {
+  margin: 0;
+  padding: 10px 20px;
+  color: #604a00;
+  background: #fff4c2;
+  border-bottom: 1px solid #e5cf6a;
+  text-align: center;
+  font-size: .86rem;
+  font-weight: 800;
+}
 
 .login-panel, .monitor {
   width: min(1120px, calc(100% - 40px));

@@ -1,4 +1,4 @@
-import {getApp, getApps, initializeApp} from "firebase/app";
+import {getApps, initializeApp} from "firebase/app";
 import {connectAuthEmulator, getAuth, signInWithEmailAndPassword} from "firebase/auth";
 import {connectFunctionsEmulator, getFunctions, httpsCallable, type Functions} from "firebase/functions";
 import {
@@ -14,7 +14,7 @@ import {
   type Firestore,
 } from "firebase/firestore";
 
-import {loadEmulatorConfig} from "../core/emulatorConfig";
+import {loadFirebaseConfig, type FirebaseRuntimeConfig} from "../core/firebaseConfig";
 import type {
   CancelledDraftJourney,
   DraftActivationResult,
@@ -478,31 +478,35 @@ function parseMigrationReversalResult(value: unknown): MigrationReversalResult {
 }
 
 export class FirebaseMonitorRepository implements MonitorRepository {
-  readonly emulatorEnabled = true;
+  readonly emulatorEnabled: boolean;
 
   private constructor(
     private readonly auth: ReturnType<typeof getAuth>,
     private readonly firestore: Firestore,
     private readonly functions: Functions,
-  ) {}
+    readonly environment: "EMULATOR" | "STAGING",
+  ) {
+    this.emulatorEnabled = environment === "EMULATOR";
+  }
 
-  static create(): FirebaseMonitorRepository {
-    const config = loadEmulatorConfig();
-    const app = getApps().length > 0
-      ? getApp()
-      : initializeApp({
-          apiKey: "demo-api-key",
-          appId: "1:1234567890:web:demo-etapa3",
-          authDomain: `${config.projectId}.firebaseapp.com`,
+  static create(config: FirebaseRuntimeConfig = loadFirebaseConfig()): FirebaseMonitorRepository {
+    const appName = `vivero-maestro-${config.environment.toLowerCase()}`;
+    const app = getApps().find((candidate) => candidate.name === appName)
+      ?? initializeApp({
+          apiKey: config.apiKey,
+          appId: config.appId,
+          authDomain: config.authDomain,
           projectId: config.projectId,
-        });
+        }, appName);
     const auth = getAuth(app);
     const firestore = getFirestore(app);
     const functions = getFunctions(app, "us-central1");
-    connectAuthEmulator(auth, `http://${config.host}:9099`, {disableWarnings: true});
-    connectFirestoreEmulator(firestore, config.host, 8180);
-    connectFunctionsEmulator(functions, config.host, 5001);
-    return new FirebaseMonitorRepository(auth, firestore, functions);
+    if (config.useEmulators) {
+      connectAuthEmulator(auth, `http://${config.emulatorHost}:9099`, {disableWarnings: true});
+      connectFirestoreEmulator(firestore, config.emulatorHost, 8180);
+      connectFunctionsEmulator(functions, config.emulatorHost, 5001);
+    }
+    return new FirebaseMonitorRepository(auth, firestore, functions, config.environment);
   }
 
   async signIn(email: string, password: string): Promise<MonitorUser> {
@@ -1404,10 +1408,13 @@ export class FirebaseMonitorRepository implements MonitorRepository {
 }
 
 export class DisabledMonitorRepository implements MonitorRepository {
+  readonly environment = "DISABLED";
   readonly emulatorEnabled = false;
 
+  constructor(private readonly configurationError = "Configuración Firebase inválida. La aplicación permanece desconectada.") {}
+
   async signIn(): Promise<MonitorUser> {
-    throw new Error("Configuración de emulador inválida. No se intentará conectar a producción.");
+    throw new Error(this.configurationError);
   }
 
   async signOut(): Promise<void> {}

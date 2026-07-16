@@ -151,7 +151,7 @@ Set-Location backend/functions
 npm run emulator:seed
 ```
 
-Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las veintinueve Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
+Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. Todas las operaciones mutables se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`. Únicamente `listarJornadasActivas` admite además la frontera staging documentada.
 
 | Correo ficticio | Rol |
 |---|---|
@@ -161,6 +161,12 @@ Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`.
 | `administrador@prueba.local` | Administrador |
 
 Contraseña exclusiva del emulador: `SoloEmulador-Etapa3!`. Es pública y no debe reutilizarse.
+
+## Primera fase Firebase staging
+
+El build `staging` instala `com.arles.viverocampo.staging`, usa firma debug y se conecta exclusivamente al proyecto `viverocontrol-3f83f`. No usa `google-services.json` ni llama `useEmulator`. API key y App ID se inyectan desde `apps/campo-android/local.properties`, ignorado por Git, o mediante parámetros `-P`.
+
+Esta fase permite autenticación real y lectura de jornadas activas. Reservar, enviar, revisar, administrar, importar y revertir permanecen bloqueados. No se realizó ningún despliegue.
 
 ## Verificación
 
@@ -174,6 +180,7 @@ npm test
 # Android
 Set-Location ../apps/campo-android
 ./gradlew.bat assembleDebug
+./gradlew.bat assembleStaging "-PstagingFirebaseProjectId=viverocontrol-3f83f" "-PstagingFirebaseApiKey=API_KEY_FICTICIA_SOLO_COMPILACION" "-PstagingFirebaseAppId=1:000000000000:android:app-ficticia"
 ./gradlew.bat testDebugUnitTest
 ./gradlew.bat lintDebug
 
@@ -196,6 +203,12 @@ npm run build
 npm run test:emulators
 npm audit --omit=dev --audit-level=high
 ```
+
+## Documentación de la primera fase staging
+
+- [Preparación controlada de Firebase staging](docs/arquitectura/FIREBASE_STAGING_PRIMERA_FASE.md)
+- [Pruebas de configuración y frontera](docs/pruebas/PRUEBAS_FIREBASE_STAGING.md)
+- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
 
 ## Documentación de la ETAPA 19
 

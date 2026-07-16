@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.arles.viverocampo.domain.JourneyLine
 import com.arles.viverocampo.domain.ActiveJourney
+import com.arles.viverocampo.domain.CampoEnvironment
 import com.arles.viverocampo.domain.ReturnedCount
 import com.arles.viverocampo.domain.SyncState
 
@@ -103,7 +104,11 @@ private fun CampoScreen(
     Surface(modifier = Modifier.fillMaxSize(), color = ViveroBackground) {
         Column(modifier = Modifier.fillMaxSize()) {
             Text(
-                text = if (state.emulatorEnabled) "MODO DE PRUEBA — EMULADOR" else "FIREBASE DESHABILITADO — SIN PRODUCCIÓN",
+                text = when (state.environment) {
+                    CampoEnvironment.EMULATOR -> "MODO DE PRUEBA — EMULADOR"
+                    CampoEnvironment.STAGING -> "STAGING — DATOS DE PRUEBA"
+                    CampoEnvironment.DISABLED -> "FIREBASE DESHABILITADO — SIN PRODUCCIÓN"
+                },
                 modifier = Modifier.fillMaxWidth().background(TestBanner).padding(12.dp),
                 color = Color.Black,
                 fontWeight = FontWeight.Bold,
@@ -127,7 +132,7 @@ private fun CampoScreen(
         }
     }
 
-    state.selectedLine?.let { line ->
+    state.selectedLine?.takeIf { state.mutableOperationsEnabled }?.let { line ->
         AlertDialog(
             onDismissRequest = onCancelSelection,
             title = { Text("Confirmar línea") },
@@ -151,7 +156,7 @@ private fun CampoScreen(
         )
     }
 
-    if (state.showCountSummary) {
+    if (state.showCountSummary && state.mutableOperationsEnabled) {
         val reservation = requireNotNull(state.confirmedReservation)
         AlertDialog(
             onDismissRequest = onCancelCountConfirmation,
@@ -192,27 +197,33 @@ private fun LoginContent(
 ) {
     Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Vivero Campo", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Text("Inicio de sesión exclusivo para cuentas ficticias del Auth Emulator.")
+        Text(
+            if (state.environment == CampoEnvironment.STAGING) {
+                "Inicio de sesión con cuentas de Firebase Authentication del proyecto staging autorizado."
+            } else {
+                "Inicio de sesión exclusivo para cuentas ficticias del Auth Emulator."
+            },
+        )
         OutlinedTextField(
             value = state.email,
             onValueChange = onEmailChange,
-            label = { Text("Correo de prueba") },
+            label = { Text(if (state.environment == CampoEnvironment.STAGING) "Correo" else "Correo de prueba") },
             singleLine = true,
-            enabled = state.emulatorEnabled && !state.signingIn,
+            enabled = state.accessEnabled && !state.signingIn,
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
         )
         OutlinedTextField(
             value = state.password,
             onValueChange = onPasswordChange,
-            label = { Text("Contraseña de prueba") },
+            label = { Text(if (state.environment == CampoEnvironment.STAGING) "Contraseña" else "Contraseña de prueba") },
             singleLine = true,
-            enabled = state.emulatorEnabled && !state.signingIn,
+            enabled = state.accessEnabled && !state.signingIn,
             modifier = Modifier.fillMaxWidth(),
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         )
-        Button(onClick = onSignIn, enabled = state.emulatorEnabled && !state.signingIn, modifier = Modifier.fillMaxWidth()) {
+        Button(onClick = onSignIn, enabled = state.accessEnabled && !state.signingIn, modifier = Modifier.fillMaxWidth()) {
             Text(if (state.signingIn) "Ingresando…" else "Iniciar sesión")
         }
         state.message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -393,6 +404,15 @@ private fun JourneyContent(
             }
         }
         state.message?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
+        if (!state.mutableOperationsEnabled) {
+            item {
+                Text(
+                    "Primera fase staging: consulta de jornadas habilitada; reservas, conteos y correcciones bloqueados.",
+                    color = MaterialTheme.colorScheme.secondary,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        }
         item {
             Text(
                 state.journey?.displayName ?: "Cargando jornada ficticia…",
@@ -431,7 +451,7 @@ private fun JourneyContent(
                         if (returned.canCorrect) {
                             Button(
                             onClick = { onCorrectCount(returned) },
-                            enabled = state.correctingCountId == null,
+                            enabled = state.mutableOperationsEnabled && state.correctingCountId == null,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text(
@@ -458,8 +478,17 @@ private fun JourneyContent(
                     Text(line.location.displayName, fontWeight = FontWeight.Bold)
                     Text("${line.location.nursery} · ${line.location.module} · ${line.location.bed}")
                     Text("Estado: ${line.state}")
-                    Button(onClick = { onSelectLine(line) }, enabled = line.state == "DISPONIBLE" && !state.reserving) {
-                        Text(if (line.state == "DISPONIBLE") "Tomar línea" else "No disponible")
+                    Button(
+                        onClick = { onSelectLine(line) },
+                        enabled = state.mutableOperationsEnabled && line.state == "DISPONIBLE" && !state.reserving,
+                    ) {
+                        Text(
+                            when {
+                                !state.mutableOperationsEnabled -> "Solo lectura en staging"
+                                line.state == "DISPONIBLE" -> "Tomar línea"
+                                else -> "No disponible"
+                            },
+                        )
                     }
                 }
             }

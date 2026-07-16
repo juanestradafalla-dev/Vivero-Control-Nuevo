@@ -1,7 +1,7 @@
 package com.arles.viverocampo.data
 
 import androidx.room.withTransaction
-import com.arles.viverocampo.core.FirebaseEmulatorServices
+import com.arles.viverocampo.core.FirebaseServices
 import com.arles.viverocampo.data.local.ConfirmedReservationEntity
 import com.arles.viverocampo.data.local.CountDraftEntity
 import com.arles.viverocampo.data.local.CountLocalPersistence
@@ -9,6 +9,7 @@ import com.arles.viverocampo.data.local.ViveroCampoDatabase
 import com.arles.viverocampo.data.security.EncryptedReservationToken
 import com.arles.viverocampo.data.security.ReservationTokenVault
 import com.arles.viverocampo.domain.CampoRepository
+import com.arles.viverocampo.domain.CampoEnvironment
 import com.arles.viverocampo.domain.ActiveJourney
 import com.arles.viverocampo.domain.CampoRepositoryException
 import com.arles.viverocampo.domain.ConfirmedReservation
@@ -34,11 +35,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
 
 class FirebaseCampoRepository(
-    private val services: FirebaseEmulatorServices,
+    private val services: FirebaseServices,
     private val database: ViveroCampoDatabase,
     private val tokenVault: ReservationTokenVault,
+    override val environment: CampoEnvironment,
 ) : CampoRepository {
-    override val emulatorEnabled: Boolean = true
     private val reservationDao = database.confirmedReservationDao()
     private val draftDao = database.countDraftDao()
     private val localPersistence = CountLocalPersistence(database)
@@ -322,6 +323,7 @@ class FirebaseCampoRepository(
     }
 
     override suspend fun reserveLine(payload: ReserveLinePayload, userId: String): ConfirmedReservation {
+        assertMutableOperationsEnabled()
         try {
             val response = services.functions.getHttpsCallable("reservarLinea").call(payload.toWireMap()).await().data
                 as? Map<*, *> ?: throw CampoRepositoryException("INVALID_RESPONSE", "El backend devolvió una respuesta inválida.")
@@ -358,6 +360,7 @@ class FirebaseCampoRepository(
         userId: String,
         initialInput: CountInput,
     ): ConfirmedReservation {
+        assertMutableOperationsEnabled()
         try {
             val response = services.functions.getHttpsCallable("iniciarCorreccionConteo")
                 .call(payload.toWireMap()).await().data as? Map<*, *>
@@ -430,6 +433,7 @@ class FirebaseCampoRepository(
     }
 
     override suspend fun markReservationReleased(reservationId: String) {
+        assertMutableOperationsEnabled()
         localPersistence.markReleasedAndKeepDraft(reservationId)
     }
 
@@ -439,6 +443,7 @@ class FirebaseCampoRepository(
         deviceId: String,
         input: CountInput,
     ) {
+        assertMutableOperationsEnabled()
         val existing = draftDao.byReservationId(reservationId)
         if (existing != null && (existing.userId != userId || existing.deviceId != deviceId)) {
             throw CampoRepositoryException("DRAFT_ACCESS_DENIED", "El borrador pertenece a otra cuenta o dispositivo.")
@@ -473,6 +478,7 @@ class FirebaseCampoRepository(
         idempotencyKey: String,
         deviceTimestamp: String,
     ): LocalCountDraft = database.withTransaction {
+        assertMutableOperationsEnabled()
         val existing = draftDao.byReservationId(reservationId)
             ?: throw CampoRepositoryException("INVALID_ARGUMENT", "No existe un borrador para confirmar.")
         if (existing.userId != userId || existing.deviceId != deviceId) {
@@ -498,6 +504,7 @@ class FirebaseCampoRepository(
     }
 
     override suspend fun synchronizeCount(reservationId: String): CountSyncOutcome {
+        assertMutableOperationsEnabled()
         val draft = draftDao.byReservationId(reservationId) ?: return CountSyncOutcome.PermanentFailure("DRAFT_NOT_FOUND")
         if (draft.syncState == SyncState.ENVIADA.name) return CountSyncOutcome.Success
         val reservation = reservationDao.byId(reservationId)
@@ -570,6 +577,15 @@ class FirebaseCampoRepository(
         "USER_INACTIVE", "JOURNEY_ACCESS_DENIED", "PERMISSION_DENIED" ->
             "La cuenta ya no está autorizada. Contacta al supervisor."
         else -> "El servidor rechazó el envío ($code). Corrige la causa antes de reintentar."
+    }
+
+    private fun assertMutableOperationsEnabled() {
+        if (!mutableOperationsEnabled) {
+            throw CampoRepositoryException(
+                "STAGING_READ_ONLY",
+                "STAGING permite iniciar sesión y consultar jornadas; las operaciones de escritura continúan bloqueadas.",
+            )
+        }
     }
 
     private fun parseReservation(response: Map<*, *>, userId: String, deviceId: String) = ConfirmedReservation(

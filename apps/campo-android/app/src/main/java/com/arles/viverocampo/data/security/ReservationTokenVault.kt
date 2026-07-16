@@ -35,7 +35,15 @@ object AesGcmCodec {
     private const val TAG_BITS = 128
 }
 
-class AndroidKeystoreReservationTokenVault : ReservationTokenVault {
+class AndroidKeystoreReservationTokenVault(private val namespace: String = "emulator") : ReservationTokenVault {
+    private val keyAlias = (if (namespace == "emulator") {
+        "vivero_campo_reservation_token_v1"
+    } else {
+        "vivero_campo_${namespace}_reservation_token_v1"
+    }).also {
+        require(namespace.matches(Regex("[a-z0-9_-]+"))) { "El namespace del token no es seguro." }
+    }
+
     override fun encrypt(token: String): EncryptedReservationToken {
         val encrypted = AesGcmCodec.encrypt(key(), token.toByteArray(Charsets.UTF_8))
         return EncryptedReservationToken(encode(encrypted.ciphertext), encode(encrypted.iv))
@@ -51,11 +59,11 @@ class AndroidKeystoreReservationTokenVault : ReservationTokenVault {
 
     private fun key(): SecretKey {
         val keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER).apply { load(null) }
-        (keyStore.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
+        (keyStore.getKey(keyAlias, null) as? SecretKey)?.let { return it }
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, KEYSTORE_PROVIDER)
         generator.init(
             KeyGenParameterSpec.Builder(
-                KEY_ALIAS,
+                keyAlias,
                 KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
             )
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
@@ -71,6 +79,5 @@ class AndroidKeystoreReservationTokenVault : ReservationTokenVault {
 
     private companion object {
         const val KEYSTORE_PROVIDER = "AndroidKeyStore"
-        const val KEY_ALIAS = "vivero_campo_reservation_token_v1"
     }
 }

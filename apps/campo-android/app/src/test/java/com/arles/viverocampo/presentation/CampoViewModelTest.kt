@@ -2,6 +2,7 @@ package com.arles.viverocampo.presentation
 
 import com.arles.viverocampo.data.sync.CountSyncScheduler
 import com.arles.viverocampo.domain.CampoRepository
+import com.arles.viverocampo.domain.CampoEnvironment
 import com.arles.viverocampo.domain.ActiveJourney
 import com.arles.viverocampo.domain.CampoRepositoryException
 import com.arles.viverocampo.domain.ConfirmedReservation
@@ -63,6 +64,18 @@ class CampoViewModelTest {
         assertEquals("Jornada ficticia", viewModel.uiState.value.journey?.displayName)
         assertEquals("CONECTADO", viewModel.uiState.value.connectionStatus)
         assertEquals("jornada-prueba", viewModel.uiState.value.selectedJourneyId)
+    }
+
+    @Test
+    fun `staging permite acceso pero bloquea seleccionar una línea`() = runTest {
+        repository.environment = CampoEnvironment.STAGING
+        viewModel = CampoViewModel(repository, DEVICE_ID, scheduler)
+
+        login()
+        viewModel.selectLine(journeySnapshot.lines.first())
+
+        assertNull(viewModel.uiState.value.selectedLine)
+        assertTrue(viewModel.uiState.value.message.orEmpty().contains("solo lectura"))
     }
 
     @Test
@@ -394,7 +407,7 @@ class CampoViewModelTest {
     }
 
     private class FakeCampoRepository : CampoRepository {
-        override val emulatorEnabled = true
+        override var environment = CampoEnvironment.EMULATOR
         var activeJourneys: List<ActiveJourney> = listOf(activeJourney)
         private val journeys = mapOf(
             activeJourney.id to MutableStateFlow(journeySnapshot),

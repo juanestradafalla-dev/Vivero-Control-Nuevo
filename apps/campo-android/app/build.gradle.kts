@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -5,6 +7,20 @@ plugins {
 }
 
 val emulatorHost = providers.gradleProperty("emulatorHost").orElse("10.0.2.2")
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use(::load)
+}
+
+fun localOrProjectProperty(name: String, defaultValue: String = ""): String =
+    providers.gradleProperty(name).orNull ?: localProperties.getProperty(name, defaultValue)
+
+fun buildConfigString(value: String): String =
+    "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+
+val stagingProjectId = localOrProjectProperty("stagingFirebaseProjectId", "viverocontrol-3f83f")
+val stagingApiKey = localOrProjectProperty("stagingFirebaseApiKey")
+val stagingAppId = localOrProjectProperty("stagingFirebaseAppId")
 
 android {
     namespace = "com.arles.viverocampo"
@@ -24,20 +40,34 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("boolean", "EMULATOR_ENABLED", "false")
+        buildConfigField("String", "FIREBASE_ENVIRONMENT", "\"DISABLED\"")
         buildConfigField("String", "FIREBASE_PROJECT_ID", "\"\"")
         buildConfigField("String", "FIREBASE_API_KEY", "\"\"")
         buildConfigField("String", "FIREBASE_APP_ID", "\"\"")
         buildConfigField("String", "EMULATOR_HOST", "\"\"")
+        buildConfigField("String", "LOCAL_STORAGE_NAMESPACE", "\"disabled\"")
     }
 
     buildTypes {
         getByName("debug") {
-            buildConfigField("boolean", "EMULATOR_ENABLED", "true")
+            buildConfigField("String", "FIREBASE_ENVIRONMENT", "\"EMULATOR\"")
             buildConfigField("String", "FIREBASE_PROJECT_ID", "\"demo-vivero-control-etapa3\"")
             buildConfigField("String", "FIREBASE_API_KEY", "\"demo-api-key\"")
             buildConfigField("String", "FIREBASE_APP_ID", "\"1:1234567890:android:demo-etapa3\"")
             buildConfigField("String", "EMULATOR_HOST", "\"${emulatorHost.get()}\"")
+            buildConfigField("String", "LOCAL_STORAGE_NAMESPACE", "\"emulator\"")
+        }
+        create("staging") {
+            isDebuggable = true
+            signingConfig = signingConfigs.getByName("debug")
+            applicationIdSuffix = ".staging"
+            matchingFallbacks += listOf("debug")
+            buildConfigField("String", "FIREBASE_ENVIRONMENT", "\"STAGING\"")
+            buildConfigField("String", "FIREBASE_PROJECT_ID", buildConfigString(stagingProjectId))
+            buildConfigField("String", "FIREBASE_API_KEY", buildConfigString(stagingApiKey))
+            buildConfigField("String", "FIREBASE_APP_ID", buildConfigString(stagingAppId))
+            buildConfigField("String", "EMULATOR_HOST", "\"\"")
+            buildConfigField("String", "LOCAL_STORAGE_NAMESPACE", "\"staging\"")
         }
         release {
             isMinifyEnabled = false

@@ -2,8 +2,20 @@ package com.arles.viverocampo.domain
 
 import kotlinx.coroutines.flow.Flow
 
+enum class CampoEnvironment {
+    EMULATOR,
+    STAGING,
+    DISABLED,
+}
+
 interface CampoRepository {
-    val emulatorEnabled: Boolean
+    val environment: CampoEnvironment
+    val configurationError: String?
+        get() = null
+    val accessEnabled: Boolean
+        get() = environment != CampoEnvironment.DISABLED && configurationError == null
+    val mutableOperationsEnabled: Boolean
+        get() = environment == CampoEnvironment.EMULATOR
 
     suspend fun signIn(email: String, password: String): UserProfile
 

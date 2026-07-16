@@ -25,6 +25,9 @@ import type {
   DraftParticipantInput,
   DraftParticipantsData,
   ManageableDraftJourney,
+  ManageableCatalogData,
+  ManageableCatalogLine,
+  ManageableCatalogLocation,
   ManageableJourneysData,
   ManageableUser,
   MonitorCount,
@@ -109,7 +112,8 @@ function parseDraftCatalogLine(value: unknown): DraftCatalogLine {
     typeof line.nombreVisible !== "string" ||
     typeof line.seleccionable !== "boolean" ||
     !location ||
-    (line.motivoNoSeleccionable !== undefined && line.motivoNoSeleccionable !== "JORNADA_ACTIVA")
+    (line.motivoNoSeleccionable !== undefined &&
+      line.motivoNoSeleccionable !== "JORNADA_ACTIVA" && line.motivoNoSeleccionable !== "LINEA_INACTIVA")
   ) {
     throw new Error("Una lÃ­nea de catÃ¡logo no es vÃ¡lida.");
   }
@@ -117,8 +121,8 @@ function parseDraftCatalogLine(value: unknown): DraftCatalogLine {
     id: line.lineaId,
     displayName: line.nombreVisible,
     selectable: line.seleccionable,
-    ...(line.motivoNoSeleccionable === "JORNADA_ACTIVA"
-      ? {unavailableReason: "JORNADA_ACTIVA" as const}
+    ...(line.motivoNoSeleccionable === "JORNADA_ACTIVA" || line.motivoNoSeleccionable === "LINEA_INACTIVA"
+      ? {unavailableReason: line.motivoNoSeleccionable}
       : {}),
     location,
   };
@@ -236,6 +240,54 @@ function parseManageableUser(value: unknown): ManageableUser {
   };
 }
 
+function parseCatalogLocation(value: unknown): ManageableCatalogLocation {
+  if (typeof value !== "object" || value === null) throw new Error("Una ubicacion del catalogo no es valida.");
+  const location = value as Record<string, unknown>;
+  if (
+    typeof location.ubicacionId !== "string" || typeof location.codigo !== "string" ||
+    typeof location.tipo !== "string" ||
+    (location.ubicacionPadreId !== null && typeof location.ubicacionPadreId !== "string") ||
+    typeof location.nombreVisible !== "string" || !Number.isSafeInteger(location.orden) ||
+    typeof location.activa !== "boolean" || !Number.isSafeInteger(location.version) ||
+    !Number.isSafeInteger(location.cantidadHijosActivos) || !Number.isSafeInteger(location.cantidadLineasActivas)
+  ) throw new Error("Una ubicacion del catalogo no es valida.");
+  return {
+    id: location.ubicacionId,
+    code: location.codigo,
+    type: location.tipo,
+    ...(typeof location.ubicacionPadreId === "string" ? {parentId: location.ubicacionPadreId} : {}),
+    displayName: location.nombreVisible,
+    order: location.orden as number,
+    active: location.activa,
+    version: location.version as number,
+    activeChildCount: location.cantidadHijosActivos as number,
+    activeLineCount: location.cantidadLineasActivas as number,
+  };
+}
+
+function parseCatalogLine(value: unknown): ManageableCatalogLine {
+  if (typeof value !== "object" || value === null) throw new Error("Una linea del catalogo no es valida.");
+  const line = value as Record<string, unknown>;
+  if (
+    typeof line.lineaId !== "string" || typeof line.ubicacionId !== "string" ||
+    typeof line.codigo !== "string" || typeof line.nombreVisible !== "string" ||
+    !Number.isSafeInteger(line.orden) || typeof line.activa !== "boolean" ||
+    !Number.isSafeInteger(line.version) || typeof line.ocupadaEnJornadaActiva !== "boolean" ||
+    !Number.isSafeInteger(line.seleccionesBorrador)
+  ) throw new Error("Una linea del catalogo no es valida.");
+  return {
+    id: line.lineaId,
+    locationId: line.ubicacionId,
+    code: line.codigo,
+    displayName: line.nombreVisible,
+    order: line.orden as number,
+    active: line.activa,
+    version: line.version as number,
+    occupiedByActiveJourney: line.ocupadaEnJornadaActiva,
+    draftSelectionCount: line.seleccionesBorrador as number,
+  };
+}
+
 export class FirebaseMonitorRepository implements MonitorRepository {
   readonly emulatorEnabled = true;
 
@@ -284,6 +336,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
         canRelease: role === "SUPERVISOR" || role === "ADMINISTRADOR",
         canManageDraftJourneys: role === "SUPERVISOR" || role === "ADMINISTRADOR",
         canManageUsers: role === "ADMINISTRADOR",
+        canManageCatalog: role === "ADMINISTRADOR",
       };
     } catch (error) {
       await this.auth.signOut();
@@ -449,6 +502,105 @@ export class FirebaseMonitorRepository implements MonitorRepository {
       return parseManageableUser(response.data);
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : "No fue posible actualizar el rol.", {cause: error});
+    }
+  }
+
+  async listManageableCatalog(): Promise<ManageableCatalogData> {
+    const callable = httpsCallable<Record<string, never>, {ubicaciones: unknown[]; lineas: unknown[]}>(
+      this.functions, "listarCatalogoAdministrable"
+    );
+    try {
+      const response = await callable({});
+      if (!Array.isArray(response.data.ubicaciones) || !Array.isArray(response.data.lineas)) {
+        throw new Error("La respuesta del catalogo no es valida.");
+      }
+      return {
+        locations: response.data.ubicaciones.map(parseCatalogLocation),
+        lines: response.data.lineas.map(parseCatalogLine),
+      };
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible consultar el catalogo.", {cause: error});
+    }
+  }
+
+  async createCatalogLocation(
+    code: string,
+    type: string,
+    parentId: string | undefined,
+    displayName: string,
+    order: number,
+    idempotencyKey: string,
+  ): Promise<ManageableCatalogLocation> {
+    const callable = httpsCallable(this.functions, "crearUbicacion");
+    try {
+      const response = await callable({
+        codigo: code, tipo: type, ubicacionPadreId: parentId ?? null,
+        nombreVisible: displayName, orden: order, claveIdempotencia: idempotencyKey,
+      });
+      return parseCatalogLocation(response.data);
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible crear la ubicacion.", {cause: error});
+    }
+  }
+
+  async updateCatalogLocation(
+    location: ManageableCatalogLocation,
+    displayName: string,
+    order: number,
+    active: boolean,
+    reason: string,
+    idempotencyKey: string,
+  ): Promise<ManageableCatalogLocation> {
+    const callable = httpsCallable(this.functions, "actualizarUbicacion");
+    try {
+      const response = await callable({
+        ubicacionId: location.id, versionEsperada: location.version,
+        nombreVisible: displayName, orden: order, activa: active,
+        motivo: reason, claveIdempotencia: idempotencyKey,
+      });
+      return parseCatalogLocation(response.data);
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible actualizar la ubicacion.", {cause: error});
+    }
+  }
+
+  async createCatalogLine(
+    locationId: string,
+    code: string,
+    displayName: string,
+    order: number,
+    idempotencyKey: string,
+  ): Promise<ManageableCatalogLine> {
+    const callable = httpsCallable(this.functions, "crearLinea");
+    try {
+      const response = await callable({
+        ubicacionId: locationId, codigo: code, nombreVisible: displayName,
+        orden: order, claveIdempotencia: idempotencyKey,
+      });
+      return parseCatalogLine(response.data);
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible crear la linea.", {cause: error});
+    }
+  }
+
+  async updateCatalogLine(
+    line: ManageableCatalogLine,
+    displayName: string,
+    order: number,
+    active: boolean,
+    reason: string,
+    idempotencyKey: string,
+  ): Promise<ManageableCatalogLine> {
+    const callable = httpsCallable(this.functions, "actualizarLinea");
+    try {
+      const response = await callable({
+        lineaId: line.id, versionEsperada: line.version,
+        nombreVisible: displayName, orden: order, activa: active,
+        motivo: reason, claveIdempotencia: idempotencyKey,
+      });
+      return parseCatalogLine(response.data);
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible actualizar la linea.", {cause: error});
     }
   }
 
@@ -1005,6 +1157,26 @@ export class DisabledMonitorRepository implements MonitorRepository {
   }
 
   async listManageableUsers(): Promise<readonly ManageableUser[]> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
+  }
+
+  async listManageableCatalog(): Promise<ManageableCatalogData> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
+  }
+
+  async createCatalogLocation(): Promise<ManageableCatalogLocation> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
+  }
+
+  async updateCatalogLocation(): Promise<ManageableCatalogLocation> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
+  }
+
+  async createCatalogLine(): Promise<ManageableCatalogLine> {
+    throw new Error("Firebase de produccion permanece deshabilitado.");
+  }
+
+  async updateCatalogLine(): Promise<ManageableCatalogLine> {
     throw new Error("Firebase de produccion permanece deshabilitado.");
   }
 

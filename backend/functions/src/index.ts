@@ -8,6 +8,13 @@ import {
   UpdateUserRoleService,
   UpdateUserStatusService
 } from "./domain/adminUsers.js";
+import {
+  CreateCatalogLineService,
+  CreateCatalogLocationService,
+  ListManageableCatalogService,
+  UpdateCatalogLineService,
+  UpdateCatalogLocationService
+} from "./domain/catalog.js";
 import {CloseJourneyService} from "./domain/closeJourney.js";
 import {
   CancelDraftJourneyService,
@@ -34,12 +41,15 @@ import {
   parseApproveCountRequest,
   parseActivateJourneyRequest,
   parseCancelDraftJourneyRequest,
-  parseCreateDraftJourneyRequest,
   parseCloseJourneyRequest,
+  parseCreateCatalogLineRequest,
+  parseCreateCatalogLocationRequest,
+  parseCreateDraftJourneyRequest,
   parseInitiateCountCorrectionRequest,
   parseListActiveJourneysRequest,
   parseListDraftJourneyParticipantsRequest,
   parseListManageableJourneysRequest,
+  parseListManageableCatalogRequest,
   parseListManageableUsersRequest,
   parseReassignCountCorrectionRequest,
   parseReopenCancelledJourneyRequest,
@@ -49,6 +59,8 @@ import {
   parseSendCountRequest,
   parseUpdateDraftJourneyLinesRequest,
   parseUpdateDraftJourneyParticipantsRequest,
+  parseUpdateCatalogLineRequest,
+  parseUpdateCatalogLocationRequest,
   parseUpdateUserRoleRequest,
   parseUpdateUserStatusRequest
 } from "./domain/validation.js";
@@ -102,7 +114,15 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
     "SELF_ADMIN_ROLE_REMOVAL_FORBIDDEN",
     "LAST_ACTIVE_ADMIN_REQUIRED",
     "USER_ROLE_CHANGE_BLOCKED_ACTIVE_WORK",
-    "USER_PROFILE_NO_CHANGE"
+    "USER_PROFILE_NO_CHANGE",
+    "CATALOG_LOCATION_INACTIVE",
+    "CATALOG_STALE_VERSION",
+    "CATALOG_DUPLICATE_CODE",
+    "CATALOG_PARENT_CYCLE",
+    "CATALOG_LOCATION_HAS_ACTIVE_CHILDREN",
+    "CATALOG_LOCATION_HAS_ACTIVE_LINES",
+    "CATALOG_LINE_OCCUPIED",
+    "CATALOG_NO_CHANGE"
   ].includes(code)) return "failed-precondition";
   if (["RESERVATION_NOT_ACTIVE", "LINE_RESERVATION_MISMATCH", "LINE_NOT_IN_COUNT"].includes(code)) {
     return "failed-precondition";
@@ -132,7 +152,9 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
     "ACTIVATION_PARTICIPANT_NOT_FOUND",
     "ACTIVATION_LINE_NOT_FOUND",
     "RESERVATION_NOT_FOUND",
-    "COUNT_NOT_FOUND"
+    "COUNT_NOT_FOUND",
+    "CATALOG_LOCATION_NOT_FOUND",
+    "CATALOG_LINE_NOT_FOUND"
   ].includes(code)) {
     return "not-found";
   }
@@ -163,6 +185,76 @@ const reopenCancelledJourneyService = new ReopenCancelledJourneyService(firestor
 const listManageableUsersService = new ListManageableUsersService(firestore);
 const updateUserStatusService = new UpdateUserStatusService(firestore);
 const updateUserRoleService = new UpdateUserRoleService(firestore);
+const listManageableCatalogService = new ListManageableCatalogService(firestore);
+const createCatalogLocationService = new CreateCatalogLocationService(firestore);
+const updateCatalogLocationService = new UpdateCatalogLocationService(firestore);
+const createCatalogLineService = new CreateCatalogLineService(firestore);
+const updateCatalogLineService = new UpdateCatalogLineService(firestore);
+
+export const listarCatalogoAdministrable = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    parseListManageableCatalogRequest(request.data);
+    return await listManageableCatalogService.execute({actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en listarCatalogoAdministrable", {errorName: error instanceof Error ? error.name : "UnknownError"});
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const crearUbicacion = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    return await createCatalogLocationService.execute(
+      parseCreateCatalogLocationRequest(request.data), {actorId: request.auth.uid}
+    );
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en crearUbicacion", {errorName: error instanceof Error ? error.name : "UnknownError"});
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const actualizarUbicacion = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    return await updateCatalogLocationService.execute(
+      parseUpdateCatalogLocationRequest(request.data), {actorId: request.auth.uid}
+    );
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en actualizarUbicacion", {errorName: error instanceof Error ? error.name : "UnknownError"});
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const crearLinea = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    return await createCatalogLineService.execute(parseCreateCatalogLineRequest(request.data), {actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en crearLinea", {errorName: error instanceof Error ? error.name : "UnknownError"});
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const actualizarLinea = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertEmulatorOnly();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    return await updateCatalogLineService.execute(parseUpdateCatalogLineRequest(request.data), {actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en actualizarLinea", {errorName: error instanceof Error ? error.name : "UnknownError"});
+    throw toHttpsError(domainErrors.internal());
+  }
+});
 
 export const listarUsuariosAdministrables = onCall({region: "us-central1"}, async (request) => {
   try {

@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://vivero-control.local/contracts/schemas/ubicacion.schema.json",
-  "title": "Ubicación",
-  "description": "Nodo genérico; la jerarquía, nomenclatura y tipos reales siguen pendientes de levantamiento.",
+  "$id": "https://vivero-control.local/contracts/schemas/catalog-location-result.schema.json",
+  "title": "Resultado de crear o actualizar ubicación",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "codigo", "tipo", "ubicacionPadreId", "nombreVisible", "orden", "activa", "version", "creadaEn", "actualizadaEn"],
+  "required": ["operacion", "ubicacionId", "codigo", "tipo", "ubicacionPadreId", "nombreVisible", "orden", "activa", "version", "cantidadHijosActivos", "cantidadLineasActivas", "actualizadaEn"],
   "properties": {
-    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "operacion": {"enum": ["UBICACION_CREADA", "UBICACION_ACTUALIZADA"]},
+    "ubicacionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "codigo": {"type": "string", "minLength": 1, "maxLength": 120},
     "tipo": {"type": "string", "minLength": 1, "maxLength": 80},
     "ubicacionPadreId": {"oneOf": [{"$ref": "comun.schema.json#/$defs/idGlobal"}, {"type": "null"}]},
@@ -15,7 +15,8 @@
     "orden": {"type": "integer", "minimum": 0, "maximum": 1000000},
     "activa": {"type": "boolean"},
     "version": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
-    "creadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "cantidadHijosActivos": {"type": "integer", "minimum": 0},
+    "cantidadLineasActivas": {"type": "integer", "minimum": 0},
     "actualizadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
   }
 }

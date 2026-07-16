@@ -1,19 +1,19 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://vivero-control.local/contracts/schemas/linea.schema.json",
-  "title": "Línea",
+  "$id": "https://vivero-control.local/contracts/schemas/catalog-line-summary.schema.json",
+  "title": "Línea administrable",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "ubicacionId", "codigo", "nombreVisible", "orden", "activa", "version", "creadaEn", "actualizadaEn"],
+  "required": ["lineaId", "ubicacionId", "codigo", "nombreVisible", "orden", "activa", "version", "ocupadaEnJornadaActiva", "seleccionesBorrador"],
   "properties": {
-    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "lineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "ubicacionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "codigo": {"type": "string", "minLength": 1, "maxLength": 120},
     "nombreVisible": {"type": "string", "minLength": 1, "maxLength": 240},
     "orden": {"type": "integer", "minimum": 0, "maximum": 1000000},
     "activa": {"type": "boolean"},
     "version": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
-    "creadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
-    "actualizadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+    "ocupadaEnJornadaActiva": {"type": "boolean"},
+    "seleccionesBorrador": {"type": "integer", "minimum": 0}
   }
 }

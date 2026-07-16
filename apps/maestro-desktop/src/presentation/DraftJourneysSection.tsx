@@ -364,7 +364,7 @@ export function DraftJourneysSection({repository, user, onActiveJourneysChanged}
                   >
                     <option value="TODAS">Todas</option>
                     <option value="DISPONIBLES">Seleccionables</option>
-                    <option value="OCUPADAS">En jornada activa</option>
+                    <option value="OCUPADAS">No seleccionables</option>
                   </select>
                 </label>
               </div>
@@ -387,7 +387,9 @@ export function DraftJourneysSection({repository, user, onActiveJourneysChanged}
                             <strong>{line.displayName}</strong>
                             <small>{line.location.line}</small>
                           </span>
-                          {!line.selectable && <em>Ya pertenece a una jornada activa</em>}
+                          {!line.selectable && (
+                            <em>{line.unavailableReason === "LINEA_INACTIVA" ? "Línea inactiva; corrige la selección" : "Ya pertenece a una jornada activa"}</em>
+                          )}
                         </label>
                       ))}
                     </section>

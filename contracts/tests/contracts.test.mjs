@@ -24,8 +24,8 @@ async function assertInvalid(schemaFilename, exampleFilename) {
 }
 
 test("compila todos los esquemas Draft 2020-12 y resuelve sus referencias", () => {
-  assert.equal(registry.entityCount, 68);
-  assert.equal(registry.schemaCount, 69);
+  assert.equal(registry.entityCount, 79);
+  assert.equal(registry.schemaCount, 80);
   assert.equal(registry.enumCount, 5);
 });
 
@@ -384,5 +384,25 @@ test("rechaza campos adicionales y roles administrativos inexistentes", async ()
   await assertInvalid(
     "update-user-role-request.schema.json",
     "etapa-15/update-user-role-request-invalid-role.json"
+  );
+});
+
+test("acepta listar, crear y actualizar el catálogo central", async () => {
+  await assertValid("list-manageable-catalog-request.schema.json", "etapa-16/list-manageable-catalog-request.json");
+  await assertValid("list-manageable-catalog-result.schema.json", "etapa-16/list-manageable-catalog-result.json");
+  await assertValid("create-catalog-location-request.schema.json", "etapa-16/create-catalog-location-request.json");
+  await assertValid("update-catalog-location-request.schema.json", "etapa-16/update-catalog-location-request.json");
+  await assertValid("catalog-location-result.schema.json", "etapa-16/catalog-location-result.json");
+  await assertValid("create-catalog-line-request.schema.json", "etapa-16/create-catalog-line-request.json");
+  await assertValid("update-catalog-line-request.schema.json", "etapa-16/update-catalog-line-request.json");
+  await assertValid("catalog-line-result.schema.json", "etapa-16/catalog-line-result.json");
+  await assertValid("resultado-idempotente.schema.json", "etapa-16/idempotent-create-line-result.json");
+  await assertValid("catalog-uniqueness-lock.schema.json", "etapa-16/catalog-uniqueness-lock.json");
+});
+
+test("rechaza cambiar campos inmutables de una línea", async () => {
+  await assertInvalid(
+    "update-catalog-line-request.schema.json",
+    "etapa-16/update-catalog-line-request-extra-immutable.json"
   );
 });

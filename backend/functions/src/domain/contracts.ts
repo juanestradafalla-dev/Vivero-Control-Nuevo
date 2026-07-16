@@ -59,6 +59,16 @@ export type ControlledErrorCode =
   | "LAST_ACTIVE_ADMIN_REQUIRED"
   | "USER_ROLE_CHANGE_BLOCKED_ACTIVE_WORK"
   | "USER_PROFILE_NO_CHANGE"
+  | "CATALOG_LOCATION_NOT_FOUND"
+  | "CATALOG_LOCATION_INACTIVE"
+  | "CATALOG_LINE_NOT_FOUND"
+  | "CATALOG_STALE_VERSION"
+  | "CATALOG_DUPLICATE_CODE"
+  | "CATALOG_PARENT_CYCLE"
+  | "CATALOG_LOCATION_HAS_ACTIVE_CHILDREN"
+  | "CATALOG_LOCATION_HAS_ACTIVE_LINES"
+  | "CATALOG_LINE_OCCUPIED"
+  | "CATALOG_NO_CHANGE"
   | "LINE_NOT_AVAILABLE"
   | "RESERVATION_NOT_FOUND"
   | "RESERVATION_NOT_ACTIVE"
@@ -262,7 +272,7 @@ export interface DraftCatalogLine {
   readonly lineaId: string;
   readonly nombreVisible: string;
   readonly seleccionable: boolean;
-  readonly motivoNoSeleccionable?: "JORNADA_ACTIVA";
+  readonly motivoNoSeleccionable?: "JORNADA_ACTIVA" | "LINEA_INACTIVA";
   readonly ubicacion: VisibleLocation;
 }
 
@@ -433,6 +443,83 @@ export interface UpdateUserRoleRequest {
 export interface UpdateUserRoleResult extends ManageableUserSummary {
   readonly operacion: "ROL_USUARIO_ACTUALIZADO";
   readonly actualizadoEn: string;
+}
+
+export interface CatalogLocationSummary {
+  readonly ubicacionId: string;
+  readonly codigo: string;
+  readonly tipo: string;
+  readonly ubicacionPadreId: string | null;
+  readonly nombreVisible: string;
+  readonly orden: number;
+  readonly activa: boolean;
+  readonly version: number;
+  readonly cantidadHijosActivos: number;
+  readonly cantidadLineasActivas: number;
+}
+
+export interface CatalogLineSummary {
+  readonly lineaId: string;
+  readonly ubicacionId: string;
+  readonly codigo: string;
+  readonly nombreVisible: string;
+  readonly orden: number;
+  readonly activa: boolean;
+  readonly version: number;
+  readonly ocupadaEnJornadaActiva: boolean;
+  readonly seleccionesBorrador: number;
+}
+
+export interface ListManageableCatalogResult {
+  readonly ubicaciones: readonly CatalogLocationSummary[];
+  readonly lineas: readonly CatalogLineSummary[];
+}
+
+export interface CreateCatalogLocationRequest {
+  readonly codigo: string;
+  readonly tipo: string;
+  readonly ubicacionPadreId: string | null;
+  readonly nombreVisible: string;
+  readonly orden: number;
+  readonly claveIdempotencia: string;
+}
+
+export interface UpdateCatalogLocationRequest {
+  readonly ubicacionId: string;
+  readonly versionEsperada: number;
+  readonly nombreVisible: string;
+  readonly orden: number;
+  readonly activa: boolean;
+  readonly motivo: string;
+  readonly claveIdempotencia: string;
+}
+
+export interface CatalogLocationResult extends CatalogLocationSummary {
+  readonly operacion: "UBICACION_CREADA" | "UBICACION_ACTUALIZADA";
+  readonly actualizadaEn: string;
+}
+
+export interface CreateCatalogLineRequest {
+  readonly ubicacionId: string;
+  readonly codigo: string;
+  readonly nombreVisible: string;
+  readonly orden: number;
+  readonly claveIdempotencia: string;
+}
+
+export interface UpdateCatalogLineRequest {
+  readonly lineaId: string;
+  readonly versionEsperada: number;
+  readonly nombreVisible: string;
+  readonly orden: number;
+  readonly activa: boolean;
+  readonly motivo: string;
+  readonly claveIdempotencia: string;
+}
+
+export interface CatalogLineResult extends CatalogLineSummary {
+  readonly operacion: "LINEA_CREADA" | "LINEA_ACTUALIZADA";
+  readonly actualizadaEn: string;
 }
 
 /** Contrato de frontera reservado para una futura operación de revisión; no es enviarConteo. */

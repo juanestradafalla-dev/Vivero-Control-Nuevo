@@ -73,7 +73,18 @@ export const expectedSchemas = [
   "update-user-status-request.schema.json",
   "update-user-status-result.schema.json",
   "update-user-role-request.schema.json",
-  "update-user-role-result.schema.json"
+  "update-user-role-result.schema.json",
+  "catalog-location-summary.schema.json",
+  "catalog-line-summary.schema.json",
+  "list-manageable-catalog-request.schema.json",
+  "list-manageable-catalog-result.schema.json",
+  "create-catalog-location-request.schema.json",
+  "update-catalog-location-request.schema.json",
+  "catalog-location-result.schema.json",
+  "create-catalog-line-request.schema.json",
+  "update-catalog-line-request.schema.json",
+  "catalog-line-result.schema.json",
+  "catalog-uniqueness-lock.schema.json"
 ];
 
 export const expectedEnums = new Map([

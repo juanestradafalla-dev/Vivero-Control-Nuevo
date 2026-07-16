@@ -1,0 +1,12 @@
+{
+  "ubicaciones": [{
+    "ubicacionId": "UBICACION-RAIZ-16", "codigo": "RAIZ-16", "tipo": "TIPO-FICTICIO",
+    "ubicacionPadreId": null, "nombreVisible": "Ubicación ficticia", "orden": 1,
+    "activa": true, "version": 1, "cantidadHijosActivos": 0, "cantidadLineasActivas": 1
+  }],
+  "lineas": [{
+    "lineaId": "LINEA-16", "ubicacionId": "UBICACION-RAIZ-16", "codigo": "LINEA-16",
+    "nombreVisible": "Línea ficticia 16", "orden": 1, "activa": true, "version": 1,
+    "ocupadaEnJornadaActiva": false, "seleccionesBorrador": 0
+  }]
+}

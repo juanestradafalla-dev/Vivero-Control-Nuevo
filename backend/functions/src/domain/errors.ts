@@ -164,6 +164,40 @@ export const domainErrors = {
     "USER_PROFILE_NO_CHANGE",
     "Selecciona un estado o rol diferente del actual."
   ),
+  catalogLocationNotFound: () => new DomainError(
+    "CATALOG_LOCATION_NOT_FOUND",
+    "La ubicación del catálogo no existe."
+  ),
+  catalogLocationInactive: () => new DomainError(
+    "CATALOG_LOCATION_INACTIVE",
+    "La ubicación o alguno de sus padres está inactivo."
+  ),
+  catalogLineNotFound: () => new DomainError("CATALOG_LINE_NOT_FOUND", "La línea del catálogo no existe."),
+  catalogStaleVersion: () => new DomainError(
+    "CATALOG_STALE_VERSION",
+    "El catálogo cambió. Actualiza la información antes de continuar."
+  ),
+  catalogDuplicateCode: () => new DomainError(
+    "CATALOG_DUPLICATE_CODE",
+    "Ya existe un código equivalente en el mismo nivel del catálogo."
+  ),
+  catalogParentCycle: () => new DomainError(
+    "CATALOG_PARENT_CYCLE",
+    "La cadena de ubicaciones contiene una referencia propia o un ciclo."
+  ),
+  catalogLocationHasActiveChildren: () => new DomainError(
+    "CATALOG_LOCATION_HAS_ACTIVE_CHILDREN",
+    "Desactiva primero las ubicaciones hijas activas."
+  ),
+  catalogLocationHasActiveLines: () => new DomainError(
+    "CATALOG_LOCATION_HAS_ACTIVE_LINES",
+    "Desactiva primero las líneas activas de esta ubicación."
+  ),
+  catalogLineOccupied: () => new DomainError(
+    "CATALOG_LINE_OCCUPIED",
+    "La línea pertenece a una jornada activa y no puede modificarse."
+  ),
+  catalogNoChange: () => new DomainError("CATALOG_NO_CHANGE", "No hay cambios para guardar."),
   unauthenticated: () => new DomainError("UNAUTHENTICATED", "Debes iniciar sesión."),
   invalidArgument: () => new DomainError("INVALID_ARGUMENT", "La solicitud no tiene un formato válido."),
   userNotFound: () => new DomainError("USER_NOT_FOUND", "La cuenta no tiene un perfil operativo."),

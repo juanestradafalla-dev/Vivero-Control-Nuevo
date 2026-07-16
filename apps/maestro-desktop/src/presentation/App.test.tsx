@@ -7,6 +7,9 @@ import type {
   DraftParticipantInput,
   DraftParticipantsData,
   ManageableDraftJourney,
+  ManageableCatalogData,
+  ManageableCatalogLine,
+  ManageableCatalogLocation,
   ManageableJourneysData,
   ManageableUser,
   MonitorJourney,
@@ -117,6 +120,18 @@ class FakeMonitorRepository implements MonitorRepository {
   activationErrors: string[] = [];
   statusUpdates: Array<{userId: string; version: number; active: boolean; reason: string; key: string}> = [];
   roleUpdates: Array<{userId: string; version: number; role: string; reason: string; key: string}> = [];
+  catalogListCalls = 0;
+  catalogChanged = 0;
+  manageableCatalog: ManageableCatalogData = {
+    locations: [
+      {id: "UBICACION-RAIZ", code: "RAIZ", type: "VIVERO", displayName: "Raíz ficticia", order: 1, active: true, version: 1, activeChildCount: 1, activeLineCount: 0},
+      {id: "UBICACION-HIJA", code: "HIJA", type: "CAMA", parentId: "UBICACION-RAIZ", displayName: "Ubicación hija", order: 1, active: true, version: 1, activeChildCount: 0, activeLineCount: 2},
+    ],
+    lines: [
+      {id: "LINEA-CATALOGO-1", locationId: "UBICACION-HIJA", code: "LINEA-1", displayName: "Línea libre", order: 1, active: true, version: 1, occupiedByActiveJourney: false, draftSelectionCount: 1},
+      {id: "LINEA-CATALOGO-2", locationId: "UBICACION-HIJA", code: "LINEA-2", displayName: "Línea ocupada", order: 2, active: true, version: 1, occupiedByActiveJourney: true, draftSelectionCount: 0},
+    ],
+  };
   manageableUsers: ManageableUser[] = [
     {
       id: "uid-administrador",
@@ -256,6 +271,68 @@ class FakeMonitorRepository implements MonitorRepository {
   }
   async listManageableUsers(): Promise<readonly ManageableUser[]> {
     return this.manageableUsers;
+  }
+  async listManageableCatalog(): Promise<ManageableCatalogData> {
+    this.catalogListCalls += 1;
+    return this.manageableCatalog;
+  }
+  async createCatalogLocation(
+    code: string,
+    type: string,
+    parentId: string | undefined,
+    displayName: string,
+    order: number,
+  ): Promise<ManageableCatalogLocation> {
+    const created: ManageableCatalogLocation = {
+      id: `UBICACION-${this.catalogChanged + 1}`, code: code.trim().toUpperCase(), type,
+      ...(parentId ? {parentId} : {}), displayName, order, active: true, version: 1,
+      activeChildCount: 0, activeLineCount: 0,
+    };
+    this.catalogChanged += 1;
+    this.manageableCatalog = {...this.manageableCatalog, locations: [...this.manageableCatalog.locations, created]};
+    return created;
+  }
+  async updateCatalogLocation(
+    location: ManageableCatalogLocation,
+    displayName: string,
+    order: number,
+    active: boolean,
+  ): Promise<ManageableCatalogLocation> {
+    const updated = {...location, displayName, order, active, version: location.version + 1};
+    this.catalogChanged += 1;
+    this.manageableCatalog = {
+      ...this.manageableCatalog,
+      locations: this.manageableCatalog.locations.map((item) => item.id === location.id ? updated : item),
+    };
+    return updated;
+  }
+  async createCatalogLine(
+    locationId: string,
+    code: string,
+    displayName: string,
+    order: number,
+  ): Promise<ManageableCatalogLine> {
+    const created: ManageableCatalogLine = {
+      id: `LINEA-NUEVA-${this.catalogChanged + 1}`, locationId, code: code.trim().toUpperCase(),
+      displayName, order, active: true, version: 1, occupiedByActiveJourney: false, draftSelectionCount: 0,
+    };
+    this.catalogChanged += 1;
+    this.manageableCatalog = {...this.manageableCatalog, lines: [...this.manageableCatalog.lines, created]};
+    return created;
+  }
+  async updateCatalogLine(
+    line: ManageableCatalogLine,
+    displayName: string,
+    order: number,
+    active: boolean,
+  ): Promise<ManageableCatalogLine> {
+    const updated = {...line, displayName, order, active, version: line.version + 1};
+    this.catalogChanged += 1;
+    this.manageableCatalog = {
+      ...this.manageableCatalog,
+      lines: this.manageableCatalog.lines.map((item) => item.id === line.id ? updated : item),
+    };
+    return updated;
   }
   async updateUserStatus(
     userId: string,
@@ -1146,6 +1223,87 @@ describe("jornadas en borrador de Vivero Maestro", () => {
     };
     await signIn(auxiliaryRepository);
     expect(screen.queryByRole("button", {name: "Usuarios"})).not.toBeInTheDocument();
+  });
+
+  it("muestra Catalogo solo al administrador con arbol, alertas y filtros", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.user = {
+      ...supervisor,
+      id: "uid-administrador",
+      displayName: "Administrador Pruebas",
+      role: "ADMINISTRADOR",
+      canManageUsers: true,
+      canManageCatalog: true,
+    };
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Catálogo"}));
+    await screen.findByRole("heading", {name: "Catálogo"});
+    expect(screen.getByText(/RAIZ · VIVERO · v1 · ACTIVA/)).toBeInTheDocument();
+    expect(screen.getByText("Línea libre")).toBeInTheDocument();
+    expect(screen.getByText(/Seleccionada en 1 borrador/)).toBeInTheDocument();
+    expect(screen.getByText(/Bloqueada por una jornada ACTIVA/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Buscar"), {target: {value: "ocupada"}});
+    expect(screen.queryByText("Línea libre")).not.toBeInTheDocument();
+    expect(screen.getByText("Línea ocupada")).toBeInTheDocument();
+  });
+
+  it("crea una ubicacion central y refresca el catalogo", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.user = {...supervisor, role: "ADMINISTRADOR", canManageUsers: true, canManageCatalog: true};
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Catálogo"}));
+    await screen.findByRole("heading", {name: "Catálogo"});
+    fireEvent.click(screen.getByRole("button", {name: "Nueva ubicación raíz"}));
+    fireEvent.change(screen.getByLabelText("Código"), {target: {value: "NUEVA-RAIZ"}});
+    fireEvent.change(screen.getByLabelText("Tipo técnico"), {target: {value: "FIXTURE"}});
+    fireEvent.change(screen.getByLabelText("Nombre visible"), {target: {value: "Nueva raíz"}});
+    fireEvent.change(screen.getByLabelText("Orden"), {target: {value: "4"}});
+    fireEvent.click(screen.getByRole("button", {name: "Crear"}));
+    await screen.findByText("Ubicación creada mediante operación central.");
+    expect(repository.catalogChanged).toBe(1);
+    expect(screen.getByText("Nueva raíz")).toBeInTheDocument();
+    expect(repository.catalogListCalls).toBeGreaterThan(1);
+  });
+
+  it("confirma la desactivacion de una linea de borrador y bloquea la ocupada", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.user = {...supervisor, role: "ADMINISTRADOR", canManageUsers: true, canManageCatalog: true};
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Catálogo"}));
+    await screen.findByRole("heading", {name: "Catálogo"});
+    const occupiedArticle = screen.getByText("Línea ocupada").closest("article");
+    expect(occupiedArticle).not.toBeNull();
+    expect(within(occupiedArticle!).getByRole("button", {name: "Editar línea"})).toBeDisabled();
+    const freeArticle = screen.getByText("Línea libre").closest("article");
+    fireEvent.click(within(freeArticle!).getByRole("button", {name: "Editar línea"}));
+    fireEvent.click(screen.getByLabelText("Registro activo"));
+    fireEvent.change(screen.getByLabelText("Motivo obligatorio"), {target: {value: "Línea fuera de uso temporal."}});
+    expect(screen.getByText(/Los borradores conservarán esta línea/)).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Confirmo este cambio central."));
+    fireEvent.click(screen.getByRole("button", {name: "Confirmar cambio"}));
+    await screen.findByText("Línea actualizada y versionada.");
+    expect(repository.manageableCatalog.lines.find((line) => line.id === "LINEA-CATALOGO-1"))
+      .toMatchObject({active: false, version: 2, draftSelectionCount: 1});
+  });
+
+  it("oculta Catalogo a supervisor y auxiliar", async () => {
+    const supervisorRepository = new FakeMonitorRepository();
+    await signIn(supervisorRepository);
+    expect(screen.queryByRole("button", {name: "Catálogo"})).not.toBeInTheDocument();
+    cleanup();
+    const auxiliaryRepository = new FakeMonitorRepository();
+    auxiliaryRepository.user = {
+      ...supervisor,
+      role: "AUXILIAR",
+      canViewReservationDetails: false,
+      canReview: false,
+      canRelease: false,
+      canManageDraftJourneys: false,
+      canManageUsers: false,
+      canManageCatalog: false,
+    };
+    await signIn(auxiliaryRepository);
+    expect(screen.queryByRole("button", {name: "Catálogo"})).not.toBeInTheDocument();
   });
 
   it("invalida de forma segura una sesion desactivada desde otra sesion", async () => {

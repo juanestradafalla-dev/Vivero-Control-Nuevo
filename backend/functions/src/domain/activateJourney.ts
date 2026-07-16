@@ -147,8 +147,36 @@ function chunks<T>(values: readonly T[], size: number): T[][] {
   return result;
 }
 
-function snapshotMap(snapshots: readonly DocumentSnapshot[]): Map<string, DocumentSnapshot> {
-  return new Map(snapshots.map((snapshot) => [snapshot.id, snapshot]));
+function genericVisibleLocation(
+  line: {readonly id: string; readonly data: LineDocument},
+  locations: ReadonlyMap<string, LocationDocument>
+): VisibleLocation {
+  if (
+    typeof line.data.ubicacionId !== "string" || typeof line.data.codigo !== "string" ||
+    typeof line.data.nombreVisible !== "string" || !Number.isInteger(line.data.orden)
+  ) throw domainErrors.internal();
+  const path: string[] = [];
+  const visited = new Set<string>();
+  let currentId: string | undefined = line.data.ubicacionId;
+  while (currentId !== undefined) {
+    if (visited.has(currentId)) throw domainErrors.internal();
+    visited.add(currentId);
+    const location = locations.get(currentId);
+    if (!location || typeof location.nombreVisible !== "string") throw domainErrors.internal();
+    path.unshift(location.nombreVisible);
+    currentId = typeof location.ubicacionPadreId === "string" ? location.ubicacionPadreId : undefined;
+  }
+  const root = path[0];
+  const leaf = path[path.length - 1];
+  if (!root || !leaf) throw domainErrors.internal();
+  return {
+    vivero: root,
+    modulo: path.length >= 3 ? path[1] as string : root,
+    cama: leaf,
+    linea: line.data.codigo,
+    nombreVisible: line.data.nombreVisible,
+    orden: line.data.orden as number
+  };
 }
 
 export class ActivateJourneyService {
@@ -313,57 +341,13 @@ export class ActivateJourneyService {
         throw domainErrors.activationReviewerRequired();
       }
 
-      const bedIds = [...new Set(lines.map((line) => line.data.ubicacionId as string))];
-      const bedSnapshots = await transaction.getAll(...bedIds.map((id) =>
-        this.firestore.collection("ubicaciones").doc(id)
-      ));
-      const beds = snapshotMap(bedSnapshots);
-      const moduleIds = [...new Set(bedSnapshots.map((snapshot) => {
-        if (!snapshot.exists) throw domainErrors.internal();
-        const parentId = (snapshot.data() as LocationDocument).ubicacionPadreId;
-        if (typeof parentId !== "string") throw domainErrors.internal();
-        return parentId;
-      }))];
-      const moduleSnapshots = await transaction.getAll(...moduleIds.map((id) =>
-        this.firestore.collection("ubicaciones").doc(id)
-      ));
-      const modules = snapshotMap(moduleSnapshots);
-      const nurseryIds = [...new Set(moduleSnapshots.map((snapshot) => {
-        if (!snapshot.exists) throw domainErrors.internal();
-        const parentId = (snapshot.data() as LocationDocument).ubicacionPadreId;
-        if (typeof parentId !== "string") throw domainErrors.internal();
-        return parentId;
-      }))];
-      const nurserySnapshots = await transaction.getAll(...nurseryIds.map((id) =>
-        this.firestore.collection("ubicaciones").doc(id)
-      ));
-      const nurseries = snapshotMap(nurserySnapshots);
-
-      const visibleLocations = new Map<string, VisibleLocation>(lines.map((line) => {
-        const bedSnapshot = beds.get(line.data.ubicacionId as string);
-        const bed = bedSnapshot?.data() as LocationDocument | undefined;
-        const moduleSnapshot = typeof bed?.ubicacionPadreId === "string" ? modules.get(bed.ubicacionPadreId) : undefined;
-        const module = moduleSnapshot?.data() as LocationDocument | undefined;
-        const nurserySnapshot = typeof module?.ubicacionPadreId === "string"
-          ? nurseries.get(module.ubicacionPadreId)
-          : undefined;
-        const nursery = nurserySnapshot?.data() as LocationDocument | undefined;
-        if (
-          typeof bed?.nombreVisible !== "string" ||
-          typeof module?.nombreVisible !== "string" ||
-          typeof nursery?.nombreVisible !== "string"
-        ) {
-          throw domainErrors.internal();
-        }
-        return [line.id, {
-          vivero: nursery.nombreVisible,
-          modulo: module.nombreVisible,
-          cama: bed.nombreVisible,
-          linea: line.data.codigo as string,
-          nombreVisible: line.data.nombreVisible as string,
-          orden: line.data.orden as number
-        }];
-      }));
+      const locationSnapshots = await transaction.get(this.firestore.collection("ubicaciones"));
+      const locations = new Map(locationSnapshots.docs.map((snapshot) => [
+        snapshot.id, snapshot.data() as LocationDocument
+      ]));
+      const visibleLocations = new Map<string, VisibleLocation>(lines.map((line) => [
+        line.id, genericVisibleLocation(line, locations)
+      ]));
 
       const now = Timestamp.now();
       const nextVersion = (journey.version as number) + 1;

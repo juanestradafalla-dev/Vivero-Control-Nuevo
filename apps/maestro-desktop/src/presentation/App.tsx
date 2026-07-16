@@ -9,6 +9,7 @@ import type {
   MonitorUser,
 } from "../domain/MonitorModels";
 import {sortMonitorLines} from "../domain/MonitorModels";
+import {CatalogSection} from "./CatalogSection";
 import {DraftJourneysSection} from "./DraftJourneysSection";
 import {UsersSection} from "./UsersSection";
 import "./app.css";
@@ -66,7 +67,7 @@ export function App({repository}: AppProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [user, setUser] = useState<MonitorUser>();
-  const [activeSection, setActiveSection] = useState<"MONITOR" | "JOURNEYS" | "USERS">("MONITOR");
+  const [activeSection, setActiveSection] = useState<"MONITOR" | "JOURNEYS" | "USERS" | "CATALOG">("MONITOR");
   const [journeys, setJourneys] = useState<readonly MonitorJourney[]>([]);
   const [selectedJourneyId, setSelectedJourneyId] = useState<string>();
   const [snapshot, setSnapshot] = useState<MonitorSnapshot>();
@@ -426,7 +427,7 @@ export function App({repository}: AppProps) {
         {repository.emulatorEnabled ? "MODO DE PRUEBA — EMULADOR" : "FIREBASE DESHABILITADO — SIN PRODUCCIÓN"}
       </div>
 
-      {(user?.canManageDraftJourneys || user?.canManageUsers) && (
+      {(user?.canManageDraftJourneys || user?.canManageUsers || user?.canManageCatalog) && (
         <nav className="workspace-nav" aria-label="Secciones de Maestro">
           <button
             className={activeSection === "MONITOR" ? "workspace-tab workspace-tab--active" : "workspace-tab"}
@@ -461,12 +462,26 @@ export function App({repository}: AppProps) {
               Usuarios
             </button>
           )}
+          {user.canManageCatalog && (
+            <button
+              className={activeSection === "CATALOG" ? "workspace-tab workspace-tab--active" : "workspace-tab"}
+              type="button"
+              onClick={() => {
+                setReviewDialog(undefined);
+                setReassignmentDialog(undefined);
+                setReleaseDialog(undefined);
+                setActiveSection("CATALOG");
+              }}
+            >
+              Catálogo
+            </button>
+          )}
         </nav>
       )}
 
       {!user ? (
         <section className="login-panel" aria-labelledby="login-title">
-          <p className="eyebrow">ETAPA 15</p>
+          <p className="eyebrow">ETAPA 16</p>
           <h1 id="login-title">Acceso a revisión</h1>
           <p>Use únicamente una cuenta ficticia cargada en Firebase Emulator Suite.</p>
           <form onSubmit={handleSignIn}>
@@ -486,6 +501,11 @@ export function App({repository}: AppProps) {
         </section>
       ) : activeSection === "USERS" && user.canManageUsers ? (
         <UsersSection repository={repository} currentUser={user} />
+      ) : activeSection === "CATALOG" && user.canManageCatalog ? (
+        <CatalogSection
+          repository={repository}
+          onCatalogChanged={() => setDraftRefreshVersion((version) => version + 1)}
+        />
       ) : activeSection === "JOURNEYS" ? (
         <DraftJourneysSection
           key={draftRefreshVersion}

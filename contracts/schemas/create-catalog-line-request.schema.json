@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/create-catalog-line-request.schema.json",
+  "title": "Solicitud crearLinea",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ubicacionId", "codigo", "nombreVisible", "orden", "claveIdempotencia"],
+  "properties": {
+    "ubicacionId": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+    "codigo": {"type": "string", "minLength": 1, "maxLength": 120, "pattern": ".*\\S.*"},
+    "nombreVisible": {"type": "string", "minLength": 1, "maxLength": 240, "pattern": ".*\\S.*"},
+    "orden": {"type": "integer", "minimum": 0, "maximum": 1000000},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}
+  }
+}

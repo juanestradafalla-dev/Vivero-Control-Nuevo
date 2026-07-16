@@ -1,0 +1,4 @@
+{
+  "codigo": " sector norte ", "tipo": "TIPO-FICTICIO", "ubicacionPadreId": null,
+  "nombreVisible": "Sector norte ficticio", "orden": 10, "claveIdempotencia": "crear-ubicacion-etapa-16"
+}

@@ -54,6 +54,38 @@ interface LocationDocument {
   readonly ubicacionPadreId?: string;
 }
 
+function genericVisibleLocation(
+  line: LineDocument,
+  locations: ReadonlyMap<string, LocationDocument>
+): VisibleLocation {
+  if (
+    typeof line.ubicacionId !== "string" || typeof line.codigo !== "string" ||
+    typeof line.nombreVisible !== "string" || !Number.isInteger(line.orden)
+  ) throw domainErrors.internal();
+  const path: string[] = [];
+  const visited = new Set<string>();
+  let currentId: string | undefined = line.ubicacionId;
+  while (currentId !== undefined) {
+    if (visited.has(currentId)) throw domainErrors.internal();
+    visited.add(currentId);
+    const location = locations.get(currentId);
+    if (!location || typeof location.nombreVisible !== "string") throw domainErrors.internal();
+    path.unshift(location.nombreVisible);
+    currentId = typeof location.ubicacionPadreId === "string" ? location.ubicacionPadreId : undefined;
+  }
+  const root = path[0];
+  const leaf = path[path.length - 1];
+  if (!root || !leaf) throw domainErrors.internal();
+  return {
+    vivero: root,
+    modulo: path.length >= 3 ? path[1] as string : root,
+    cama: leaf,
+    linea: line.codigo,
+    nombreVisible: line.nombreVisible,
+    orden: line.orden as number
+  };
+}
+
 interface JourneyLineDocument {
   readonly jornadaId?: string;
   readonly lineaId?: string;
@@ -364,7 +396,7 @@ export class ListManageableJourneysService {
       await Promise.all([
         draftQuery.get(),
         inactiveQuery.get(),
-        this.firestore.collection("lineas").where("activa", "==", true).get(),
+        this.firestore.collection("lineas").get(),
         this.firestore.collection("ubicaciones").get(),
         this.firestore.collection("jornadas").where("estadoAdministrativo", "==", "ACTIVA").get(),
         this.firestore.collection("jornadaLineas").get()
@@ -478,33 +510,14 @@ export class ListManageableJourneysService {
     }));
     const catalogLines = linesSnapshot.docs.map((snapshot): DraftCatalogLine => {
       const line = snapshot.data() as LineDocument;
-      const bed = typeof line.ubicacionId === "string" ? locations.get(line.ubicacionId) : undefined;
-      const module = typeof bed?.ubicacionPadreId === "string" ? locations.get(bed.ubicacionPadreId) : undefined;
-      const nursery = typeof module?.ubicacionPadreId === "string" ? locations.get(module.ubicacionPadreId) : undefined;
-      if (
-        typeof line.nombreVisible !== "string" ||
-        typeof line.codigo !== "string" ||
-        !Number.isInteger(line.orden) ||
-        typeof bed?.nombreVisible !== "string" ||
-        typeof module?.nombreVisible !== "string" ||
-        typeof nursery?.nombreVisible !== "string"
-      ) {
-        throw domainErrors.internal();
-      }
-      const location: VisibleLocation = {
-        vivero: nursery.nombreVisible,
-        modulo: module.nombreVisible,
-        cama: bed.nombreVisible,
-        linea: line.codigo,
-        nombreVisible: line.nombreVisible,
-        orden: line.orden as number
-      };
-      const selectable = !linesInActiveJourneys.has(snapshot.id);
+      const location = genericVisibleLocation(line, locations);
+      const selectable = line.activa === true && !linesInActiveJourneys.has(snapshot.id);
+      const reason = line.activa !== true ? "LINEA_INACTIVA" as const : "JORNADA_ACTIVA" as const;
       return {
         lineaId: snapshot.id,
-        nombreVisible: line.nombreVisible,
+        nombreVisible: location.nombreVisible,
         seleccionable: selectable,
-        ...(selectable ? {} : {motivoNoSeleccionable: "JORNADA_ACTIVA" as const}),
+        ...(selectable ? {} : {motivoNoSeleccionable: reason}),
         ubicacion: location
       };
     }).sort((left, right) =>

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/migration-import-map-entry.schema.json",
+  "title": "Correspondencia de clave externa a recurso interno migrado",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["claveExterna", "idInterno", "bloqueoCodigoId"],
+  "properties": {
+    "claveExterna": {"type": "string", "minLength": 1, "maxLength": 128},
+    "idInterno": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "bloqueoCodigoId": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  }
+}

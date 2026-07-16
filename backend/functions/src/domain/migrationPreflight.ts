@@ -5,6 +5,7 @@ import type {DocumentData, DocumentSnapshot, Firestore, QuerySnapshot} from "fir
 import {normalizeCatalogCode} from "./catalog.js";
 import type {
   MigrationEntityConflictSummary,
+  MigrationCatalogPackageV1,
   MigrationPackageInitialInventory,
   MigrationPackageLine,
   MigrationPackageLocation,
@@ -29,7 +30,7 @@ interface ValidatedItem<T> {
   currentId?: string;
 }
 
-interface CurrentCatalog {
+export interface CurrentCatalog {
   readonly locations: QuerySnapshot;
   readonly lines: QuerySnapshot;
   readonly inventories: QuerySnapshot;
@@ -75,6 +76,10 @@ function normalizeForHash(value: unknown, key = ""): unknown {
   if (key === "codigo") return normalizeCatalogCode(value);
   if (key.includes("ClaveExterna") || key === "claveExterna") return normalizeExternalKey(value);
   return normalizeText(value);
+}
+
+export function normalizeMigrationPackage(value: unknown): MigrationCatalogPackageV1 {
+  return normalizeForHash(value) as MigrationCatalogPackageV1;
 }
 
 function canonicalStringify(value: unknown): string {
@@ -235,6 +240,11 @@ function validateLocations(
       issue(state, "ERROR", "REFERENCIA_PADRE_INEXISTENTE", "UBICACION", item.value.claveExterna,
         "La ubicación padre no existe dentro del paquete.");
     }
+    if (item.value.activa && parent !== null && byKey.get(parent)?.value.activa !== true) {
+      block(item);
+      issue(state, "ERROR", "CADENA_PADRES_INACTIVA", "UBICACION", item.value.claveExterna,
+        "Una ubicación activa no puede depender de una ubicación inactiva.");
+    }
   }
   const visiting = new Set<string>();
   const visited = new Set<string>();
@@ -264,6 +274,8 @@ function validateLines(
 ): ValidatedItem<MigrationPackageLine>[] {
   const items: ValidatedItem<MigrationPackageLine>[] = [];
   const locationKeys = new Set(locations.map((item) => item.value.claveExterna));
+  const activeLocationKeys = new Set(locations
+    .filter((item) => item.value.activa).map((item) => item.value.claveExterna));
   const keys = new Map<string, ValidatedItem<MigrationPackageLine>>();
   const codes = new Map<string, ValidatedItem<MigrationPackageLine>>();
   raw.forEach((candidate, index) => {
@@ -309,6 +321,10 @@ function validateLines(
       block(item);
       issue(state, "ERROR", "UBICACION_LINEA_INEXISTENTE", "LINEA", value.claveExterna,
         "La línea referencia una ubicación que no existe en el paquete.");
+    } else if (value.activa && !activeLocationKeys.has(value.ubicacionClaveExterna)) {
+      block(item);
+      issue(state, "ERROR", "UBICACION_LINEA_INACTIVA", "LINEA", value.claveExterna,
+        "Una línea activa debe pertenecer a una ubicación activa.");
     }
   });
   return items;

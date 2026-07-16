@@ -75,6 +75,15 @@ export type ControlledErrorCode =
   | "INVENTORY_INITIAL_ZERO_NOT_ALLOWED"
   | "INVENTORY_INITIAL_SOURCE_INVALID"
   | "INVENTORY_INITIAL_OPERATIONAL_ACTIVITY"
+  | "MIGRATION_HASH_MISMATCH"
+  | "MIGRATION_PACKAGE_NOT_ELIGIBLE"
+  | "MIGRATION_IMPORT_LIMIT_EXCEEDED"
+  | "MIGRATION_HASH_ALREADY_IMPORTED"
+  | "MIGRATION_IMPORT_NOT_FOUND"
+  | "MIGRATION_IMPORT_NOT_APPLIED"
+  | "MIGRATION_IMPORT_STALE_VERSION"
+  | "MIGRATION_REVERSAL_REASON_REQUIRED"
+  | "MIGRATION_REVERSAL_BLOCKED"
   | "LINE_NOT_AVAILABLE"
   | "RESERVATION_NOT_FOUND"
   | "RESERVATION_NOT_ACTIVE"
@@ -642,6 +651,77 @@ export interface MigrationValidationResult {
   };
   readonly aptoParaImportar: boolean;
   readonly soloValidacion: true;
+}
+
+export interface MigrationImportMapEntry {
+  readonly claveExterna: string;
+  readonly idInterno: string;
+  readonly bloqueoCodigoId: string;
+}
+
+export interface ImportMigrationPackageRequest {
+  readonly paquete: MigrationCatalogPackageV1;
+  readonly hashEsperado: string;
+  readonly confirmacionHash: string;
+  readonly claveIdempotencia: string;
+}
+
+export interface MigrationImportResult {
+  readonly importacionId: string;
+  readonly hashPaquete: string;
+  readonly estado: "APLICADA";
+  readonly version: 1;
+  readonly cantidades: {
+    readonly ubicaciones: number;
+    readonly lineas: number;
+    readonly inventariosIniciales: number;
+  };
+  readonly escriturasRealizadas: number;
+  readonly mapa: {
+    readonly ubicaciones: readonly MigrationImportMapEntry[];
+    readonly lineas: readonly MigrationImportMapEntry[];
+  };
+  readonly aplicadaPorUsuarioId: string;
+  readonly aplicadaEn: string;
+}
+
+export interface MigrationImportSummary {
+  readonly importacionId: string;
+  readonly hashPaquete: string;
+  readonly estado: "APLICADA" | "REVERTIDA";
+  readonly version: number;
+  readonly cantidades: MigrationImportResult["cantidades"];
+  readonly escriturasRealizadas: number;
+  readonly aplicadaPorUsuarioId: string;
+  readonly aplicadaPorNombreVisible: string;
+  readonly aplicadaEn: string;
+  readonly reversionElegible: boolean;
+  readonly bloqueosReversion: readonly string[];
+  readonly revertidaPorUsuarioId?: string;
+  readonly revertidaEn?: string;
+  readonly motivoReversion?: string;
+}
+
+export interface ListMigrationImportsResult {
+  readonly importaciones: readonly MigrationImportSummary[];
+}
+
+export interface RevertMigrationImportRequest {
+  readonly importacionId: string;
+  readonly versionEsperada: number;
+  readonly motivo: string;
+  readonly claveIdempotencia: string;
+}
+
+export interface RevertMigrationImportResult {
+  readonly importacionId: string;
+  readonly hashPaquete: string;
+  readonly estado: "REVERTIDA";
+  readonly version: number;
+  readonly documentosEliminados: number;
+  readonly revertidaPorUsuarioId: string;
+  readonly revertidaEn: string;
+  readonly motivo: string;
 }
 
 /** Contrato de frontera reservado para una futura operación de revisión; no es enviarConteo. */

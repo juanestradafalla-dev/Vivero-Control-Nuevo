@@ -216,6 +216,33 @@ export const domainErrors = {
   initialInventoryOperationalActivity: () => new DomainError(
     "INVENTORY_INITIAL_OPERATIONAL_ACTIVITY", "La línea ya inició actividad operativa y no admite una carga inicial."
   ),
+  migrationHashMismatch: () => new DomainError(
+    "MIGRATION_HASH_MISMATCH", "El hash recalculado no coincide con las dos confirmaciones recibidas."
+  ),
+  migrationPackageNotEligible: () => new DomainError(
+    "MIGRATION_PACKAGE_NOT_ELIGIBLE", "El paquete dejó de ser apto o intentaría mezclar registros existentes."
+  ),
+  migrationImportLimitExceeded: () => new DomainError(
+    "MIGRATION_IMPORT_LIMIT_EXCEEDED", "La importación supera el límite seguro de 450 escrituras transaccionales."
+  ),
+  migrationHashAlreadyImported: () => new DomainError(
+    "MIGRATION_HASH_ALREADY_IMPORTED", "Este hash ya fue importado y no puede aplicarse nuevamente."
+  ),
+  migrationImportNotFound: () => new DomainError(
+    "MIGRATION_IMPORT_NOT_FOUND", "El registro histórico de importación no existe."
+  ),
+  migrationImportNotApplied: () => new DomainError(
+    "MIGRATION_IMPORT_NOT_APPLIED", "Solo una importación en estado APLICADA puede revertirse."
+  ),
+  migrationImportStaleVersion: () => new DomainError(
+    "MIGRATION_IMPORT_STALE_VERSION", "La importación cambió. Actualiza el historial antes de continuar."
+  ),
+  migrationReversalReasonRequired: () => new DomainError(
+    "MIGRATION_REVERSAL_REASON_REQUIRED", "La reversión exige un motivo válido."
+  ),
+  migrationReversalBlocked: () => new DomainError(
+    "MIGRATION_REVERSAL_BLOCKED", "La importación fue modificada o utilizada y ya no puede revertirse automáticamente."
+  ),
   unauthenticated: () => new DomainError("UNAUTHENTICATED", "Debes iniciar sesión."),
   invalidArgument: () => new DomainError("INVALID_ARGUMENT", "La solicitud no tiene un formato válido."),
   userNotFound: () => new DomainError("USER_NOT_FOUND", "La cuenta no tiene un perfil operativo."),

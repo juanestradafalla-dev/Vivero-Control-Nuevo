@@ -11,6 +11,7 @@
     "recursoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "ambitoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "codigoNormalizado": {"type": "string", "minLength": 1, "maxLength": 120},
-    "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+    "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "creadaPorImportacionId": {"$ref": "comun.schema.json#/$defs/idGlobal"}
   }
 }

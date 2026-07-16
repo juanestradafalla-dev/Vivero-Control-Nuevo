@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/list-migration-imports-request.schema.json",
+  "title": "Solicitud de historial de importaciones",
+  "type": "object",
+  "additionalProperties": false,
+  "maxProperties": 0
+}

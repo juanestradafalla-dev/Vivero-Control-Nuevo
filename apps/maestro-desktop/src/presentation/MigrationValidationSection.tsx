@@ -1,8 +1,10 @@
-import {useState} from "react";
+import {useEffect, useState} from "react";
 
 import type {
   MigrationValidationEntity,
   MigrationValidationIssue,
+  MigrationImportResult,
+  MigrationImportSummary,
   MigrationValidationReport,
   MonitorRepository,
 } from "../domain/MonitorModels";
@@ -13,6 +15,7 @@ interface MigrationValidationSectionProps {
 
 const MAX_FILE_BYTES = 512_000;
 const ROOT_FIELDS = new Set(["formato", "metadatos", "ubicaciones", "lineas", "inventariosIniciales"]);
+const IMPORT_MAX_WRITES = 450;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -33,6 +36,10 @@ export function validateLocalMigrationPackage(value: unknown, size: number): str
   return undefined;
 }
 
+export function projectedMigrationWrites(report: MigrationValidationReport): number {
+  return 2 * (report.counts.locations + report.counts.lines + report.counts.initialInventories) + 4;
+}
+
 function entityLabel(entity: MigrationValidationEntity): string {
   return {
     PAQUETE: "Paquete",
@@ -51,12 +58,37 @@ export function MigrationValidationSection({repository}: MigrationValidationSect
   const [validating, setValidating] = useState(false);
   const [severityFilter, setSeverityFilter] = useState("TODAS");
   const [entityFilter, setEntityFilter] = useState("TODAS");
+  const [hashConfirmation, setHashConfirmation] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<MigrationImportResult>();
+  const [history, setHistory] = useState<readonly MigrationImportSummary[]>([]);
+  const [historyError, setHistoryError] = useState<string>();
+  const [reversalTarget, setReversalTarget] = useState<MigrationImportSummary>();
+  const [reversalReason, setReversalReason] = useState("");
+  const [reverting, setReverting] = useState(false);
+  const [operationMessage, setOperationMessage] = useState<string>();
+
+  const refreshHistory = async () => {
+    try {
+      setHistory(await repository.listMigrationImports());
+      setHistoryError(undefined);
+    } catch (historyFailure) {
+      setHistoryError(historyFailure instanceof Error ? historyFailure.message : "No fue posible consultar el historial.");
+    }
+  };
+
+  useEffect(() => {
+    void refreshHistory();
+  }, []);
 
   const selectFile = async (file: File | undefined) => {
     setPackageData(undefined);
     setFileName(undefined);
     setLocalCounts(undefined);
     setReport(undefined);
+    setImportResult(undefined);
+    setHashConfirmation("");
+    setOperationMessage(undefined);
     setError(undefined);
     if (!file) return;
     try {
@@ -86,10 +118,59 @@ export function MigrationValidationSection({repository}: MigrationValidationSect
     setError(undefined);
     try {
       setReport(await repository.validateMigrationPackage(packageData));
+      setImportResult(undefined);
+      setHashConfirmation("");
     } catch (validationError) {
       setError(validationError instanceof Error ? validationError.message : "No fue posible validar el paquete.");
     } finally {
       setValidating(false);
+    }
+  };
+
+  const importValidatedPackage = async () => {
+    if (!report || packageData === undefined || importing || !report.eligibleToImport) return;
+    if (hashConfirmation.trim().toLowerCase() !== report.packageHash.slice(0, 12).toLowerCase()) {
+      setError("El fragmento de confirmación no coincide con el hash validado.");
+      return;
+    }
+    if (projectedMigrationWrites(report) > IMPORT_MAX_WRITES) {
+      setError("La importación supera el límite seguro de 450 escrituras.");
+      return;
+    }
+    setImporting(true);
+    setError(undefined);
+    setOperationMessage(undefined);
+    try {
+      const result = await repository.importMigrationPackage(
+        packageData, report.packageHash, crypto.randomUUID(),
+      );
+      setImportResult(result);
+      setOperationMessage("Importación ficticia aplicada íntegramente en el emulador.");
+      await refreshHistory();
+    } catch (importFailure) {
+      setError(importFailure instanceof Error ? importFailure.message : "No fue posible importar el paquete.");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const revertSelectedImport = async () => {
+    if (!reversalTarget || reverting || reversalReason.trim().length === 0) return;
+    setReverting(true);
+    setHistoryError(undefined);
+    setOperationMessage(undefined);
+    try {
+      const result = await repository.revertMigrationImport(
+        reversalTarget, reversalReason.trim(), crypto.randomUUID(),
+      );
+      setOperationMessage(`Importación revertida: ${result.deletedDocuments} documentos creados fueron eliminados.`);
+      setReversalTarget(undefined);
+      setReversalReason("");
+      await refreshHistory();
+    } catch (reversalFailure) {
+      setHistoryError(reversalFailure instanceof Error ? reversalFailure.message : "No fue posible revertir la importación.");
+    } finally {
+      setReverting(false);
     }
   };
 
@@ -120,13 +201,13 @@ export function MigrationValidationSection({repository}: MigrationValidationSect
     <section className="migration-validation" aria-labelledby="migration-validation-title">
       <header className="section-heading">
         <div>
-          <p className="eyebrow">ETAPA 18 · SOLO LECTURA</p>
+          <p className="eyebrow">ETAPA 19 · EMULADOR EXCLUSIVO</p>
           <h1 id="migration-validation-title">Migración — Validación</h1>
         </div>
       </header>
       <div className="migration-safety-banner">
-        <strong>NO IMPORTA NI ESCRIBE DATOS</strong>
-        <span>El resultado es informativo y funciona exclusivamente con Firebase Emulator Suite.</span>
+        <strong>LA VALIDACIÓN NO IMPORTA AUTOMÁTICAMENTE</strong>
+        <span>Una importación exige resultado apto, hash confirmado y una transacción única en Firebase Emulator Suite.</span>
       </div>
       <p className="read-only-note">
         Selecciona localmente un paquete ficticio v1. El archivo no se guarda ni se persiste automáticamente.
@@ -190,8 +271,98 @@ export function MigrationValidationSection({repository}: MigrationValidationSect
               </article>
             ))}
           </div>
+          {report.eligibleToImport && (
+            <section className="migration-import-confirmation" aria-labelledby="migration-import-title">
+              <p className="eyebrow">IMPORTACIÓN CONTROLADA · NO ES PRODUCCIÓN</p>
+              <h3 id="migration-import-title">Importar en emulador</h3>
+              <p>
+                Se proyectan <strong>{projectedMigrationWrites(report)} escrituras</strong> en una sola transacción.
+                No se permite dividir el paquete ni mezclarlo con registros existentes.
+              </p>
+              <label>
+                Escribe los primeros 12 caracteres del hash
+                <input
+                  aria-label="Confirmar fragmento del hash"
+                  value={hashConfirmation}
+                  maxLength={12}
+                  onChange={(event) => setHashConfirmation(event.target.value)}
+                />
+              </label>
+              <button
+                className="button"
+                type="button"
+                disabled={importing || projectedMigrationWrites(report) > IMPORT_MAX_WRITES ||
+                  hashConfirmation.trim().toLowerCase() !== report.packageHash.slice(0, 12).toLowerCase()}
+                onClick={() => void importValidatedPackage()}
+              >
+                {importing ? "Importando atómicamente…" : "Importar en emulador"}
+              </button>
+            </section>
+          )}
+          {importResult && (
+            <section className="migration-import-result" aria-label="Resultado de importación">
+              <h3>Importación APLICADA</h3>
+              <span>ID: {importResult.importId}</span>
+              <span>Hash: {importResult.packageHash}</span>
+              <span>{importResult.writes} escrituras confirmadas</span>
+              <details>
+                <summary>Mapa de IDs generado por el backend</summary>
+                {[...importResult.map.locations, ...importResult.map.lines].map((entry) => (
+                  <code key={entry.externalKey}>{entry.externalKey} → {entry.internalId}</code>
+                ))}
+              </details>
+            </section>
+          )}
         </section>
       )}
+      {operationMessage && <p className="notice" role="status">{operationMessage}</p>}
+      <section className="migration-history" aria-labelledby="migration-history-title">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">TRAZABILIDAD CONSERVADA</p>
+            <h2 id="migration-history-title">Historial de importaciones</h2>
+          </div>
+          <button className="button button--secondary" type="button" onClick={() => void refreshHistory()}>
+            Actualizar historial
+          </button>
+        </div>
+        {historyError && <p className="alert" role="alert">{historyError}</p>}
+        {history.length === 0 ? <p>Sin importaciones ficticias registradas.</p> : history.map((entry) => (
+          <article className="migration-history-item" key={entry.importId}>
+            <div>
+              <strong>{entry.status} · {entry.importId}</strong>
+              <span>{entry.counts.locations} ubicaciones · {entry.counts.lines} líneas · {entry.counts.initialInventories} inventarios</span>
+              <span>Hash: {entry.packageHash}</span>
+              <span>Aplicada por {entry.appliedByDisplayName} · {entry.appliedAt}</span>
+              {entry.reversalBlockers.length > 0 && entry.status === "APLICADA" && (
+                <span>No reversible: {entry.reversalBlockers.join(", ")}</span>
+              )}
+              {entry.reversalReason && <span>Motivo de reversión: {entry.reversalReason}</span>}
+            </div>
+            {entry.reversalEligible && (
+              <button className="button button--danger" type="button" onClick={() => {
+                setReversalTarget(entry);
+                setReversalReason("");
+              }}>
+                Revertir importación
+              </button>
+            )}
+          </article>
+        ))}
+        {reversalTarget && (
+          <div className="migration-reversal-confirmation" role="dialog" aria-label="Confirmar reversión">
+            <strong>Revertir {reversalTarget.importId}</strong>
+            <p>Solo continuará si todos los recursos permanecen exactamente sin uso ni modificaciones.</p>
+            <label>Motivo obligatorio<textarea aria-label="Motivo de reversión" maxLength={2000} value={reversalReason} onChange={(event) => setReversalReason(event.target.value)} /></label>
+            <div className="dialog-actions">
+              <button className="button button--secondary" type="button" onClick={() => setReversalTarget(undefined)}>Cancelar</button>
+              <button className="button button--danger" type="button" disabled={reverting || reversalReason.trim().length === 0} onClick={() => void revertSelectedImport()}>
+                {reverting ? "Verificando y revirtiendo…" : "Confirmar reversión"}
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
     </section>
   );
 }

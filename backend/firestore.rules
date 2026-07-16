@@ -135,6 +135,14 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /importacionesMigracion/{importacionId} {
+      allow read, write: if false;
+    }
+
+    match /bloqueosHashesMigracion/{bloqueoId} {
+      allow read, write: if false;
+    }
+
     match /movimientosInventario/{movimientoId} {
       allow read: if canSupervise(resource.data.jornadaId);
       allow create, update, delete: if false;

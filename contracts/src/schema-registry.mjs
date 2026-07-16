@@ -91,7 +91,15 @@ export const expectedSchemas = [
   "initial-inventory-load.schema.json",
   "migration-catalog-package-v1.schema.json",
   "migration-validation-issue.schema.json",
-  "migration-validation-result.schema.json"
+  "migration-validation-result.schema.json",
+  "migration-import-map-entry.schema.json",
+  "import-migration-package-request.schema.json",
+  "import-migration-package-result.schema.json",
+  "migration-import-summary.schema.json",
+  "list-migration-imports-request.schema.json",
+  "list-migration-imports-result.schema.json",
+  "revert-migration-import-request.schema.json",
+  "revert-migration-import-result.schema.json"
 ];
 
 export const expectedEnums = new Map([

@@ -1,0 +1,15 @@
+{
+  "importaciones": [{
+    "importacionId": "IMPORTACION-PRUEBA-19",
+    "hashPaquete": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "estado": "APLICADA",
+    "version": 1,
+    "cantidades": {"ubicaciones": 1, "lineas": 1, "inventariosIniciales": 1},
+    "escriturasRealizadas": 10,
+    "aplicadaPorUsuarioId": "ADMIN-PRUEBA",
+    "aplicadaPorNombreVisible": "Administrador PRUEBA",
+    "aplicadaEn": "2026-07-16T13:00:00.000Z",
+    "reversionElegible": true,
+    "bloqueosReversion": []
+  }]
+}

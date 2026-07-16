@@ -40,7 +40,8 @@
       ]
     },
     "version": {"type": "integer", "minimum": 1},
-    "origen": {"type": "string", "enum": ["SEED_FICTICIO_ETAPA_5", "CARGA_INICIAL_ADMINISTRATIVA_EMULADOR", "CONTEO_APROBADO"]},
+    "origen": {"type": "string", "enum": ["SEED_FICTICIO_ETAPA_5", "CARGA_INICIAL_ADMINISTRATIVA_EMULADOR", "MIGRACION_CONTROLADA_EMULADOR", "CONTEO_APROBADO"]},
+    "creadaPorImportacionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "actualizadoPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "actualizadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
   }

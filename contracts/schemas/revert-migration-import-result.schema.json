@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/revert-migration-import-result.schema.json",
+  "title": "Resultado de reversión segura de una importación",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["importacionId", "hashPaquete", "estado", "version", "documentosEliminados", "revertidaPorUsuarioId", "revertidaEn", "motivo"],
+  "properties": {
+    "importacionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "hashPaquete": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "estado": {"const": "REVERTIDA"},
+    "version": {"type": "integer", "minimum": 2},
+    "documentosEliminados": {"type": "integer", "minimum": 1, "maximum": 446},
+    "revertidaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "revertidaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "motivo": {"type": "string", "minLength": 1, "maxLength": 2000}
+  }
+}

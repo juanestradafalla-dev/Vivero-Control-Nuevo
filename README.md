@@ -2,7 +2,7 @@
 
 Sistema nuevo para operar inventario por línea mediante Vivero Campo (Android), Vivero Maestro (Windows) y un backend transaccional. Este repositorio no consulta, modifica ni reutiliza el proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 18
+## Estado: ETAPA 19
 
 La vertical disponible funciona exclusivamente con Firebase Emulator Suite y datos ficticios:
 
@@ -84,6 +84,13 @@ La vertical disponible funciona exclusivamente con Firebase Emulator Suite y dat
 64. Maestro permite seleccionar el JSON solo en memoria, validar primero su estructura, filtrar hallazgos y exportar un informe que no contiene el paquete ni secretos.
 65. La plantilla `data/templates/paquete-migracion-catalogo-v1.example.json` contiene solo valores `PRUEBA`, no representa el vivero real y no autoriza una importación.
 
+66. `importarPaqueteMigracion` vuelve a normalizar, recalcula y confirma el hash, revalida Firestore y aplica únicamente paquetes ficticios completamente nuevos.
+67. Ubicaciones, líneas, bloqueos de códigos, inventarios y cargas iniciales se crean con IDs centrales en una sola transacción de máximo 450 escrituras.
+68. `bloqueosHashesMigracion` garantiza que un mismo hash nunca se importe dos veces, incluso después de una reversión.
+69. `importacionesMigracion` conserva hash, mapa, cantidades, actor, fecha y estado, pero nunca guarda el paquete original ni datos privados.
+70. `revertirImportacionMigracion` elimina solo los recursos creados cuando continúan intactos y sin uso; el registro histórico, mapa, auditoría e idempotencia permanecen.
+71. Maestro exige un fragmento del hash, muestra la proyección y el mapa, y solo ofrece reversión cuando la comprobación central la declara elegible.
+
 > **MODO DE PRUEBA — EMULADOR.** No existe Firebase real configurado, no hay credenciales de producción y ningún comando despliega recursos.
 
 Los conteos y las decisiones son inmutables desde clientes. Maestro no escribe directamente inventario, movimientos, decisiones, auditoría ni estados de línea.
@@ -144,7 +151,7 @@ Set-Location backend/functions
 npm run emulator:seed
 ```
 
-Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las veintiséis Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
+Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. El seed y las veintinueve Functions se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`.
 
 | Correo ficticio | Rol |
 |---|---|
@@ -189,6 +196,15 @@ npm run build
 npm run test:emulators
 npm audit --omit=dev --audit-level=high
 ```
+
+## Documentación de la ETAPA 19
+
+- [Importación controlada y reversión segura](docs/arquitectura/IMPORTACION_CONTROLADA_ETAPA_19.md)
+- [Pruebas de atomicidad y reversión](docs/pruebas/PRUEBAS_ETAPA_19.md)
+- [Criterios de aceptación](docs/ETAPA_19_CRITERIOS_DE_ACEPTACION.md)
+- [Plantilla ficticia](data/templates/paquete-migracion-catalogo-v1.example.json)
+- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
+- [Contratos compartidos](contracts/README.md)
 
 ## Documentación de la ETAPA 18
 

@@ -24,8 +24,8 @@ async function assertInvalid(schemaFilename, exampleFilename) {
 }
 
 test("compila todos los esquemas Draft 2020-12 y resuelve sus referencias", () => {
-  assert.equal(registry.entityCount, 86);
-  assert.equal(registry.schemaCount, 87);
+  assert.equal(registry.entityCount, 94);
+  assert.equal(registry.schemaCount, 95);
   assert.equal(registry.enumCount, 5);
 });
 
@@ -441,4 +441,14 @@ test("rechaza IDs internos, total calculado y campos adicionales en el paquete",
   const result = validateContract(registry, "migration-catalog-package-v1.schema.json", template);
   assert.equal(result.valid, false);
   assert.ok(result.schemaErrors.length >= 2);
+});
+
+test("acepta los contratos de importación y reversión controladas", async () => {
+  await assertValid("import-migration-package-request.schema.json", "etapa-19/import-migration-request.json");
+  await assertValid("import-migration-package-result.schema.json", "etapa-19/import-migration-result.json");
+  await assertValid("list-migration-imports-result.schema.json", "etapa-19/list-migration-imports-result.json");
+  await assertValid("revert-migration-import-request.schema.json", "etapa-19/revert-migration-import-request.json");
+  await assertValid("revert-migration-import-result.schema.json", "etapa-19/revert-migration-import-result.json");
+  await assertValid("resultado-idempotente.schema.json", "etapa-19/idempotent-import-result.json");
+  await assertValid("resultado-idempotente.schema.json", "etapa-19/idempotent-revert-result.json");
 });

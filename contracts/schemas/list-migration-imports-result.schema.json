@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/list-migration-imports-result.schema.json",
+  "title": "Historial de importaciones de migración",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["importaciones"],
+  "properties": {
+    "importaciones": {"type": "array", "items": {"$ref": "migration-import-summary.schema.json"}}
+  }
+}

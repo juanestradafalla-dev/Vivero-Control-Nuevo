@@ -1,0 +1,6 @@
+{
+  "importacionId": "IMPORTACION-PRUEBA-19",
+  "versionEsperada": 1,
+  "motivo": "PRUEBA de reversión antes de cualquier uso",
+  "claveIdempotencia": "REVERTIR-PRUEBA-ETAPA-19"
+}

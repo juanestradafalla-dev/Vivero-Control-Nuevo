@@ -181,3 +181,11 @@ No se agregan dependencias externas ni cambios funcionales en Campo. El prefligh
 El límite técnico es 512.000 bytes, 500 ubicaciones, 2.000 líneas y 2.000 inventarios. Estos valores protegen el transporte y la memoria; no representan la capacidad ni estructura real del vivero. Un hash coincidente solo prueba equivalencia del JSON normalizado validado, no la identidad de una futura importación.
 
 La plantilla no representa el vivero real. Fuente, fecha de corte, jerarquía e inventario productivos continúan pendientes. Los paquetes reales nunca deben subirse a Git; `.gitignore` bloquea rutas y extensiones privadas, pero la revisión humana y el escaneo de secretos siguen siendo necesarios. Importación, reversión, asignación definitiva de IDs y corrección de datos continúan fuera de alcance. Firebase productivo no existe ni fue configurado o desplegado.
+
+## Actualización de la ETAPA 19
+
+No se agregan dependencias externas ni cambios funcionales en Campo. La importación reutiliza el validador de la Etapa 18, Auth Emulator, Functions, Firestore, transacciones, auditoría e idempotencia. El máximo es 450 escrituras proyectadas, por debajo del límite técnico de Firestore, y nunca se divide una operación en lotes parciales.
+
+El bloqueo por hash se conserva incluso después de revertir para impedir que el mismo paquete se aplique nuevamente. Esto consume trazabilidad deliberadamente y requerirá una política histórica antes de producción. Una importación deja de ser reversible en cuanto cualquier recurso cambia, se selecciona o participa en actividad operativa; no existe reversión forzada.
+
+Solo se prueban paquetes ficticios. La jerarquía, fuente, fecha de corte, inventario y autorizaciones reales continúan pendientes. Tampoco están definidos el proceso productivo de aprobación, respaldo, corte, reversión excepcional ni recuperación ante datos reales incorrectos. Firebase real no está configurado y no existe despliegue, migración real, APK o instalador.

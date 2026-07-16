@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/import-migration-package-result.schema.json",
+  "title": "Resultado de importación controlada en emulador",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["importacionId", "hashPaquete", "estado", "version", "cantidades", "escriturasRealizadas", "mapa", "aplicadaPorUsuarioId", "aplicadaEn"],
+  "properties": {
+    "importacionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "hashPaquete": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "estado": {"const": "APLICADA"},
+    "version": {"const": 1},
+    "cantidades": {"$ref": "migration-validation-result.schema.json#/$defs/cantidades"},
+    "escriturasRealizadas": {"type": "integer", "minimum": 1, "maximum": 450},
+    "mapa": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ubicaciones", "lineas"],
+      "properties": {
+        "ubicaciones": {"type": "array", "items": {"$ref": "migration-import-map-entry.schema.json"}},
+        "lineas": {"type": "array", "items": {"$ref": "migration-import-map-entry.schema.json"}}
+      }
+    },
+    "aplicadaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "aplicadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

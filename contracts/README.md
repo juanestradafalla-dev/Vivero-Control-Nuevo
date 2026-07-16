@@ -88,6 +88,15 @@ Reglas del preflight de migración de la Etapa 18:
 - `aptoParaImportar` es informativo: no autoriza ni ejecuta escrituras;
 - la plantilla oficial está en `data/templates/paquete-migracion-catalogo-v1.example.json` y contiene solo datos `PRUEBA`.
 
+Reglas de importación y reversión de la Etapa 19:
+
+- la solicitud incluye el paquete completo, dos confirmaciones del SHA-256 y una clave idempotente, sin identidad del cliente;
+- `import-migration-package-result` contiene únicamente hash, cantidades, mapa de claves externas, IDs centrales y trazabilidad;
+- `escriturasRealizadas` no puede superar 450 y no existen resultados parciales;
+- el origen de inventario migrado es `MIGRACION_CONTROLADA_EMULADOR`; no se crea movimiento inicial;
+- el historial distingue `APLICADA` y `REVERTIDA`, informa elegibilidad y nunca contiene el paquete original;
+- la reversión exige versión observada, motivo e idempotencia y conserva para siempre el registro histórico y el bloqueo de hash.
+
 ```powershell
 npm ci
 npm run validate

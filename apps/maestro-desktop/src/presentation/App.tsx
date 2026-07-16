@@ -440,6 +440,11 @@ export function App({repository}: AppProps) {
       <div className={environmentClass}>
         {environmentLabel}
       </div>
+      {staging && (
+        <p className="staging-restriction-notice" role="status">
+          Estas operaciones todavía no están habilitadas en staging
+        </p>
+      )}
 
       {(user?.canManageDraftJourneys || user?.canManageUsers || user?.canManageCatalog) && (
         <nav className="workspace-nav" aria-label="Secciones de Maestro">
@@ -532,10 +537,11 @@ export function App({repository}: AppProps) {
           </form>
         </section>
       ) : activeSection === "USERS" && user.canManageUsers ? (
-        <UsersSection repository={repository} currentUser={user} />
+        <UsersSection repository={repository} currentUser={user} readOnly={staging} />
       ) : activeSection === "CATALOG" && user.canManageCatalog ? (
         <CatalogSection
           repository={repository}
+          creationOnly={staging}
           onCatalogChanged={() => setDraftRefreshVersion((version) => version + 1)}
         />
       ) : activeSection === "MIGRATION" && user.role === "ADMINISTRADOR" ? (
@@ -545,6 +551,7 @@ export function App({repository}: AppProps) {
           key={draftRefreshVersion}
           repository={repository}
           user={user}
+          staging={staging}
           onActiveJourneysChanged={refreshActiveJourneys}
         />
       ) : (
@@ -579,7 +586,7 @@ export function App({repository}: AppProps) {
             {selectedJourneyId && <span className="live-indicator"><i aria-hidden="true" /> Actualización en vivo</span>}
           </div>
 
-          {canCloseSelectedJourney && selectedJourney && (
+          {!staging && canCloseSelectedJourney && selectedJourney && (
             <section className="journey-close-panel" aria-label="Cierre seguro de jornada">
               <div>
                 <strong>Cierre seguro</strong>
@@ -655,7 +662,7 @@ export function App({repository}: AppProps) {
                           <div><dt>Dispositivo</dt><dd>{line.reservation.deviceId}</dd></div>
                           <div><dt>Desde</dt><dd>{formatTime(line.reservation.reservedAt)}</dd></div>
                           <div><dt>Versión de línea</dt><dd>{line.version}</dd></div>
-                          {user.canRelease && (
+                          {!staging && user.canRelease && (
                             <div className="review-actions">
                               <button className="button" type="button" onClick={() => openRelease(line)}>
                                 Liberar reserva
@@ -682,7 +689,7 @@ export function App({repository}: AppProps) {
                             <div><dt>Inventario actual</dt><dd>{inventory?.total ?? "No disponible"}</dd></div>
                             <div><dt>Diferencia total</dt><dd>{inventory ? signed(count.total - inventory.total) : "—"}</dd></div>
                           </dl>
-                          {user.canReview && (
+                          {!staging && user.canReview && (
                             <div className="review-actions">
                               <button
                                 className="button"
@@ -717,7 +724,7 @@ export function App({repository}: AppProps) {
                             <span>Hora: {formatTime(line.correctionResponsibility.assignedAt)}</span>
                           </>
                         )}
-                        {user.canReview && (
+                        {!staging && user.canReview && (
                           <button className="button" type="button" onClick={() => openReassignment(line)}>
                             Reasignar corrección
                           </button>
@@ -753,7 +760,7 @@ export function App({repository}: AppProps) {
         </section>
       )}
 
-      {activeSection === "MONITOR" && reviewDialog?.line.count && user && (
+      {!staging && activeSection === "MONITOR" && reviewDialog?.line.count && user && (
         <div className="dialog-backdrop" role="presentation">
           <section className="review-dialog" role="dialog" aria-modal="true" aria-labelledby="review-title">
             <p className="eyebrow">CONFIRMACIÓN CENTRAL</p>
@@ -799,7 +806,7 @@ export function App({repository}: AppProps) {
         </div>
       )}
 
-      {activeSection === "MONITOR" && reassignmentDialog?.line.count && user && (
+      {!staging && activeSection === "MONITOR" && reassignmentDialog?.line.count && user && (
         <div className="dialog-backdrop" role="presentation">
           <section className="review-dialog" role="dialog" aria-modal="true" aria-labelledby="reassignment-title">
             <p className="eyebrow">REASIGNACIÓN SUPERVISADA</p>
@@ -865,7 +872,7 @@ export function App({repository}: AppProps) {
         </div>
       )}
 
-      {activeSection === "MONITOR" && releaseDialog?.line.reservation && user && (
+      {!staging && activeSection === "MONITOR" && releaseDialog?.line.reservation && user && (
         <div className="dialog-backdrop" role="presentation">
           <section className="review-dialog" role="dialog" aria-modal="true" aria-labelledby="release-title">
             <p className="eyebrow">DECISIÓN HUMANA SUPERVISADA</p>
@@ -923,7 +930,7 @@ export function App({repository}: AppProps) {
         </div>
       )}
 
-      {activeSection === "MONITOR" && closeDialog && selectedJourney && snapshot && user && (
+      {!staging && activeSection === "MONITOR" && closeDialog && selectedJourney && snapshot && user && (
         <div className="dialog-backdrop" role="presentation">
           <section className="review-dialog" role="dialog" aria-modal="true" aria-labelledby="close-journey-title">
             <p className="eyebrow">CIERRE TRANSACCIONAL</p>

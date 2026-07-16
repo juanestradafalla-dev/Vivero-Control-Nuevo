@@ -42,4 +42,14 @@ npm run build
 npm audit --omit=dev --audit-level=high
 ```
 
-No incluye edición de versiones, liberación automática, temporizadores, activación, cierre, cancelación o eliminación de jornadas, ni instalador.
+## Instalador Windows Staging
+
+El empaquetado requiere el archivo local `.env.local` con el entorno staging validado. El comando no muestra sus valores, ejecuta lint, verificación de tipos, pruebas y build antes de generar el instalador:
+
+```powershell
+npm run package:win:staging
+```
+
+El resultado local es `release/Vivero-Maestro-Staging-Setup-0.1.0.exe`. Se instala por usuario mediante NSIS, crea accesos directos en Escritorio y menú Inicio, no exige elevación, no se firma digitalmente y no publica artefactos ni configura actualizaciones automáticas. `release/`, los ejecutables y `.env.local` permanecen ignorados por Git.
+
+No incluye edición de versiones, liberación automática, temporizadores, activación, cierre, cancelación o eliminación de jornadas fuera de las operaciones ya habilitadas para staging.

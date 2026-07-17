@@ -1,5 +1,7 @@
 # ETAPA 21 — Preparación de FASE B: criterios de aceptación
 
+> Este documento conserva el cierre histórico de la preparación anterior. El estado posterior de la limpieza manual se registra en `ETAPA_21_FASE_B1_LIMPIEZA_MANUAL.md`; no deben reinterpretarse las casillas siguientes como el estado remoto actual.
+
 ## Rama y alcance
 
 - [x] La rama parte exactamente de `8060f1ec04bf93b0f02c94d4dbd205ab4f834c7c`.

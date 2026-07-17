@@ -2,9 +2,9 @@
 
 Sistema de inventario por línea compuesto por Vivero Campo (Android), Vivero Maestro (Electron/React para Windows) y un backend transaccional en Firebase. Este repositorio es independiente y no reutiliza código del proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 21 — preparación de FASE B
+## Estado: ETAPA 21 — FASE B1 completada manualmente
 
-El código quedó preparado en la ETAPA 20 para dos ambientes y un único proyecto Firebase real. La FASE A auditó ese proyecto; esta tarea agregó clasificación privada, captura por bloques y validación local de datos reales. **FASE B no se inició: no se ha limpiado, importado ni desplegado y no se afirma que el sistema esté listo para producción.**
+El código quedó preparado en la ETAPA 20 para dos ambientes y un único proyecto Firebase real. La FASE A auditó ese proyecto y la preparación posterior agregó clasificación privada, captura por bloques y validación local de datos reales. El 17 de julio de 2026 el propietario eliminó manualmente las 3 cuentas Authentication y los 41 documentos Firestore clasificados como datos de prueba. Las evidencias visuales muestran Authentication sin usuarios y Firestore sin colecciones visibles. **No se ha importado, desplegado ni creado información real y no se afirma que el sistema esté listo para producción.**
 
 | Ambiente | Proyecto | Uso | Datos |
 |---|---|---|---|
@@ -13,9 +13,9 @@ El código quedó preparado en la ETAPA 20 para dos ambientes y un único proyec
 
 No existe `STAGING` como ambiente funcional. Firestore permanecerá en `nam5` y Functions en `us-central1`.
 
-La lectura manual vigente confirmó 3 aplicaciones, 3 cuentas con perfil y referencias operativas, 41 documentos Firestore en 12 grupos —38 superiores y 3 anidados—, 5 principales IAM, 11 de 30 Functions y 2 buckets técnicos. Dos aplicaciones Staging son candidatas de eliminación futura; la aplicación heredada, las 3 cuentas, los 41 documentos y los 5 principales IAM siguen `REQUIERE_REVISION`. Los 20 documentos con marcadores de prueba no se consideran eliminables por ese solo indicio.
+El inventario previo confirmó 3 aplicaciones, 3 cuentas con perfil y referencias operativas, 41 documentos Firestore en 12 grupos —38 superiores y 3 anidados—, 5 principales IAM, 11 de 30 Functions y 2 buckets técnicos. El propietario clasificó y eliminó exclusivamente las 3 cuentas y los 41 documentos como datos de prueba. Las aplicaciones, IAM, Functions y buckets no formaron parte de la limpieza y conservan sus decisiones anteriores.
 
-La clasificación identificable y las plantillas editables viven solo en `.private/`. Los validadores pueden construir un paquete `paquete-migracion-catalogo-v1` únicamente cuando estructura e inventario están completos y el conjunto no contiene errores; usuarios, históricos y dispositivos permanecen como puertas separadas del corte. No se recibió información real en esta tarea y no se generó paquete. El propietario aplazó backups, PITR, protección contra borrado y restauración; por ello `BACKUP_PENDIENTE` bloquea toda limpieza. No se crearon cuentas, Apps, inventario, firmas o instaladores y Firebase no cambió.
+La clasificación identificable y las plantillas editables viven solo en `.private/`. Los validadores pueden construir un paquete `paquete-migracion-catalogo-v1` únicamente cuando estructura e inventario estén completos y el conjunto no contenga errores; usuarios, históricos y dispositivos permanecen como puertas separadas del corte. No se recibió información real y no se generó paquete. La renuncia al backup se limitó a los datos de prueba eliminados; backups, PITR y restauración continúan pendientes antes de operar información real.
 
 ## Frontera del backend
 
@@ -145,6 +145,7 @@ Ese archivo no se crea ni se versiona en esta etapa. Consulte los README de [Viv
 
 ## Documentación vigente
 
+- [Cierre de la limpieza manual de datos de prueba](docs/ETAPA_21_FASE_B1_LIMPIEZA_MANUAL.md)
 - [Auditoría Firebase sanitizada de la ETAPA 21](docs/arquitectura/AUDITORIA_FIREBASE_ETAPA_21.md)
 - [Clasificación sanitizada de recursos](docs/arquitectura/CLASIFICACION_RECURSOS_ETAPA_21.md)
 - [Preparación local de datos reales](docs/arquitectura/PREPARACION_DATOS_REALES_ETAPA_21.md)
@@ -163,4 +164,4 @@ Ese archivo no se crea ni se versiona en esta etapa. Consulte los README de [Viv
 
 ## Fuera de alcance
 
-No se despliega Firebase, no se eliminan datos o usuarios, no se crean cuentas o Apps reales, no se cargan datos, no se generan llaves de firma, APK firmados ni instaladores definitivos, y no se modifica o fusiona directamente `main`. Un eventual paquete privado solo sería preparación local y no autorización de importación. FASE B y toda limpieza continúan bloqueadas por `BACKUP_PENDIENTE` y por las decisiones pendientes del propietario.
+Fuera de la limpieza manual ya registrada, no se despliega Firebase, no se crean cuentas o Apps reales, no se cargan datos, no se generan llaves de firma, APK firmados ni instaladores definitivos, y no se modifica o fusiona directamente `main`. Un eventual paquete privado solo sería preparación local y no autorización de importación. Los datos reales, el despliegue y la operación continúan bloqueados por la información y decisiones pendientes del propietario.

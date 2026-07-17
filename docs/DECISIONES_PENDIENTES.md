@@ -1,5 +1,7 @@
 # Decisiones vigentes — preparación de FASE B de la ETAPA 21
 
+> **Actualización FASE B1 — 17 de julio de 2026:** el propietario clasificó como prueba y eliminó manualmente las 3 cuentas Authentication y los 41 documentos Firestore inventariados. Las capturas posteriores muestran Authentication sin usuarios y Firestore sin colecciones visibles. La renuncia al backup aplica solo a ese conjunto eliminado; la política de respaldo para datos reales continúa pendiente. Véase `ETAPA_21_FASE_B1_LIMPIEZA_MANUAL.md`.
+
 ## 1. Control de decisiones
 
 Este registro conserva los identificadores de las 50 decisiones originales para mantener trazabilidad. Una decisión puede estar:
@@ -22,7 +24,7 @@ Nada marcado como pendiente debe resolverse inventando datos. Cada cierre poster
 - Secret Manager, presupuestos y cuotas no pudieron inventariarse completamente sin habilitar APIs, permisos o herramientas adicionales. FASE A no realizó esos cambios.
 - Reglas e índices Firestore coinciden con el repositorio; cualquier cambio futuro debe preservar esa trazabilidad.
 
-Estas evidencias no resuelven datos faltantes del propietario. Sí fijan una decisión operativa: `BACKUP_PENDIENTE` bloquea limpieza y FASE B no se inicia hasta cerrar recursos ambiguos, datos reales, apps productivas, despliegue completo, responsables y umbrales. El propietario aplazó backup, PITR, protección contra borrado y restauración para una etapa posterior; no los anuló como puerta previa.
+Estas evidencias corresponden al estado previo a FASE B1. Posteriormente, el propietario clasificó las 3 cuentas y los 41 documentos como datos de prueba, renunció al backup de ese conjunto y los eliminó manualmente. Los datos reales, las Apps productivas, el despliegue completo, los responsables y los umbrales continúan bloqueados; backup, PITR, protección contra borrado y restauración siguen siendo decisiones obligatorias antes de operar información real.
 
 ## 3. Decisiones resueltas
 

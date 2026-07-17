@@ -322,15 +322,15 @@ data class FrozenDiscardPayload(
         put("lineaId", lineId)
         put("versionInventarioObservada", inventoryVersion)
         put("dispositivoId", deviceId)
-        put("hembras", values[0])
-        put("machos", values[1])
-        put("patrones", values[2])
+        put("hembras", this@FrozenDiscardPayload.values[0])
+        put("machos", this@FrozenDiscardPayload.values[1])
+        put("patrones", this@FrozenDiscardPayload.values[2])
         put("causas", mapOf(
-            "muertos" to values[3],
-            "nematodos" to values[4],
-            "cuelloGanso" to values[5],
-            "raicesBifurcadas" to values[6],
-            "dobleInjertacion" to values[7],
+            "muertos" to this@FrozenDiscardPayload.values[3],
+            "nematodos" to this@FrozenDiscardPayload.values[4],
+            "cuelloGanso" to this@FrozenDiscardPayload.values[5],
+            "raicesBifurcadas" to this@FrozenDiscardPayload.values[6],
+            "dobleInjertacion" to this@FrozenDiscardPayload.values[7],
         ))
         if (observations.isNotEmpty()) put("observaciones", observations)
         put("timestampDispositivo", deviceTimestamp)

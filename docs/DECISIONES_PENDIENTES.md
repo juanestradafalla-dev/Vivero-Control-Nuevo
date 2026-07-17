@@ -1,4 +1,4 @@
-# Decisiones vigentes — actualización ETAPA 21 FASE A
+# Decisiones vigentes — preparación de FASE B de la ETAPA 21
 
 ## 1. Control de decisiones
 
@@ -10,17 +10,19 @@ Este registro conserva los identificadores de las 50 decisiones originales para 
 
 Nada marcado como pendiente debe resolverse inventando datos. Cada cierre posterior debe registrar responsable, fecha y efecto sobre requisitos, datos, seguridad y pruebas.
 
-## 2. Evidencia de la auditoría que condiciona decisiones
+## 2. Evidencia de la clasificación privada que condiciona decisiones
 
 - El proyecto autorizado está activo, Firestore está en `nam5` y las 11 Functions existentes están en `us-central1`.
 - Firebase solo tiene 11 de las 30 Callables; las 19 ausentes no se corrigen en FASE A.
-- No existe registro Android para `com.arles.viverocampo` ni registro Web productivo de Maestro. Los registros explícitamente Staging son candidatos de prueba, no objetivos autorizados de borrado.
-- Las 3 cuentas y los 38 documentos de nivel superior existentes no tienen evidencia inequívoca de ser ficticios; todos permanecen `REQUIERE_REVISION`. La ejecución original detectó además `autorizaciones` sin cuantificar sus documentos, que también quedan protegidos en esa clasificación.
+- No existe registro Android para `com.arles.viverocampo` ni registro Web productivo de Maestro. Los dos registros explícitamente Staging son `CANDIDATO_ELIMINACION_FUTURA`; el Android heredado sigue `REQUIERE_REVISION`. Ninguno está autorizado para borrado.
+- Las 3 cuentas tienen perfil y referencias operativas; las tres permanecen `REQUIERE_REVISION` hasta decisión individual del propietario.
+- Firestore tiene 12 grupos y 41 documentos: 38 de nivel superior y 3 anidados. Los 41 permanecen `REQUIERE_REVISION`, incluso los 20 que muestran marcadores de prueba.
+- Los 5 principales IAM administrativos permanecen `REQUIERE_REVISION`. Las 11 Functions se conservan hasta reemplazo controlado y los 2 buckets técnicos se conservan.
 - No hay backup programado, backup listado o PITR. Ninguna limpieza puede aprobarse antes de generar y probar un respaldo.
 - Secret Manager, presupuestos y cuotas no pudieron inventariarse completamente sin habilitar APIs, permisos o herramientas adicionales. FASE A no realizó esos cambios.
 - Reglas e índices Firestore coinciden con el repositorio; cualquier cambio futuro debe preservar esa trazabilidad.
 
-Estas evidencias no resuelven datos faltantes del propietario. Sí fijan una decisión operativa: FASE B queda bloqueada hasta cerrar respaldo, recursos ambiguos, apps productivas, despliegue completo, responsables y umbrales.
+Estas evidencias no resuelven datos faltantes del propietario. Sí fijan una decisión operativa: `BACKUP_PENDIENTE` bloquea limpieza y FASE B no se inicia hasta cerrar recursos ambiguos, datos reales, apps productivas, despliegue completo, responsables y umbrales. El propietario aplazó backup, PITR, protección contra borrado y restauración para una etapa posterior; no los anuló como puerta previa.
 
 ## 3. Decisiones resueltas
 
@@ -45,7 +47,7 @@ Estas evidencias no resuelven datos faltantes del propietario. Sí fijan una dec
 
 ## 4. Información real prioritaria para cerrar
 
-Antes de preparar FASE B se necesita recibir:
+Antes de iniciar FASE B se necesita recibir, en bloques privados:
 
 1. **Jerarquía exacta del vivero:** estructura y relaciones entre ubicaciones.
 2. **Cantidad de módulos, camas y líneas:** sin inventar nombres ni volúmenes.

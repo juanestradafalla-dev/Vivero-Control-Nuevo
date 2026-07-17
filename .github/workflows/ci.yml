@@ -109,9 +109,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          forbidden_files="$(find . -type f \( -name 'google-services.json' -o -name '*.apk' -o -name '*.aab' -o -name '*.exe' -o -name '*.msi' -o -name '*.keystore' -o -name '*.jks' -o -name '*.p12' -o -name '*.pfx' -o -name '.env' -o -name '.env.local' -o -name '.env.viverocontrol*' \) -print)"
-          forbidden_dirs="$(find . -type d \( -name node_modules -o -name build -o -name .gradle -o -name .idea \) -not -path './.git/*' -print)"
+          forbidden_files="$(find . -type f \( -name 'google-services.json' -o -name '*.apk' -o -name '*.aab' -o -name '*.exe' -o -name '*.msi' -o -name '*.keystore' -o -name '*.jks' -o -name '*.p12' -o -name '*.pfx' -o -name '.env' -o -name '.env.local' -o -name '.env.viverocontrol*' -o -name '*.migration.private.json' \) -print)"
+          forbidden_dirs="$(find . -type d \( -name node_modules -o -name build -o -name .gradle -o -name .idea -o -name .private \) -not -path './.git/*' -print)"
+          tracked_private="$(git ls-files '.private/**')"
+          migration_packages="$(find . -type f -name 'paquete-migracion-catalogo-*.json' -not -path './data/templates/*.example.json' -print)"
           test -z "$forbidden_files"
           test -z "$forbidden_dirs"
+          test -z "$tracked_private"
+          test -z "$migration_packages"
           ! git grep -n -E -- 'AIza[0-9A-Za-z_-]{35}|-----BEGIN (PRIVATE KEY|CERTIFICATE)' ':!**/package-lock.json'
           ! git grep -n -E -- 'firebase[[:space:]]+deploy' ':!.github/workflows/ci.yml' ':!docs/**' ':!README.md'
+          email_hits="$(git grep -h -I -o -E -- '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' ':!**/package-lock.json' || true)"
+          unexpected_emails="$(printf '%s\n' "$email_hits" | sed '/^$/d' | grep -E -vi '@prueba\.local$|@[A-Za-z0-9.-]+\.invalid$|@[A-Za-z0-9.-]+\.test$' || true)"
+          test -z "$unexpected_emails"
+          app_id_hits="$(git grep -h -I -o -E -- '1:[0-9]{6,}:(android|web|ios):[0-9A-Za-z._-]+' ':!**/package-lock.json' || true)"
+          unexpected_app_ids="$(printf '%s\n' "$app_id_hits" | sed '/^$/d' | grep -E -v '000000000000|1234567890|ficticia|demo' || true)"
+          test -z "$unexpected_app_ids"

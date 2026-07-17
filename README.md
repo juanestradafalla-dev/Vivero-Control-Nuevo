@@ -2,9 +2,9 @@
 
 Sistema de inventario por línea compuesto por Vivero Campo (Android), Vivero Maestro (Electron/React para Windows) y un backend transaccional en Firebase. Este repositorio es independiente y no reutiliza código del proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 21 — FASE A
+## Estado: ETAPA 21 — preparación de FASE B
 
-El código quedó preparado en la ETAPA 20 para dos ambientes y un único proyecto Firebase real. La FASE A de la ETAPA 21 auditó ese proyecto de forma exclusivamente de lectura y diseñó respaldo, limpieza, corte y rollback. **No se ha limpiado ni desplegado y no se afirma que el sistema esté listo para producción.**
+El código quedó preparado en la ETAPA 20 para dos ambientes y un único proyecto Firebase real. La FASE A auditó ese proyecto; esta tarea agregó clasificación privada, captura por bloques y validación local de datos reales. **FASE B no se inició: no se ha limpiado, importado ni desplegado y no se afirma que el sistema esté listo para producción.**
 
 | Ambiente | Proyecto | Uso | Datos |
 |---|---|---|---|
@@ -13,9 +13,9 @@ El código quedó preparado en la ETAPA 20 para dos ambientes y un único proyec
 
 No existe `STAGING` como ambiente funcional. Firestore permanecerá en `nam5` y Functions en `us-central1`.
 
-La auditoría remota confirmó Firestore en `nam5`, 11 de 30 Functions activas en `us-central1`, reglas e índices iguales a los versionados, Email/Password habilitado, 3 cuentas ambiguas y 38 documentos ambiguos de nivel superior. También detectó la subcolección `autorizaciones`, pero esa ejecución no cuantificó sus documentos; todos los recursos anidados permanecen igualmente `REQUIERE_REVISION`. No hay backup programado, backup listado o PITR; faltan los registros productivos de Android y Maestro. Los recursos ambiguos permanecen protegidos y FASE B está bloqueada.
+La lectura manual vigente confirmó 3 aplicaciones, 3 cuentas con perfil y referencias operativas, 41 documentos Firestore en 12 grupos —38 superiores y 3 anidados—, 5 principales IAM, 11 de 30 Functions y 2 buckets técnicos. Dos aplicaciones Staging son candidatas de eliminación futura; la aplicación heredada, las 3 cuentas, los 41 documentos y los 5 principales IAM siguen `REQUIERE_REVISION`. Los 20 documentos con marcadores de prueba no se consideran eliminables por ese solo indicio.
 
-La ETAPA 21 FASE A agrega auditoría, herramienta de lectura y documentación. La matriz local también detectó y corrigió una asimetría defensiva al resolver la carrera entre liberar y enviar una reserva: ahora ambos lados recuperan el estado final y usan los errores de dominio existentes, sin introducir estados, escrituras o alcance funcional. Todavía no se han limpiado datos, creado cuentas reales, cargado inventario real, desplegado Firebase, firmado un APK ni generado el instalador definitivo de Windows.
+La clasificación identificable y las plantillas editables viven solo en `.private/`. Los validadores pueden construir un paquete `paquete-migracion-catalogo-v1` únicamente cuando estructura e inventario están completos y el conjunto no contiene errores; usuarios, históricos y dispositivos permanecen como puertas separadas del corte. No se recibió información real en esta tarea y no se generó paquete. El propietario aplazó backups, PITR, protección contra borrado y restauración; por ello `BACKUP_PENDIENTE` bloquea toda limpieza. No se crearon cuentas, Apps, inventario, firmas o instaladores y Firebase no cambió.
 
 ## Frontera del backend
 
@@ -118,6 +118,21 @@ npm audit --omit=dev --audit-level=high
 
 Ninguno de estos comandos despliega Firebase. La compilación `release` usa identificadores manifiestamente ficticios, no inicia la aplicación y produce únicamente un artefacto local no firmado e ignorado por Git.
 
+La preparación privada se opera desde `backend/functions`:
+
+```powershell
+# Crea plantillas sin sobrescribir archivos existentes
+npm run prepare:etapa21:init
+
+# Valida exclusivamente el JSON privado
+npm run validate:etapa21:private
+
+# Solo cuando estructura e inventario estén completos y no haya errores
+npm run package:etapa21:private
+```
+
+`prepare:etapa21:classify` es una auditoría manual de solo lectura contra el Project ID literal; aborta en CI y escribe únicamente bajo `.private/`. No es parte de la matriz cotidiana ni debe programarse automáticamente.
+
 ## Configuración local posterior
 
 Cuando se prepare el despliegue controlado, el archivo local de Functions `.env.viverocontrol-3f83f` deberá contener:
@@ -131,8 +146,11 @@ Ese archivo no se crea ni se versiona en esta etapa. Consulte los README de [Viv
 ## Documentación vigente
 
 - [Auditoría Firebase sanitizada de la ETAPA 21](docs/arquitectura/AUDITORIA_FIREBASE_ETAPA_21.md)
+- [Clasificación sanitizada de recursos](docs/arquitectura/CLASIFICACION_RECURSOS_ETAPA_21.md)
+- [Preparación local de datos reales](docs/arquitectura/PREPARACION_DATOS_REALES_ETAPA_21.md)
 - [Plan de respaldo, limpieza, corte y rollback](docs/arquitectura/PLAN_CORTE_Y_ROLLBACK_ETAPA_21.md)
 - [Pruebas de la ETAPA 21](docs/pruebas/PRUEBAS_ETAPA_21.md)
+- [Pruebas de preparación de la ETAPA 21](docs/pruebas/PRUEBAS_PREPARACION_ETAPA_21.md)
 - [Criterios de aceptación de la ETAPA 21](docs/ETAPA_21_CRITERIOS_DE_ACEPTACION.md)
 - [Información real requerida al propietario](docs/INFORMACION_REAL_REQUERIDA_ETAPA_21.md)
 - [Arquitectura de producción de la ETAPA 20](docs/arquitectura/PRODUCCION_ETAPA_20.md)
@@ -145,4 +163,4 @@ Ese archivo no se crea ni se versiona en esta etapa. Consulte los README de [Viv
 
 ## Fuera de alcance
 
-No se despliega Firebase, no se eliminan datos o usuarios, no se crean cuentas reales, no se cargan datos reales, no se crean paquetes reales de migración, no se generan llaves de firma, APK firmados ni instaladores definitivos, y no se modifica o fusiona directamente `main`. Tampoco se inicia FASE B mientras no exista backup restaurable y aprobación explícita del propietario.
+No se despliega Firebase, no se eliminan datos o usuarios, no se crean cuentas o Apps reales, no se cargan datos, no se generan llaves de firma, APK firmados ni instaladores definitivos, y no se modifica o fusiona directamente `main`. Un eventual paquete privado solo sería preparación local y no autorización de importación. FASE B y toda limpieza continúan bloqueadas por `BACKUP_PENDIENTE` y por las decisiones pendientes del propietario.

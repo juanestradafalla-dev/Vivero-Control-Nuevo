@@ -1,8 +1,8 @@
-# Dependencias y riesgos — ETAPA 21 FASE A
+# Dependencias y riesgos — ETAPA 21, preparación de FASE B
 
 ## Estado vigente
 
-Este documento sustituye las conclusiones operativas de etapas anteriores. La arquitectura de código sigue descrita en `PRODUCCION_ETAPA_20.md`; el estado remoto comprobado está en `AUDITORIA_FIREBASE_ETAPA_21.md`.
+Este documento sustituye las conclusiones operativas de etapas anteriores. La arquitectura de código sigue descrita en `PRODUCCION_ETAPA_20.md`; el estado remoto de FASE A está en `AUDITORIA_FIREBASE_ETAPA_21.md` y la clasificación vigente en `CLASIFICACION_RECURSOS_ETAPA_21.md`.
 
 Vivero Maestro ya usa Electron, React y TypeScript. Los estados de jornada, inventario inicial, validación, importación y reversión controlada ya están implementados. La ETAPA 20 habilita su código en `PRODUCTION` sin desplegarlo ni usar datos reales.
 
@@ -15,10 +15,11 @@ Solo existen dos ambientes funcionales: `EMULATOR` sobre `demo-*` y `PRODUCTION`
 - Reglas e índices coinciden con el repositorio.
 - Solo 11/30 Functions están activas; todas son Gen 2, Node 22 y `us-central1`.
 - No existe el registro Android `com.arles.viverocampo` ni un registro Web productivo de Maestro.
-- Authentication tiene 3 cuentas ambiguas y solo Email/Password habilitado.
-- Firestore contiene 38 documentos ambiguos de nivel superior en 11 colecciones; la ejecución original detectó `autorizaciones` sin cuantificar sus documentos y 10 colecciones contractuales aún no se materializan.
+- Authentication tiene 3 cuentas ambiguas; las 3 tienen perfil y referencias operativas, pero ninguna cuenta fue reclasificada sin decisión del propietario.
+- Firestore contiene 41 documentos ambiguos en 12 grupos: 38 documentos superiores y 3 anidados. Veinte muestran marcadores de prueba, pero los 41 permanecen `REQUIERE_REVISION`.
 - Storage contiene dos buckets técnicos de Functions, 13 objetos y aproximadamente 5,62 MiB.
 - Hay 5 principales con roles administrativos que requieren revisión de mínimo privilegio.
+- Los dos registros Staging son candidatos de eliminación futura, no objetivos autorizados; el registro Android heredado continúa en revisión.
 - Logging, Monitoring y facturación están habilitados; Secret Manager, Billing Budgets y cuotas no fueron completamente consultables.
 
 No se ejecutaron escrituras ni se infiere que un recurso ambiguo sea eliminable.
@@ -53,13 +54,15 @@ Se ejecutó `npm audit --omit=dev --audit-level=high`:
 |---|---|
 | Contratos | 0 vulnerabilidades |
 | Vivero Maestro | 0 vulnerabilidades |
-| Backend Functions | CI con Node 22: 9 moderadas de producción y 11 en el árbol instalado; revalidación local con Node 24: 8 de producción y 12 en el árbol completo; 0 altas y 0 críticas en ambos entornos |
+| Backend Functions | revalidación local con Node 24: 9 moderadas de producción y 12 en el árbol completo; 0 altas y 0 críticas |
 
-Las alertas de producción del backend corresponden a paquetes de la cadena del advisory `uuid <11.1.1`, a través de dependencias de Firebase/Google (`gaxios`, `google-gax`, Firestore, Storage, `retry-request` y `teeny-request`); CI las contó como 9 y el host local como 8. El árbol local completo añadió el advisory de OpenTelemetry. La corrección automática completa exige `--force` y propone cambios mayores de dependencias; no se aplica sin una actualización compatible y pruebas completas. El código del proyecto usa `node:crypto.randomUUID` y no llama UUID v3, v5 o v6 con búfer, pero esto no elimina la necesidad de actualizar la cadena.
+Las alertas de producción del backend corresponden a paquetes de la cadena del advisory `uuid <11.1.1`, a través de dependencias de Firebase/Google (`gaxios`, `google-gax`, Firestore, Storage, `retry-request` y `teeny-request`). El árbol local completo añade el advisory de OpenTelemetry. La corrección automática completa exige `--force` y propone cambios mayores de dependencias; no se aplica sin una actualización compatible y pruebas completas. El código del proyecto usa `node:crypto.randomUUID` y no llama UUID v3, v5 o v6 con búfer, pero esto no elimina la necesidad de actualizar la cadena.
 
 CI falla ante vulnerabilidades altas o críticas y mantiene visibles las moderadas. Este criterio no autoriza un despliegue.
 
 ## Riesgos que bloquean FASE B
+
+El bloqueo técnico y documental vigente es `BACKUP_PENDIENTE`. El propietario aplazó backup, PITR, protección contra borrado y restauración; por ello no puede iniciarse limpieza, aunque se complete la clasificación privada.
 
 ### Corte y datos
 
@@ -79,7 +82,7 @@ CI falla ante vulnerabilidades altas o críticas y mantiene visibles las moderad
 ### Firebase
 
 - crear y verificar un backup restaurable antes de cualquier limpieza;
-- aprobar el tratamiento de 3 cuentas, 38 documentos de nivel superior, todos los documentos anidados aún no cuantificados, 5 principales administrativos y registros heredados;
+- aprobar el tratamiento de 3 cuentas, 41 documentos —incluidos 3 anidados—, 5 principales administrativos y 3 aplicaciones registradas;
 - crear localmente la configuración de Functions con `APP_ENV=production` y verificar su valor mediante un procedimiento autorizado;
 - completar las 19 Functions ausentes y crear los registros productivos de Android/Maestro solo durante el corte aprobado;
 - resolver acceso/herramientas para cuotas, secretos, presupuesto y alertas sin activar servicios fuera del cambio autorizado;
@@ -103,6 +106,14 @@ CI falla ante vulnerabilidades altas o críticas y mantiene visibles las moderad
 - fijar retención de auditoría, backups y pruebas periódicas de restauración;
 - confirmar en la ejecución remota de CI la matriz con Node 22; la verificación local se ejecutó con Node 24.15.0 y JDK 21;
 - resolver la cadena transitiva moderada del backend o documentar una aceptación formal con fecha de vencimiento.
+
+### Preparación privada
+
+- `.private/` contiene la hoja reconocible y las plantillas editables; una inclusión accidental en Git expondría PII o estructura operativa;
+- un marcador `PRUEBA` no demuestra que un documento sea eliminable;
+- el validador puede declarar un conjunto válido pero incompleto; solo `complete: true` permite generar el paquete;
+- el paquete preliminar, si llega a existir, sigue sin ser autorización de importación;
+- los usuarios, históricos y dispositivos no forman parte del paquete de catálogo y necesitan procedimientos posteriores separados.
 
 ## Controles que no deben retirarse
 

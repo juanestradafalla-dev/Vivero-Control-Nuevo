@@ -60,6 +60,7 @@ fun CampoRoute(viewModel: CampoViewModel) {
         onPasswordChange = viewModel::updatePassword,
         onSignIn = viewModel::signIn,
         onSignOut = viewModel::signOut,
+        onSelectMode = viewModel::selectMode,
         onSelectJourney = viewModel::selectJourney,
         onReturnToJourneySelection = viewModel::returnToJourneySelection,
         onSelectLine = viewModel::selectLine,
@@ -75,6 +76,24 @@ fun CampoRoute(viewModel: CampoViewModel) {
         onConfirmCountSubmission = viewModel::confirmCountSubmission,
         onRetry = viewModel::retryCountSubmission,
         onFinishAndTakeAnotherLine = viewModel::finishAndTakeAnotherLine,
+        onDiscardSearchChange = viewModel::updateDiscardSearch,
+        onRefreshDiscardLines = viewModel::refreshDiscardLines,
+        onSelectDiscardLine = viewModel::selectDiscardLine,
+        onDiscardFemalesChange = viewModel::updateDiscardFemales,
+        onDiscardMalesChange = viewModel::updateDiscardMales,
+        onDiscardRootstocksChange = viewModel::updateDiscardRootstocks,
+        onDiscardDeadChange = viewModel::updateDiscardDead,
+        onDiscardNematodesChange = viewModel::updateDiscardNematodes,
+        onDiscardGooseNeckChange = viewModel::updateDiscardGooseNeck,
+        onDiscardBifurcatedRootsChange = viewModel::updateDiscardBifurcatedRoots,
+        onDiscardDoubleGraftingChange = viewModel::updateDiscardDoubleGrafting,
+        onDiscardObservationsChange = viewModel::updateDiscardObservations,
+        onRequestDiscardConfirmation = viewModel::requestDiscardConfirmation,
+        onCancelDiscardConfirmation = viewModel::cancelDiscardConfirmation,
+        onConfirmDiscardSubmission = viewModel::confirmDiscardSubmission,
+        onRetryDiscard = viewModel::retryDiscardSubmission,
+        onAbandonDiscard = viewModel::abandonDiscardDraft,
+        onFinishDiscard = viewModel::finishDiscard,
     )
 }
 
@@ -85,6 +104,7 @@ private fun CampoScreen(
     onPasswordChange: (String) -> Unit,
     onSignIn: () -> Unit,
     onSignOut: () -> Unit,
+    onSelectMode: (CampoMode) -> Unit,
     onSelectJourney: (String) -> Unit,
     onReturnToJourneySelection: () -> Unit,
     onSelectLine: (JourneyLine) -> Unit,
@@ -100,6 +120,24 @@ private fun CampoScreen(
     onConfirmCountSubmission: () -> Unit,
     onRetry: () -> Unit,
     onFinishAndTakeAnotherLine: () -> Unit,
+    onDiscardSearchChange: (String) -> Unit,
+    onRefreshDiscardLines: () -> Unit,
+    onSelectDiscardLine: (com.arles.viverocampo.domain.DiscardLine) -> Unit,
+    onDiscardFemalesChange: (String) -> Unit,
+    onDiscardMalesChange: (String) -> Unit,
+    onDiscardRootstocksChange: (String) -> Unit,
+    onDiscardDeadChange: (String) -> Unit,
+    onDiscardNematodesChange: (String) -> Unit,
+    onDiscardGooseNeckChange: (String) -> Unit,
+    onDiscardBifurcatedRootsChange: (String) -> Unit,
+    onDiscardDoubleGraftingChange: (String) -> Unit,
+    onDiscardObservationsChange: (String) -> Unit,
+    onRequestDiscardConfirmation: () -> Unit,
+    onCancelDiscardConfirmation: () -> Unit,
+    onConfirmDiscardSubmission: () -> Unit,
+    onRetryDiscard: () -> Unit,
+    onAbandonDiscard: () -> Unit,
+    onFinishDiscard: () -> Unit,
 ) {
     Surface(modifier = Modifier.fillMaxSize(), color = ViveroBackground) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -113,8 +151,29 @@ private fun CampoScreen(
                 color = Color.Black,
                 fontWeight = FontWeight.Bold,
             )
+            if (state.user != null) ModeSwitcher(state.mode, onSelectMode)
             when {
                 state.user == null -> LoginContent(state, onEmailChange, onPasswordChange, onSignIn)
+                state.mode == CampoMode.DESCARTES -> DiscardContent(
+                    state,
+                    onSignOut,
+                    onDiscardSearchChange,
+                    onRefreshDiscardLines,
+                    onSelectDiscardLine,
+                    onDiscardFemalesChange,
+                    onDiscardMalesChange,
+                    onDiscardRootstocksChange,
+                    onDiscardDeadChange,
+                    onDiscardNematodesChange,
+                    onDiscardGooseNeckChange,
+                    onDiscardBifurcatedRootsChange,
+                    onDiscardDoubleGraftingChange,
+                    onDiscardObservationsChange,
+                    onRequestDiscardConfirmation,
+                    onRetryDiscard,
+                    onAbandonDiscard,
+                    onFinishDiscard,
+                )
                 state.confirmedReservation != null -> CountContent(
                     state,
                     onSignOut,
@@ -185,6 +244,232 @@ private fun CampoScreen(
                 }
             },
         )
+    }
+
+    if (state.showDiscardSummary && state.mutableOperationsEnabled) {
+        val draft = requireNotNull(state.discardDraft)
+        AlertDialog(
+            onDismissRequest = onCancelDiscardConfirmation,
+            title = { Text("Confirmar descarte") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(draft.line.location.displayName, fontWeight = FontWeight.Bold)
+                    Text("Hembras: ${state.discardInput.females}")
+                    Text("Machos: ${state.discardInput.males}")
+                    Text("Patrones: ${state.discardInput.rootstocks}")
+                    Text("Total único: ${state.discardUniqueTotal ?: 0}", fontWeight = FontWeight.Bold)
+                    Text("Suma de causas: ${state.discardCausesTotal ?: 0}")
+                    Text("Una planta se resta una sola vez aunque tenga varias causas.")
+                    Text("Quedará pendiente de revisión; aún no modifica el inventario.")
+                }
+            },
+            confirmButton = {
+                Button(onClick = onConfirmDiscardSubmission, enabled = !state.confirmingDiscard) {
+                    Text(if (state.confirmingDiscard) "Guardando…" else "Confirmar descarte")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = onCancelDiscardConfirmation, enabled = !state.confirmingDiscard) {
+                    Text("Volver")
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun ModeSwitcher(mode: CampoMode, onSelectMode: (CampoMode) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (mode == CampoMode.CONTEOS) {
+            Button(onClick = { onSelectMode(CampoMode.CONTEOS) }, modifier = Modifier.weight(1f)) { Text("Conteos") }
+        } else {
+            OutlinedButton(onClick = { onSelectMode(CampoMode.CONTEOS) }, modifier = Modifier.weight(1f)) {
+                Text("Conteos")
+            }
+        }
+        if (mode == CampoMode.DESCARTES) {
+            Button(onClick = { onSelectMode(CampoMode.DESCARTES) }, modifier = Modifier.weight(1f)) { Text("Descartes") }
+        } else {
+            OutlinedButton(onClick = { onSelectMode(CampoMode.DESCARTES) }, modifier = Modifier.weight(1f)) {
+                Text("Descartes")
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiscardContent(
+    state: CampoUiState,
+    onSignOut: () -> Unit,
+    onSearchChange: (String) -> Unit,
+    onRefresh: () -> Unit,
+    onSelectLine: (com.arles.viverocampo.domain.DiscardLine) -> Unit,
+    onFemalesChange: (String) -> Unit,
+    onMalesChange: (String) -> Unit,
+    onRootstocksChange: (String) -> Unit,
+    onDeadChange: (String) -> Unit,
+    onNematodesChange: (String) -> Unit,
+    onGooseNeckChange: (String) -> Unit,
+    onBifurcatedRootsChange: (String) -> Unit,
+    onDoubleGraftingChange: (String) -> Unit,
+    onObservationsChange: (String) -> Unit,
+    onRequestConfirmation: () -> Unit,
+    onRetry: () -> Unit,
+    onAbandon: () -> Unit,
+    onFinish: () -> Unit,
+) {
+    val draft = state.discardDraft
+    val syncState = draft?.syncState ?: SyncState.PENDIENTE
+    val editable = draft != null && (
+        (syncState == SyncState.PENDIENTE && draft.frozenPayload == null) ||
+            (syncState == SyncState.ERROR && draft.errorCode == "INVALID_ARGUMENT")
+        )
+    val filtered = state.discardLines.filter { line ->
+        val query = state.discardSearch.trim()
+        query.isEmpty() || listOf(
+            line.location.module,
+            line.location.bed,
+            line.location.line,
+            line.location.displayName,
+        ).any { it.contains(query, ignoreCase = true) }
+    }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Text(state.user?.name.orEmpty(), fontWeight = FontWeight.Bold)
+                    Text("Captura sin conexión disponible")
+                    if (draft != null) Text("Sincronización: ${syncState.name}")
+                }
+                OutlinedButton(onClick = onSignOut, enabled = syncState != SyncState.SINCRONIZANDO) { Text("Salir") }
+            }
+        }
+        if (draft == null) {
+            item {
+                Text("Selecciona módulo, cama y línea", style = MaterialTheme.typography.titleLarge)
+                Text("El inventario mostrado es la última copia guardada en este teléfono.")
+            }
+            item {
+                OutlinedTextField(
+                    value = state.discardSearch,
+                    onValueChange = onSearchChange,
+                    label = { Text("Buscar módulo, cama o línea") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+            }
+            item {
+                OutlinedButton(onClick = onRefresh, enabled = !state.loadingDiscardLines, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (state.loadingDiscardLines) "Actualizando…" else "Actualizar catálogo con señal")
+                }
+            }
+            if (filtered.isEmpty()) {
+                item { Text("No hay líneas guardadas que coincidan con la búsqueda.") }
+            }
+            items(filtered, key = { it.lineId }) { line ->
+                Card(onClick = { onSelectLine(line) }, modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(line.location.displayName, fontWeight = FontWeight.Bold)
+                        Text("Módulo ${line.location.module} · Cama ${line.location.bed} · Línea ${line.location.line}")
+                        Text(
+                            "Inventario: H ${line.inventory.females} · M ${line.inventory.males} · P ${line.inventory.rootstocks}",
+                        )
+                    }
+                }
+            }
+        } else {
+            item {
+                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("Descarte en captura", fontWeight = FontWeight.Bold)
+                        Text(draft.line.location.displayName)
+                        Text(
+                            "Disponible: H ${draft.line.inventory.females} · M ${draft.line.inventory.males} · " +
+                                "P ${draft.line.inventory.rootstocks}",
+                        )
+                    }
+                }
+            }
+            item { Text("Plantas únicas por categoría", fontWeight = FontWeight.Bold) }
+            item { QuantityField("Hembras", state.discardInput.females, state.discardErrors.females, editable, onFemalesChange) }
+            item { QuantityField("Machos", state.discardInput.males, state.discardErrors.males, editable, onMalesChange) }
+            item { QuantityField("Patrones", state.discardInput.rootstocks, state.discardErrors.rootstocks, editable, onRootstocksChange) }
+            item { Text("Causas (una planta puede aparecer en varias)", fontWeight = FontWeight.Bold) }
+            item { QuantityField("Muertos", state.discardInput.dead, state.discardErrors.dead, editable, onDeadChange) }
+            item { QuantityField("Nematodos", state.discardInput.nematodes, state.discardErrors.nematodes, editable, onNematodesChange) }
+            item { QuantityField("Cuello de ganso", state.discardInput.gooseNeck, state.discardErrors.gooseNeck, editable, onGooseNeckChange) }
+            item {
+                QuantityField(
+                    "Raíces bifurcadas",
+                    state.discardInput.bifurcatedRoots,
+                    state.discardErrors.bifurcatedRoots,
+                    editable,
+                    onBifurcatedRootsChange,
+                )
+            }
+            item {
+                QuantityField(
+                    "Doble injertación",
+                    state.discardInput.doubleGrafting,
+                    state.discardErrors.doubleGrafting,
+                    editable,
+                    onDoubleGraftingChange,
+                )
+            }
+            item {
+                OutlinedTextField(
+                    value = state.discardInput.observations,
+                    onValueChange = onObservationsChange,
+                    label = { Text("Observaciones opcionales") },
+                    minLines = 3,
+                    enabled = editable,
+                    isError = state.discardErrors.observations != null,
+                    supportingText = { state.discardErrors.observations?.let { Text(it) } },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Total único: ${state.discardUniqueTotal ?: "—"}", fontWeight = FontWeight.Bold)
+                        Text("Suma de causas: ${state.discardCausesTotal ?: "—"}")
+                    }
+                }
+            }
+            state.discardErrors.general?.let { error -> item { Text(error, color = MaterialTheme.colorScheme.error) } }
+            state.message?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
+            item {
+                when (syncState) {
+                    SyncState.ENVIADA -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Descarte recibido y pendiente de revisión.", color = ViveroGreen, fontWeight = FontWeight.Bold)
+                        Button(onClick = onFinish, modifier = Modifier.fillMaxWidth()) { Text("Registrar otro descarte") }
+                    }
+                    SyncState.SINCRONIZANDO -> Button(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
+                        Text("Sincronizando…")
+                    }
+                    SyncState.ERROR -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) {
+                            Text("Reintentar mismo envío")
+                        }
+                        OutlinedButton(onClick = onAbandon, modifier = Modifier.fillMaxWidth()) {
+                            Text("Eliminar borrador y elegir otra línea")
+                        }
+                    }
+                    SyncState.PENDIENTE -> Button(
+                        onClick = onRequestConfirmation,
+                        enabled = editable,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(if (draft.frozenPayload == null) "Revisar y confirmar" else "Esperando conexión") }
+                }
+            }
+        }
     }
 }
 

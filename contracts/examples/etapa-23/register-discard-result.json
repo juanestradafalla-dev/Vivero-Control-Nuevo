@@ -1,0 +1,18 @@
+{
+  "descarteId": "DESCARTE-PRUEBA-23",
+  "lineaId": "LINEA-PRUEBA-23",
+  "estado": "PENDIENTE_REVISION",
+  "hembras": 8,
+  "machos": 2,
+  "patrones": 0,
+  "totalUnico": 10,
+  "causas": {
+    "muertos": 6,
+    "nematodos": 5,
+    "cuelloGanso": 0,
+    "raicesBifurcadas": 0,
+    "dobleInjertacion": 0
+  },
+  "versionInventarioObservada": 4,
+  "recibidoEn": "2026-07-17T14:01:00.000Z"
+}

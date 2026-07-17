@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.arles.viverocampo.data.sync.CountSyncScheduler
+import com.arles.viverocampo.data.sync.DiscardSyncScheduler
 import com.arles.viverocampo.domain.CampoRepository
 import com.arles.viverocampo.domain.CampoRepositoryException
 import com.arles.viverocampo.domain.CampoEnvironment
@@ -12,10 +13,15 @@ import com.arles.viverocampo.domain.ConfirmedReservation
 import com.arles.viverocampo.domain.CountFieldErrors
 import com.arles.viverocampo.domain.CountFormValidator
 import com.arles.viverocampo.domain.CountInput
+import com.arles.viverocampo.domain.DiscardFieldErrors
+import com.arles.viverocampo.domain.DiscardFormValidator
+import com.arles.viverocampo.domain.DiscardInput
+import com.arles.viverocampo.domain.DiscardLine
 import com.arles.viverocampo.domain.JourneyLine
 import com.arles.viverocampo.domain.JourneySnapshot
 import com.arles.viverocampo.domain.InitiateCountCorrectionPayload
 import com.arles.viverocampo.domain.LocalCountDraft
+import com.arles.viverocampo.domain.LocalDiscardDraft
 import com.arles.viverocampo.domain.ReserveLinePayload
 import com.arles.viverocampo.domain.RELEASED_RESERVATION_MESSAGE
 import com.arles.viverocampo.domain.ReturnedCount
@@ -35,6 +41,8 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 
+enum class CampoMode { CONTEOS, DESCARTES }
+
 data class CampoUiState(
     val environment: CampoEnvironment,
     val accessEnabled: Boolean,
@@ -43,6 +51,7 @@ data class CampoUiState(
     val password: String = "",
     val signingIn: Boolean = false,
     val user: UserProfile? = null,
+    val mode: CampoMode = CampoMode.CONTEOS,
     val activeJourneys: List<ActiveJourney> = emptyList(),
     val selectedJourneyId: String? = null,
     val journey: JourneySnapshot? = null,
@@ -59,6 +68,17 @@ data class CampoUiState(
     val countDraft: LocalCountDraft? = null,
     val showCountSummary: Boolean = false,
     val confirmingCount: Boolean = false,
+    val discardLines: List<DiscardLine> = emptyList(),
+    val discardSearch: String = "",
+    val loadingDiscardLines: Boolean = false,
+    val selectedDiscardLine: DiscardLine? = null,
+    val discardDraft: LocalDiscardDraft? = null,
+    val discardInput: DiscardInput = DiscardInput(),
+    val discardErrors: DiscardFieldErrors = DiscardFieldErrors(),
+    val discardUniqueTotal: Long? = null,
+    val discardCausesTotal: Long? = null,
+    val showDiscardSummary: Boolean = false,
+    val confirmingDiscard: Boolean = false,
     val message: String? = null,
 )
 
@@ -66,6 +86,7 @@ class CampoViewModel(
     private val repository: CampoRepository,
     private val deviceId: String,
     private val syncScheduler: CountSyncScheduler = NoOpCountSyncScheduler,
+    private val discardSyncScheduler: DiscardSyncScheduler = NoOpDiscardSyncScheduler,
     private val keyFactory: () -> String = { UUID.randomUUID().toString() },
     private val timestampFactory: () -> String = {
         SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
@@ -90,6 +111,49 @@ class CampoViewModel(
     private var reservationStateJob: Job? = null
     private var countSaveJob: Job? = null
     private var accountStatusJob: Job? = null
+    private var discardDraftJob: Job? = null
+    private var discardSaveJob: Job? = null
+
+    init {
+        restoreSession()
+    }
+
+    private fun restoreSession() {
+        if (!repository.accessEnabled) return
+        viewModelScope.launch {
+            val user = repository.restoreSession() ?: return@launch
+            val journeys = runCatching { repository.listActiveJourneys() }.getOrDefault(emptyList())
+            val reservation = repository.latestActiveReservation(user.id, deviceId)
+            val discardLines = runCatching { repository.listDiscardLines() }.getOrDefault(emptyList())
+            val pendingDiscard = repository.latestPendingDiscard(user.id, deviceId)
+            val selectedJourneyId = reservation?.journeyId ?: journeys.singleOrNull()?.id
+            mutableState.value = mutableState.value.copy(
+                user = user,
+                activeJourneys = journeys,
+                selectedJourneyId = selectedJourneyId,
+                confirmedReservation = reservation,
+                discardLines = discardLines,
+                discardDraft = pendingDiscard,
+                discardInput = pendingDiscard?.input ?: DiscardInput(),
+                connectionStatus = if (selectedJourneyId == null) "SIN SEÑAL / CACHÉ LOCAL" else "CONECTANDO",
+                message = if (journeys.isEmpty() && discardLines.isEmpty()) {
+                    "Sesión restaurada. Conéctate una vez para actualizar jornadas y líneas."
+                } else {
+                    "Sesión restaurada; los datos locales siguen disponibles sin señal."
+                },
+            )
+            observeAccountStatus(user)
+            if (selectedJourneyId != null) {
+                observeJourney(selectedJourneyId)
+                observeReturnedCounts(user, selectedJourneyId)
+            }
+            if (reservation != null && reservation.deviceId == deviceId) {
+                observeReservationState(reservation)
+                observeDraft(user, reservation)
+            }
+            if (pendingDiscard != null) observeDiscardDraft(user, pendingDiscard)
+        }
+    }
 
     fun updateEmail(value: String) {
         mutableState.value = mutableState.value.copy(email = value, message = null)
@@ -117,6 +181,8 @@ class CampoViewModel(
                 val user = repository.signIn(state.email, state.password)
                 val journeys = repository.listActiveJourneys()
                 val reservation = repository.latestActiveReservation(user.id, deviceId)
+                val discardLines = runCatching { repository.listDiscardLines() }.getOrDefault(emptyList())
+                val pendingDiscard = repository.latestPendingDiscard(user.id, deviceId)
                 val selectedJourneyId = reservation?.journeyId ?: journeys.singleOrNull()?.id
                 mutableState.value = mutableState.value.copy(
                     signingIn = false,
@@ -125,8 +191,15 @@ class CampoViewModel(
                     activeJourneys = journeys,
                     selectedJourneyId = selectedJourneyId,
                     confirmedReservation = reservation,
+                    discardLines = discardLines,
+                    discardDraft = pendingDiscard,
+                    discardInput = pendingDiscard?.input ?: DiscardInput(),
                     connectionStatus = if (selectedJourneyId == null) "CONECTADO" else "CONECTANDO",
-                    message = if (journeys.isEmpty()) "No hay jornadas activas autorizadas para esta cuenta." else null,
+                    message = if (journeys.isEmpty() && discardLines.isEmpty()) {
+                        "No hay jornadas ni líneas de descarte disponibles para esta cuenta."
+                    } else {
+                        null
+                    },
                 )
                 observeAccountStatus(user)
                 if (selectedJourneyId != null) {
@@ -137,6 +210,7 @@ class CampoViewModel(
                     observeReservationState(reservation)
                     observeDraft(user, reservation)
                 }
+                if (pendingDiscard != null) observeDiscardDraft(user, pendingDiscard)
             } catch (error: CampoRepositoryException) {
                 mutableState.value = mutableState.value.copy(
                     signingIn = false,
@@ -157,6 +231,8 @@ class CampoViewModel(
             reservationStateJob?.cancel()
             countSaveJob?.cancel()
             accountStatusJob?.cancel()
+            discardDraftJob?.cancel()
+            discardSaveJob?.cancel()
             pendingReservationKeys.clear()
             pendingCorrectionKeys.clear()
             mutableState.value = CampoUiState(
@@ -183,12 +259,17 @@ class CampoViewModel(
                     current.countDraft?.frozenPayload?.let { payload ->
                         syncScheduler.cancel(payload.reservationId, payload.idempotencyKey)
                     }
+                    current.discardDraft?.frozenPayload?.let { payload ->
+                        discardSyncScheduler.cancel(payload.draftId, payload.idempotencyKey)
+                    }
                     repository.signOut()
                     journeyJob?.cancel()
                     returnedCountsJob?.cancel()
                     draftJob?.cancel()
                     reservationStateJob?.cancel()
                     countSaveJob?.cancel()
+                    discardDraftJob?.cancel()
+                    discardSaveJob?.cancel()
                     pendingReservationKeys.clear()
                     pendingCorrectionKeys.clear()
                     mutableState.value = CampoUiState(
@@ -198,6 +279,237 @@ class CampoViewModel(
                         message = "Cuenta desactivada",
                     )
                 }
+        }
+    }
+
+    fun selectMode(mode: CampoMode) {
+        val state = mutableState.value
+        if (mode == CampoMode.DESCARTES && state.confirmedReservation != null) {
+            mutableState.value = state.copy(message = "Finaliza el conteo activo antes de abrir descartes.")
+            return
+        }
+        mutableState.value = state.copy(mode = mode, message = null)
+        if (mode == CampoMode.DESCARTES && state.discardLines.isEmpty()) refreshDiscardLines()
+    }
+
+    fun refreshDiscardLines() {
+        val state = mutableState.value
+        if (state.loadingDiscardLines || state.user == null) return
+        viewModelScope.launch {
+            mutableState.value = mutableState.value.copy(loadingDiscardLines = true, message = null)
+            try {
+                val lines = repository.listDiscardLines()
+                mutableState.value = mutableState.value.copy(
+                    loadingDiscardLines = false,
+                    discardLines = lines,
+                    message = if (lines.isEmpty()) "No hay líneas con inventario oficial disponible." else null,
+                )
+            } catch (error: CampoRepositoryException) {
+                mutableState.value = mutableState.value.copy(loadingDiscardLines = false, message = error.message)
+            }
+        }
+    }
+
+    fun updateDiscardSearch(value: String) {
+        mutableState.value = mutableState.value.copy(discardSearch = value)
+    }
+
+    fun selectDiscardLine(line: DiscardLine) {
+        if (blockMutableOperation() || mutableState.value.discardDraft != null) return
+        val user = mutableState.value.user ?: return
+        viewModelScope.launch {
+            try {
+                val draft = repository.startDiscardDraft(keyFactory(), line, user.id, deviceId)
+                mutableState.value = mutableState.value.copy(
+                    selectedDiscardLine = line,
+                    discardDraft = draft,
+                    discardInput = draft.input,
+                    discardErrors = DiscardFieldErrors(),
+                    message = "Borrador local listo. Puedes continuar sin señal.",
+                )
+                observeDiscardDraft(user, draft)
+            } catch (error: CampoRepositoryException) {
+                mutableState.value = mutableState.value.copy(message = error.message)
+            }
+        }
+    }
+
+    fun updateDiscardFemales(value: String) = updateDiscardInput(mutableState.value.discardInput.copy(females = value))
+    fun updateDiscardMales(value: String) = updateDiscardInput(mutableState.value.discardInput.copy(males = value))
+    fun updateDiscardRootstocks(value: String) = updateDiscardInput(mutableState.value.discardInput.copy(rootstocks = value))
+    fun updateDiscardDead(value: String) = updateDiscardInput(mutableState.value.discardInput.copy(dead = value))
+    fun updateDiscardNematodes(value: String) = updateDiscardInput(mutableState.value.discardInput.copy(nematodes = value))
+    fun updateDiscardGooseNeck(value: String) = updateDiscardInput(mutableState.value.discardInput.copy(gooseNeck = value))
+    fun updateDiscardBifurcatedRoots(value: String) =
+        updateDiscardInput(mutableState.value.discardInput.copy(bifurcatedRoots = value))
+    fun updateDiscardDoubleGrafting(value: String) =
+        updateDiscardInput(mutableState.value.discardInput.copy(doubleGrafting = value))
+    fun updateDiscardObservations(value: String) =
+        updateDiscardInput(mutableState.value.discardInput.copy(observations = value))
+
+    private fun updateDiscardInput(input: DiscardInput) {
+        val state = mutableState.value
+        val draft = state.discardDraft ?: return
+        if (draft.syncState in setOf(SyncState.SINCRONIZANDO, SyncState.ENVIADA)) return
+        draft.takeIf { it.syncState == SyncState.ERROR }?.frozenPayload?.let {
+            discardSyncScheduler.cancel(draft.draftId, it.idempotencyKey)
+        }
+        val validation = DiscardFormValidator.validate(input)
+        mutableState.value = state.copy(
+            discardInput = input,
+            discardErrors = DiscardFieldErrors(),
+            discardUniqueTotal = validation.uniqueTotal,
+            discardCausesTotal = validation.causesTotal,
+            showDiscardSummary = false,
+            message = null,
+        )
+        discardSaveJob?.cancel()
+        discardSaveJob = viewModelScope.launch {
+            repository.saveDiscardInput(draft.draftId, draft.userId, draft.deviceId, input)
+        }
+    }
+
+    fun requestDiscardConfirmation() {
+        if (blockMutableOperation()) return
+        val state = mutableState.value
+        val validation = DiscardFormValidator.validate(state.discardInput)
+        val values = validation.values
+        val inventoryExceeded = values.size >= 3 && values.take(3).all { it != null } && state.discardDraft?.let { draft ->
+            requireNotNull(values[0]) > draft.line.inventory.females ||
+                requireNotNull(values[1]) > draft.line.inventory.males ||
+                requireNotNull(values[2]) > draft.line.inventory.rootstocks
+        } == true
+        val errors = if (inventoryExceeded) {
+            validation.errors.copy(general = "Las cantidades superan el inventario guardado de la línea.")
+        } else {
+            validation.errors
+        }
+        if (!validation.valid || inventoryExceeded) {
+            mutableState.value = state.copy(
+                discardErrors = errors,
+                discardUniqueTotal = validation.uniqueTotal,
+                discardCausesTotal = validation.causesTotal,
+                message = "Corrige los campos marcados.",
+            )
+            return
+        }
+        mutableState.value = state.copy(
+            discardErrors = DiscardFieldErrors(),
+            discardUniqueTotal = validation.uniqueTotal,
+            discardCausesTotal = validation.causesTotal,
+            showDiscardSummary = true,
+            message = null,
+        )
+    }
+
+    fun cancelDiscardConfirmation() {
+        if (!mutableState.value.confirmingDiscard) {
+            mutableState.value = mutableState.value.copy(showDiscardSummary = false)
+        }
+    }
+
+    fun confirmDiscardSubmission() {
+        if (blockMutableOperation()) return
+        val state = mutableState.value
+        val draft = state.discardDraft ?: return
+        if (state.confirmingDiscard) return
+        val pendingSave = discardSaveJob
+        mutableState.value = state.copy(confirmingDiscard = true, message = null)
+        viewModelScope.launch {
+            try {
+                pendingSave?.cancelAndJoin()
+                repository.saveDiscardInput(draft.draftId, draft.userId, draft.deviceId, state.discardInput)
+                val frozen = repository.freezeDiscardAttempt(
+                    draft.draftId,
+                    draft.userId,
+                    draft.deviceId,
+                    keyFactory(),
+                    timestampFactory(),
+                ).frozenPayload ?: throw CampoRepositoryException("INVALID_ARGUMENT", "No se pudo congelar el descarte.")
+                discardSyncScheduler.schedule(draft.draftId, frozen.idempotencyKey)
+                mutableState.value = mutableState.value.copy(
+                    confirmingDiscard = false,
+                    showDiscardSummary = false,
+                    message = "Descarte guardado. Se enviará automáticamente al recuperar conexión.",
+                )
+            } catch (error: CampoRepositoryException) {
+                mutableState.value = mutableState.value.copy(
+                    confirmingDiscard = false,
+                    showDiscardSummary = false,
+                    message = error.message,
+                )
+            }
+        }
+    }
+
+    fun retryDiscardSubmission() {
+        val draft = mutableState.value.discardDraft ?: return
+        val frozen = draft.frozenPayload ?: return
+        discardSyncScheduler.schedule(draft.draftId, frozen.idempotencyKey)
+    }
+
+    fun abandonDiscardDraft() {
+        val draft = mutableState.value.discardDraft ?: return
+        if (draft.syncState in setOf(SyncState.SINCRONIZANDO, SyncState.ENVIADA)) return
+        draft.frozenPayload?.let { discardSyncScheduler.cancel(draft.draftId, it.idempotencyKey) }
+        viewModelScope.launch {
+            try {
+                repository.abandonDiscardDraft(draft.draftId, draft.userId, draft.deviceId)
+                discardDraftJob?.cancel()
+                discardSaveJob?.cancel()
+                mutableState.value = mutableState.value.copy(
+                    selectedDiscardLine = null,
+                    discardDraft = null,
+                    discardInput = DiscardInput(),
+                    discardErrors = DiscardFieldErrors(),
+                    discardUniqueTotal = null,
+                    discardCausesTotal = null,
+                    showDiscardSummary = false,
+                    message = "Borrador local eliminado. Actualiza el catálogo y elige la línea nuevamente.",
+                )
+                refreshDiscardLines()
+            } catch (error: CampoRepositoryException) {
+                mutableState.value = mutableState.value.copy(message = error.message)
+            }
+        }
+    }
+
+    fun finishDiscard() {
+        val state = mutableState.value
+        if (state.discardDraft?.syncState != SyncState.ENVIADA) return
+        discardDraftJob?.cancel()
+        discardSaveJob?.cancel()
+        mutableState.value = state.copy(
+            selectedDiscardLine = null,
+            discardDraft = null,
+            discardInput = DiscardInput(),
+            discardErrors = DiscardFieldErrors(),
+            discardUniqueTotal = null,
+            discardCausesTotal = null,
+            showDiscardSummary = false,
+            message = "Descarte enviado y pendiente de revisión administrativa.",
+        )
+        refreshDiscardLines()
+    }
+
+    private fun observeDiscardDraft(user: UserProfile, initial: LocalDiscardDraft) {
+        discardDraftJob?.cancel()
+        discardDraftJob = viewModelScope.launch {
+            repository.observeDiscardDraft(initial.draftId, user.id, deviceId).collect { draft ->
+                if (draft == null) return@collect
+                if (draft.syncState == SyncState.PENDIENTE && draft.frozenPayload != null) {
+                    discardSyncScheduler.schedule(draft.draftId, draft.frozenPayload.idempotencyKey)
+                }
+                val validation = DiscardFormValidator.validate(draft.input)
+                mutableState.value = mutableState.value.copy(
+                    selectedDiscardLine = draft.line,
+                    discardDraft = draft,
+                    discardInput = draft.input,
+                    discardUniqueTotal = validation.uniqueTotal,
+                    discardCausesTotal = validation.causesTotal,
+                    message = draft.errorMessage ?: mutableState.value.message,
+                )
+            }
         }
     }
 
@@ -583,16 +895,22 @@ class CampoViewModel(
         override fun schedule(reservationId: String, idempotencyKey: String) = Unit
         override fun cancel(reservationId: String, idempotencyKey: String) = Unit
     }
+
+    private object NoOpDiscardSyncScheduler : DiscardSyncScheduler {
+        override fun schedule(draftId: String, idempotencyKey: String) = Unit
+        override fun cancel(draftId: String, idempotencyKey: String) = Unit
+    }
 }
 
 class CampoViewModelFactory(
     private val repository: CampoRepository,
     private val deviceId: String,
     private val syncScheduler: CountSyncScheduler,
+    private val discardSyncScheduler: DiscardSyncScheduler,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         require(modelClass.isAssignableFrom(CampoViewModel::class.java))
-        return CampoViewModel(repository, deviceId, syncScheduler) as T
+        return CampoViewModel(repository, deviceId, syncScheduler, discardSyncScheduler) as T
     }
 }

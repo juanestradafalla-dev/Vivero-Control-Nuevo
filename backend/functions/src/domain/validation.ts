@@ -1,5 +1,6 @@
 import type {
   ActivateJourneyRequest,
+  ApproveDiscardRequest,
   ApproveCountRequest,
   CancelDraftJourneyRequest,
   CreateDraftJourneyRequest,
@@ -13,9 +14,11 @@ import type {
   RegisterInitialInventoryRequest,
   RevertMigrationImportRequest,
   ReopenCancelledJourneyRequest,
+  RegisterDiscardRequest,
   ReleaseReservationRequest,
   ReserveLineRequest,
   ReturnCountRequest,
+  ReturnDiscardRequest,
   SendCountRequest,
   UpdateCatalogLineRequest,
   UpdateCatalogLocationRequest,
@@ -44,6 +47,15 @@ const tokenPattern = /^[A-Za-z0-9_-]{32,256}$/;
 const timestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 const approveCountFields = new Set(["conteoId", "claveIdempotencia", "motivoExcepcion"]);
 const returnCountFields = new Set(["conteoId", "motivo", "claveIdempotencia"]);
+const discardCauseFields = new Set([
+  "muertos", "nematodos", "cuelloGanso", "raicesBifurcadas", "dobleInjertacion"
+]);
+const registerDiscardFields = new Set([
+  "lineaId", "versionInventarioObservada", "dispositivoId", "hembras", "machos", "patrones",
+  "causas", "observaciones", "timestampDispositivo", "claveIdempotencia"
+]);
+const approveDiscardFields = new Set(["descarteId", "claveIdempotencia", "motivoExcepcion"]);
+const returnDiscardFields = new Set(["descarteId", "motivo", "claveIdempotencia"]);
 const initiateCorrectionFields = new Set(["conteoId", "dispositivoId", "claveIdempotencia"]);
 const reassignCorrectionFields = new Set(["conteoId", "nuevoUsuarioId", "motivo", "claveIdempotencia"]);
 const releaseReservationFields = new Set(["reservaId", "motivo", "claveIdempotencia"]);
@@ -102,6 +114,7 @@ export const parseListManageableJourneysRequest = parseListActiveJourneysRequest
 export const parseListManageableUsersRequest = parseListActiveJourneysRequest;
 export const parseListManageableCatalogRequest = parseListActiveJourneysRequest;
 export const parseListMigrationImportsRequest = parseListActiveJourneysRequest;
+export const parseListDiscardLinesRequest = parseListActiveJourneysRequest;
 
 export function parseImportMigrationPackageRequest(value: unknown): ImportMigrationPackageRequest {
   if (typeof value !== "object" || value === null || Array.isArray(value)) throw domainErrors.invalidArgument();
@@ -710,6 +723,102 @@ export function parseSendCountRequest(value: unknown): SendCountRequest {
     patrones: record.patrones as number,
     ...(record.observaciones === undefined ? {} : {observaciones: record.observaciones as string}),
     timestampDispositivo: record.timestampDispositivo,
+    claveIdempotencia: record.claveIdempotencia
+  };
+}
+
+export function parseRegisterDiscardRequest(value: unknown): RegisterDiscardRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw domainErrors.invalidArgument();
+  }
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).some((field) => !registerDiscardFields.has(field)) ||
+      typeof record.lineaId !== "string" || !safeIdPattern.test(record.lineaId) ||
+      typeof record.dispositivoId !== "string" || !safeIdPattern.test(record.dispositivoId) ||
+      typeof record.timestampDispositivo !== "string" || !timestampPattern.test(record.timestampDispositivo) ||
+      !Number.isFinite(Date.parse(record.timestampDispositivo)) ||
+      typeof record.claveIdempotencia !== "string" || !idempotencyPattern.test(record.claveIdempotencia) ||
+      !Number.isSafeInteger(record.versionInventarioObservada) || (record.versionInventarioObservada as number) < 1 ||
+      typeof record.causas !== "object" || record.causas === null || Array.isArray(record.causas)) {
+    throw domainErrors.invalidArgument();
+  }
+  const quantities = [record.hembras, record.machos, record.patrones];
+  if (quantities.some((quantity) => !Number.isSafeInteger(quantity) || (quantity as number) < 0)) {
+    throw domainErrors.invalidArgument();
+  }
+  const total = quantities.reduce<number>((sum, quantity) => sum + (quantity as number), 0);
+  if (!Number.isSafeInteger(total)) throw domainErrors.invalidArgument();
+  if (total === 0) throw domainErrors.discardTotalRequired();
+
+  const causes = record.causas as Record<string, unknown>;
+  if (Object.keys(causes).length !== discardCauseFields.size ||
+      Object.keys(causes).some((field) => !discardCauseFields.has(field))) {
+    throw domainErrors.invalidArgument();
+  }
+  const causeValues = [...discardCauseFields].map((field) => causes[field]);
+  if (causeValues.some((quantity) => !Number.isSafeInteger(quantity) || (quantity as number) < 0)) {
+    throw domainErrors.invalidArgument();
+  }
+  if (causeValues.every((quantity) => quantity === 0)) throw domainErrors.discardCauseRequired();
+  if (causeValues.some((quantity) => (quantity as number) > total)) {
+    throw domainErrors.discardCauseExceedsTotal();
+  }
+  if (record.observaciones !== undefined &&
+      (typeof record.observaciones !== "string" || record.observaciones.length > 4000)) {
+    throw domainErrors.invalidArgument();
+  }
+  return {
+    lineaId: record.lineaId,
+    versionInventarioObservada: record.versionInventarioObservada as number,
+    dispositivoId: record.dispositivoId,
+    hembras: record.hembras as number,
+    machos: record.machos as number,
+    patrones: record.patrones as number,
+    causas: {
+      muertos: causes.muertos as number,
+      nematodos: causes.nematodos as number,
+      cuelloGanso: causes.cuelloGanso as number,
+      raicesBifurcadas: causes.raicesBifurcadas as number,
+      dobleInjertacion: causes.dobleInjertacion as number
+    },
+    ...(record.observaciones === undefined ? {} : {observaciones: record.observaciones as string}),
+    timestampDispositivo: record.timestampDispositivo,
+    claveIdempotencia: record.claveIdempotencia
+  };
+}
+
+export function parseApproveDiscardRequest(value: unknown): ApproveDiscardRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw domainErrors.invalidArgument();
+  }
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).some((field) => !approveDiscardFields.has(field)) ||
+      typeof record.descarteId !== "string" || !safeIdPattern.test(record.descarteId) ||
+      typeof record.claveIdempotencia !== "string" || !idempotencyPattern.test(record.claveIdempotencia) ||
+      (record.motivoExcepcion !== undefined && !validReason(record.motivoExcepcion))) {
+    throw domainErrors.invalidArgument();
+  }
+  return {
+    descarteId: record.descarteId,
+    ...(record.motivoExcepcion === undefined ? {} : {motivoExcepcion: (record.motivoExcepcion as string).trim()}),
+    claveIdempotencia: record.claveIdempotencia
+  };
+}
+
+export function parseReturnDiscardRequest(value: unknown): ReturnDiscardRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw domainErrors.invalidArgument();
+  }
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).some((field) => !returnDiscardFields.has(field)) ||
+      typeof record.descarteId !== "string" || !safeIdPattern.test(record.descarteId) ||
+      typeof record.claveIdempotencia !== "string" || !idempotencyPattern.test(record.claveIdempotencia)) {
+    throw domainErrors.invalidArgument();
+  }
+  if (!validReason(record.motivo)) throw domainErrors.returnReasonRequired();
+  return {
+    descarteId: record.descarteId,
+    motivo: (record.motivo as string).trim(),
     claveIdempotencia: record.claveIdempotencia
   };
 }

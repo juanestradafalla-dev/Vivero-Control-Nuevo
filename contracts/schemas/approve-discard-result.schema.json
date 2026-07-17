@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/approve-discard-result.schema.json",
+  "title": "Resultado aprobarDescarte",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["descarteId", "lineaId", "decisionId", "movimientoId", "estado", "inventarioAnterior", "inventarioNuevo", "versionInventario", "aprobadaEn"],
+  "properties": {
+    "descarteId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "lineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "decisionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "movimientoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "estado": {"const": "APROBADO"},
+    "inventarioAnterior": {"$ref": "movimiento-historico.schema.json#/$defs/valoresNoNegativos"},
+    "inventarioNuevo": {"$ref": "movimiento-historico.schema.json#/$defs/valoresNoNegativos"},
+    "versionInventario": {"type": "integer", "minimum": 2, "maximum": 9007199254740991},
+    "aprobadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

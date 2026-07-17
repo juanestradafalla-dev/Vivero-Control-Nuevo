@@ -14,6 +14,11 @@ interface FieldOverride {
 }
 
 interface FirestoreIndexes {
+  indexes: Array<{
+    collectionGroup: string;
+    queryScope: "COLLECTION" | "COLLECTION_GROUP";
+    fields: Array<{fieldPath: string; order: "ASCENDING" | "DESCENDING"}>;
+  }>;
   fieldOverrides: FieldOverride[];
 }
 
@@ -32,5 +37,28 @@ describe("índices de autorizaciones", () => {
       {order: "ASCENDING", queryScope: "COLLECTION_GROUP"}
     ]));
     expect(override?.indexes).toHaveLength(3);
+  });
+});
+
+describe("índices de descartes", () => {
+  it("cubre revisión pendiente e historial del autor", () => {
+    const path = resolve(process.cwd(), "../firestore.indexes.json");
+    const config = JSON.parse(readFileSync(path, "utf8")) as FirestoreIndexes;
+    const discardIndexes = config.indexes.filter((candidate) => candidate.collectionGroup === "descartes");
+
+    expect(discardIndexes).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        fields: [
+          {fieldPath: "estado", order: "ASCENDING"},
+          {fieldPath: "recibidoEn", order: "DESCENDING"}
+        ]
+      }),
+      expect.objectContaining({
+        fields: [
+          {fieldPath: "autorUsuarioId", order: "ASCENDING"},
+          {fieldPath: "recibidoEn", order: "DESCENDING"}
+        ]
+      })
+    ]));
   });
 });

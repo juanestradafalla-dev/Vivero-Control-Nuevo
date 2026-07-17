@@ -99,7 +99,15 @@ export const expectedSchemas = [
   "list-migration-imports-request.schema.json",
   "list-migration-imports-result.schema.json",
   "revert-migration-import-request.schema.json",
-  "revert-migration-import-result.schema.json"
+  "revert-migration-import-result.schema.json",
+  "list-discard-lines-request.schema.json",
+  "list-discard-lines-result.schema.json",
+  "register-discard-request.schema.json",
+  "register-discard-result.schema.json",
+  "approve-discard-request.schema.json",
+  "approve-discard-result.schema.json",
+  "return-discard-request.schema.json",
+  "return-discard-result.schema.json"
 ];
 
 export const expectedEnums = new Map([

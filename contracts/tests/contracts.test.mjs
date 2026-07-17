@@ -24,9 +24,28 @@ async function assertInvalid(schemaFilename, exampleFilename) {
 }
 
 test("compila todos los esquemas Draft 2020-12 y resuelve sus referencias", () => {
-  assert.equal(registry.entityCount, 94);
-  assert.equal(registry.schemaCount, 95);
+  assert.equal(registry.entityCount, 102);
+  assert.equal(registry.schemaCount, 103);
   assert.equal(registry.enumCount, 5);
+});
+
+test("acepta los cuatro contratos de descartes de la Etapa 23", async () => {
+  await assertValid("list-discard-lines-request.schema.json", "etapa-23/list-discard-lines-request.json");
+  await assertValid("list-discard-lines-result.schema.json", "etapa-23/list-discard-lines-result.json");
+  await assertValid("register-discard-request.schema.json", "etapa-23/register-discard-request.json");
+  await assertValid("register-discard-result.schema.json", "etapa-23/register-discard-result.json");
+  await assertValid("approve-discard-request.schema.json", "etapa-23/approve-discard-request.json");
+  await assertValid("approve-discard-result.schema.json", "etapa-23/approve-discard-result.json");
+  await assertValid("return-discard-request.schema.json", "etapa-23/return-discard-request.json");
+  await assertValid("return-discard-result.schema.json", "etapa-23/return-discard-result.json");
+});
+
+test("rechaza una causa individual mayor al total único del descarte", async () => {
+  const result = await assertInvalid(
+    "register-discard-request.schema.json",
+    "etapa-23/register-discard-request-cause-exceeds-total.json"
+  );
+  assert.match(result.invariantErrors.join(" "), /muertos/);
 });
 
 test("acepta un conteo válido con total calculado", async () => {

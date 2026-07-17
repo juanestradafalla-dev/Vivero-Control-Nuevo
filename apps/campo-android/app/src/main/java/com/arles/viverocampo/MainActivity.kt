@@ -16,7 +16,12 @@ class MainActivity : ComponentActivity() {
         setContent {
             ViveroCampoTheme {
                 val campoViewModel: CampoViewModel = viewModel(
-                    factory = CampoViewModelFactory(container.repository, container.deviceId, container.syncScheduler),
+                    factory = CampoViewModelFactory(
+                        container.repository,
+                        container.deviceId,
+                        container.syncScheduler,
+                        container.discardSyncScheduler,
+                    ),
                 )
                 CampoRoute(campoViewModel)
             }

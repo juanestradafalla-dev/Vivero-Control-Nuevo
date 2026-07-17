@@ -32,6 +32,7 @@ import type {
   ManageableJourneysData,
   ManageableUser,
   MonitorCount,
+  MonitorDiscard,
   MonitorCorrectionCandidate,
   MonitorCorrectionResponsibility,
   MonitorInventory,
@@ -78,6 +79,55 @@ function parseLocation(value: unknown): MonitorLocation | undefined {
     line: location.linea,
     displayName: location.nombreVisible,
     order: location.orden,
+  };
+}
+
+function parseDiscard(id: string, value: Record<string, unknown>): MonitorDiscard | undefined {
+  const location = parseLocation(value.ubicacion);
+  const causes = value.causas;
+  const receivedAt = value.recibidoEn;
+  if (
+    !location || typeof value.lineaId !== "string" || typeof value.autorUsuarioId !== "string" ||
+    typeof value.autorNombreVisible !== "string" || !isRole(value.rolEfectivo) ||
+    typeof value.dispositivoId !== "string" || value.estado !== "PENDIENTE_REVISION" ||
+    !Number.isSafeInteger(value.hembras) || !Number.isSafeInteger(value.machos) ||
+    !Number.isSafeInteger(value.patrones) || !Number.isSafeInteger(value.totalUnico) ||
+    !Number.isSafeInteger(value.versionInventarioObservada) ||
+    typeof value.timestampDispositivo !== "string" || !(receivedAt instanceof Timestamp) ||
+    typeof causes !== "object" || causes === null
+  ) return undefined;
+  const causeValues = causes as Record<string, unknown>;
+  if ([
+    causeValues.muertos,
+    causeValues.nematodos,
+    causeValues.cuelloGanso,
+    causeValues.raicesBifurcadas,
+    causeValues.dobleInjertacion,
+  ].some((quantity) => !Number.isSafeInteger(quantity))) return undefined;
+  return {
+    id,
+    lineId: value.lineaId,
+    location,
+    authorUserId: value.autorUsuarioId,
+    authorDisplayName: value.autorNombreVisible,
+    effectiveRole: value.rolEfectivo,
+    deviceId: value.dispositivoId,
+    females: value.hembras as number,
+    males: value.machos as number,
+    rootstocks: value.patrones as number,
+    uniqueTotal: value.totalUnico as number,
+    causes: {
+      dead: causeValues.muertos as number,
+      nematodes: causeValues.nematodos as number,
+      gooseNeck: causeValues.cuelloGanso as number,
+      bifurcatedRoots: causeValues.raicesBifurcadas as number,
+      doubleGrafting: causeValues.dobleInjertacion as number,
+    },
+    ...(typeof value.observaciones === "string" ? {observations: value.observaciones} : {}),
+    observedInventoryVersion: value.versionInventarioObservada as number,
+    deviceTimestamp: value.timestampDispositivo,
+    serverTimestamp: receivedAt.toDate().toISOString(),
+    state: "PENDIENTE_REVISION",
   };
 }
 
@@ -1094,6 +1144,53 @@ export class FirebaseMonitorRepository implements MonitorRepository {
     }
   }
 
+  async approveDiscard(discardId: string, idempotencyKey: string, exceptionReason?: string): Promise<void> {
+    const callable = httpsCallable(this.functions, "aprobarDescarte");
+    try {
+      await callable({
+        descarteId: discardId,
+        claveIdempotencia: idempotencyKey,
+        ...(exceptionReason === undefined ? {} : {motivoExcepcion: exceptionReason}),
+      });
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible aprobar el descarte.", {cause: error});
+    }
+  }
+
+  async returnDiscard(discardId: string, reason: string, idempotencyKey: string): Promise<void> {
+    const callable = httpsCallable(this.functions, "devolverDescarte");
+    try {
+      await callable({descarteId: discardId, motivo: reason, claveIdempotencia: idempotencyKey});
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No fue posible devolver el descarte.", {cause: error});
+    }
+  }
+
+  observeDiscards(
+    user: MonitorUser,
+    onDiscardsSnapshot: (discards: readonly MonitorDiscard[]) => void,
+    onError: (message: string) => void,
+  ): MonitorUnsubscribe {
+    if (!user.canReview) {
+      onError("La cuenta no puede revisar descartes.");
+      return () => undefined;
+    }
+    return onSnapshot(
+      query(collection(this.firestore, "descartes"), where("estado", "==", "PENDIENTE_REVISION")),
+      (snapshot) => {
+        const discards = snapshot.docs.flatMap((documentSnapshot) => {
+          const parsed = parseDiscard(documentSnapshot.id, documentSnapshot.data());
+          return parsed ? [parsed] : [];
+        }).sort((left, right) =>
+          right.serverTimestamp.localeCompare(left.serverTimestamp) ||
+          left.location.displayName.localeCompare(right.location.displayName, "es", {numeric: true})
+        );
+        onDiscardsSnapshot(discards);
+      },
+      () => onError("No fue posible leer los descartes pendientes."),
+    );
+  }
+
   async reassignCountCorrection(
     countId: string,
     newUserId: string,
@@ -1521,6 +1618,18 @@ export class DisabledMonitorRepository implements MonitorRepository {
 
   async returnCount(): Promise<void> {
     throw new Error(this.configurationError);
+  }
+
+  async approveDiscard(): Promise<void> {
+    throw new Error(this.configurationError);
+  }
+
+  async returnDiscard(): Promise<void> {
+    throw new Error(this.configurationError);
+  }
+
+  observeDiscards(): MonitorUnsubscribe {
+    return () => undefined;
   }
 
   async reassignCountCorrection(): Promise<void> {

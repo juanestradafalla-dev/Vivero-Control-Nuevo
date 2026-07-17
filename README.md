@@ -2,9 +2,9 @@
 
 Sistema de inventario por línea compuesto por Vivero Campo (Android), Vivero Maestro (Electron/React para Windows) y un backend transaccional en Firebase. Este repositorio es independiente y no reutiliza código del proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 22 — datos reales preparados localmente
+## Estado: ETAPA 23 — descartes transaccionales y captura sin señal
 
-El código quedó preparado en la ETAPA 20 para dos ambientes y un único proyecto Firebase real. La ETAPA 21 auditó ese proyecto y cerró la eliminación manual autorizada de los datos de prueba. En la ETAPA 22 el propietario completó, dentro del área privada ignorada por Git, los cinco bloques de información real: estructura, inventario inicial, usuarios, históricos y dispositivos/conectividad. La validación local quedó completa y se construyó un paquete privado de catálogo e inventario. **No se ejecutó validación remota, importación, creación de cuentas, despliegue ni puesta en producción.**
+La ETAPA 22 dejó preparados localmente los datos reales sin importarlos. La ETAPA 23 incorpora el flujo A de descartes: Campo registra incluso sin señal, Maestro revisa y solo una aprobación central descuenta el inventario. Las causas pueden superponerse, pero el total único se calcula por hembras, machos y patrones. **No se ejecutó validación remota contra producción, importación, creación de cuentas, despliegue ni puesta en producción.**
 
 | Ambiente | Proyecto | Uso | Datos |
 |---|---|---|---|
@@ -25,7 +25,7 @@ Cada Callable ejecuta la misma frontera antes de autenticar o procesar la solici
 - `PRODUCTION`: `FUNCTIONS_EMULATOR` distinto de `true`, Project ID exacto `viverocontrol-3f83f` y `APP_ENV=production`.
 - cualquier otra combinación se rechaza con `ENVIRONMENT_NOT_ALLOWED`.
 
-Las 30 Callables conservan autenticación, perfil activo, roles, autorización de jornada, validación, versión observada, idempotencia, concurrencia, transacciones y auditoría:
+Las 34 Callables conservan autenticación, perfil activo, roles, autorización, validación, versión observada, idempotencia, concurrencia, transacciones y auditoría:
 
 ```text
 importarPaqueteMigracion             listarImportacionesMigracion
@@ -43,7 +43,9 @@ listarJornadasAdministrables         listarJornadasActivas
 reservarLinea                        enviarConteo
 iniciarCorreccionConteo              reasignarCorreccionConteo
 liberarReservaLinea                  aprobarConteo
-devolverConteo
+devolverConteo                       listarLineasDescarte
+registrarDescarte                    aprobarDescarte
+devolverDescarte
 ```
 
 Importación, reversión, inventario inicial, catálogo y usuarios continúan restringidos a administradores donde corresponde y conservan confirmaciones adicionales. Los clientes no escriben directamente inventario, movimientos, decisiones, auditoría, idempotencia ni estados críticos.
@@ -55,7 +57,7 @@ Importación, reversión, inventario inicial, catálogo y usuarios continúan re
 - `debug` instala `com.arles.viverocampo.emulator`, usa `demo-*` y llama `useEmulator`.
 - `release` conserva `com.arles.viverocampo`, exige `viverocontrol-3f83f` y nunca configura emuladores.
 - Room, preferencias, FirebaseApp, WorkManager y el alias de Android Keystore usan namespaces `emulator` o `production` distintos.
-- autenticación, selección de jornada, reserva, conteo offline, sincronización, corrección e historial local están disponibles en ambos ambientes según permisos.
+- autenticación, restauración de sesión, selección de jornada, reserva, conteo y descarte offline, sincronización, corrección e historial local están disponibles según permisos.
 - la firma real solo puede proporcionarse mediante propiedades locales o variables de entorno; no se versiona ninguna llave.
 
 ### Vivero Maestro
@@ -63,7 +65,7 @@ Importación, reversión, inventario inicial, catálogo y usuarios continúan re
 - `VITE_APP_ENV=emulator` exige emuladores y un proyecto `demo-*`.
 - `VITE_APP_ENV=production` exige `VITE_USE_FIREBASE_EMULATORS=false` y `viverocontrol-3f83f`.
 - API key, App ID y Auth Domain se proporcionan en `.env.local`, ignorado por Git.
-- la interfaz muestra conteos, revisiones, correcciones, jornadas, usuarios, catálogo, inventario inicial y migración según el rol central.
+- la interfaz muestra conteos, descartes pendientes, revisiones, correcciones, jornadas, usuarios, catálogo, inventario inicial y migración según el rol central.
 - Electron Builder queda preparado como `com.arles.viveromaestro`, `Vivero Maestro` y `Vivero-Maestro-Setup-${version}.${ext}`; esta etapa no genera el instalador.
 
 ## Seguridad
@@ -145,6 +147,9 @@ Ese archivo no se crea ni se versiona en esta etapa. Consulte los README de [Viv
 
 ## Documentación vigente
 
+- [Criterios de aceptación de la ETAPA 23](docs/ETAPA_23_CRITERIOS_DE_ACEPTACION.md)
+- [Arquitectura de descartes transaccionales](docs/arquitectura/DESCARTES_TRANSACCIONALES_ETAPA_23.md)
+- [Pruebas de la ETAPA 23](docs/pruebas/PRUEBAS_ETAPA_23.md)
 - [Criterios de aceptación de la ETAPA 22](docs/ETAPA_22_CRITERIOS_DE_ACEPTACION.md)
 - [Preparación privada de datos reales de la ETAPA 22](docs/arquitectura/PREPARACION_DATOS_REALES_ETAPA_22.md)
 - [Pruebas de la ETAPA 22](docs/pruebas/PRUEBAS_ETAPA_22.md)

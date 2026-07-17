@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/return-discard-request.schema.json",
+  "title": "Solicitud devolverDescarte",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["descarteId", "motivo", "claveIdempotencia"],
+  "properties": {
+    "descarteId": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+    "motivo": {"type": "string", "minLength": 3, "maxLength": 2000},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}
+  }
+}

@@ -1,6 +1,7 @@
 package com.arles.viverocampo.domain
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 
 enum class CampoEnvironment {
     EMULATOR,
@@ -18,6 +19,8 @@ interface CampoRepository {
         get() = environment in setOf(CampoEnvironment.EMULATOR, CampoEnvironment.PRODUCTION) && configurationError == null
 
     suspend fun signIn(email: String, password: String): UserProfile
+
+    suspend fun restoreSession(): UserProfile? = null
 
     suspend fun signOut()
 
@@ -59,4 +62,37 @@ interface CampoRepository {
     ): LocalCountDraft
 
     suspend fun synchronizeCount(reservationId: String): CountSyncOutcome
+
+    suspend fun listDiscardLines(): List<DiscardLine> = emptyList()
+
+    suspend fun latestPendingDiscard(userId: String, deviceId: String): LocalDiscardDraft? = null
+
+    suspend fun startDiscardDraft(
+        draftId: String,
+        line: DiscardLine,
+        userId: String,
+        deviceId: String,
+    ): LocalDiscardDraft = throw CampoRepositoryException("NOT_IMPLEMENTED", "Descartes no disponibles.")
+
+    fun observeDiscardDraft(draftId: String, userId: String, deviceId: String): Flow<LocalDiscardDraft?> = emptyFlow()
+
+    suspend fun saveDiscardInput(
+        draftId: String,
+        userId: String,
+        deviceId: String,
+        input: DiscardInput,
+    ) = Unit
+
+    suspend fun freezeDiscardAttempt(
+        draftId: String,
+        userId: String,
+        deviceId: String,
+        idempotencyKey: String,
+        deviceTimestamp: String,
+    ): LocalDiscardDraft = throw CampoRepositoryException("NOT_IMPLEMENTED", "Descartes no disponibles.")
+
+    suspend fun synchronizeDiscard(draftId: String): DiscardSyncOutcome =
+        DiscardSyncOutcome.PermanentFailure("NOT_IMPLEMENTED")
+
+    suspend fun abandonDiscardDraft(draftId: String, userId: String, deviceId: String) = Unit
 }

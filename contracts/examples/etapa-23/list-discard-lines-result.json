@@ -1,0 +1,17 @@
+{
+  "lineas": [
+    {
+      "lineaId": "LINEA-PRUEBA-23",
+      "ubicacion": {
+        "vivero": "Vivero prueba",
+        "modulo": "Módulo 3",
+        "cama": "Cama 1",
+        "linea": "Línea 7",
+        "nombreVisible": "Vivero prueba · Módulo 3 · Cama 1 · Línea 7",
+        "orden": 7
+      },
+      "inventario": {"hembras": 80, "machos": 10, "patrones": 10, "total": 100},
+      "versionInventario": 4
+    }
+  ]
+}

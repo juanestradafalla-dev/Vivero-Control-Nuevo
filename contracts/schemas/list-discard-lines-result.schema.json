@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/list-discard-lines-result.schema.json",
+  "title": "Resultado listarLineasDescarte",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["lineas"],
+  "properties": {
+    "lineas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["lineaId", "ubicacion", "inventario", "versionInventario"],
+        "properties": {
+          "lineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+          "ubicacion": {"$ref": "comun.schema.json#/$defs/ubicacionVisible"},
+          "inventario": {"$ref": "movimiento-historico.schema.json#/$defs/valoresNoNegativos"},
+          "versionInventario": {"type": "integer", "minimum": 1, "maximum": 9007199254740991}
+        }
+      }
+    }
+  }
+}

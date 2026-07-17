@@ -33,6 +33,10 @@ export const CALLABLE_NAMES = Object.freeze([
   "liberarReservaLinea",
   "aprobarConteo",
   "devolverConteo",
+  "listarLineasDescarte",
+  "registrarDescarte",
+  "aprobarDescarte",
+  "devolverDescarte",
 ] as const);
 
 export type RuntimeEnvironment = "EMULATOR" | "PRODUCTION";

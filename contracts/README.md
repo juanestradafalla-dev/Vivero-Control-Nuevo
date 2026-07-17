@@ -2,6 +2,8 @@
 
 Los JSON Schema Draft 2020-12 son el lenguaje común de Campo, Maestro y backend.
 
+La Etapa 23 agrega contratos estrictos para listar líneas disponibles, registrar, aprobar y devolver descartes. El total único se calcula exclusivamente por categorías de planta; las causas pueden superponerse, pero cada causa individual queda limitada por ese total. Solo la aprobación central descuenta inventario y una devolución nunca lo modifica. Los ejemplos ficticios están en `examples/etapa-23/`.
+
 La Etapa 16 agrega contratos estrictos para listar, crear y actualizar ubicaciones y líneas. El árbol usa `ubicacionPadreId` sin fijar niveles productivos; códigos normalizados y campos estructurales solo aparecen en solicitudes de creación. Actualizar acepta exclusivamente nombre visible, orden, estado, versión, motivo y clave. Los ejemplos ficticios están en `examples/etapa-16/`.
 
 La Etapa 14 agrega contratos estrictos para `cancelarJornadaBorrador`, `reabrirJornadaCancelada`, el resumen administrativo de cancelados y la cancelación inmutable. Cancelar solo acepta jornada, versión, motivo y clave; reabrir solo jornada, versión y clave. `INACTIVA` por `CANCELACION_BORRADOR` no equivale a cierre normal y conserva las selecciones preparatorias. Los ejemplos están en `examples/etapa-14/`.

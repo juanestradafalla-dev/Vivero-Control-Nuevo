@@ -1,0 +1,11 @@
+{
+  "descarteId": "DESCARTE-PRUEBA-23",
+  "lineaId": "LINEA-PRUEBA-23",
+  "decisionId": "DECISION-DESCARTE-PRUEBA-23",
+  "movimientoId": "MOVIMIENTO-DESCARTE-PRUEBA-23",
+  "estado": "APROBADO",
+  "inventarioAnterior": {"hembras": 80, "machos": 10, "patrones": 10, "total": 100},
+  "inventarioNuevo": {"hembras": 72, "machos": 8, "patrones": 10, "total": 90},
+  "versionInventario": 5,
+  "aprobadaEn": "2026-07-17T14:05:00.000Z"
+}

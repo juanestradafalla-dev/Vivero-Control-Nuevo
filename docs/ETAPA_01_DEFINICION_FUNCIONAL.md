@@ -141,7 +141,7 @@ La verificación adicional queda fuera del primer MVP. Inicialmente, el supervis
 - La aprobación verificará en una transacción que la versión siga pendiente, que no haya sido aplicada y que el resultado no sea negativo.
 - Esa transacción reemplazará la fotografía oficial de la línea y registrará un ajuste histórico por categoría y total.
 - Por ejemplo, si el total anterior era `1000` y el conteo aprobado es `980`, el nuevo inventario será `980` y el movimiento histórico será `-20`.
-- Las futuras operaciones de descartes y despachos también deberán ser transaccionales e impedir inventarios negativos.
+- Desde la ETAPA 23, los descartes son transaccionales, versionados e impiden inventarios negativos; despachos conserva ese requisito para una etapa futura.
 
 ## 7. Casos normales
 
@@ -171,6 +171,15 @@ La verificación adicional queda fuera del primer MVP. Inicialmente, el supervis
 4. El envío queda pendiente hasta recuperar la conexión.
 5. Al reconectar, la aplicación valida la reserva y sincroniza idempotentemente.
 
+### 7.4 Descarte capturado sin señal y aprobado
+
+1. Campo conserva localmente el catálogo y el inventario observado de la línea.
+2. El usuario registra cantidades por categoría y una o más causas, aun sin cobertura.
+3. La aplicación congela el payload y lo sincroniza idempotentemente al recuperar señal.
+4. El backend crea una captura `PENDIENTE_REVISION` sin modificar inventario.
+5. Maestro permite que un revisor autorizado apruebe o devuelva.
+6. Solo la aprobación descuenta el total único en una transacción que valida la versión vigente.
+
 ## 8. Casos excepcionales
 
 - **Reserva simultánea:** la transacción concede la línea a un solo usuario; el otro recibe el estado actualizado y debe escoger otra.
@@ -184,7 +193,6 @@ La verificación adicional queda fuera del primer MVP. Inicialmente, el supervis
 
 ## 9. Funciones fuera del primer MVP
 
-- descartes;
 - despachos;
 - aplicaciones de productos;
 - productos químicos;
@@ -197,4 +205,4 @@ La verificación adicional queda fuera del primer MVP. Inicialmente, el supervis
 - migración de datos históricos;
 - cualquier integración no descrita expresamente.
 
-Estos módulos se conservarán en la arquitectura funcional de Vivero Maestro, pero no deben bloquear el piloto de jornadas de inventario.
+Descartes se incorporó en la ETAPA 23. Los módulos restantes se conservarán en la arquitectura funcional de Vivero Maestro, pero no deben bloquear el piloto de jornadas de inventario.

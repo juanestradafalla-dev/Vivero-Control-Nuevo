@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/register-discard-result.schema.json",
+  "title": "Resultado registrarDescarte",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["descarteId", "lineaId", "estado", "hembras", "machos", "patrones", "totalUnico", "causas", "versionInventarioObservada", "recibidoEn"],
+  "properties": {
+    "descarteId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "lineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "estado": {"const": "PENDIENTE_REVISION"},
+    "hembras": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "machos": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "patrones": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "totalUnico": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "causas": {"$ref": "register-discard-request.schema.json#/$defs/causas"},
+    "versionInventarioObservada": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "recibidoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

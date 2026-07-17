@@ -11,6 +11,7 @@ import type {
 import {sortMonitorLines} from "../domain/MonitorModels";
 import {CatalogSection} from "./CatalogSection";
 import {DraftJourneysSection} from "./DraftJourneysSection";
+import {DiscardsSection} from "./DiscardsSection";
 import {MigrationValidationSection} from "./MigrationValidationSection";
 import {UsersSection} from "./UsersSection";
 import "./app.css";
@@ -69,7 +70,7 @@ export function App({repository}: AppProps) {
   const [password, setPassword] = useState("");
   const [user, setUser] = useState<MonitorUser>();
   const [activeSection, setActiveSection] = useState<
-    "MONITOR" | "JOURNEYS" | "USERS" | "CATALOG" | "MIGRATION"
+    "MONITOR" | "DISCARDS" | "JOURNEYS" | "USERS" | "CATALOG" | "MIGRATION"
   >("MONITOR");
   const [journeys, setJourneys] = useState<readonly MonitorJourney[]>([]);
   const [selectedJourneyId, setSelectedJourneyId] = useState<string>();
@@ -424,7 +425,7 @@ export function App({repository}: AppProps) {
           <span className="brand-mark" aria-hidden="true">VC</span>
           <div>
             <strong>Vivero Maestro</strong>
-            <small>Revisión transaccional de conteos</small>
+            <small>Revisión transaccional de conteos y descartes</small>
           </div>
         </div>
         {user && (
@@ -440,7 +441,7 @@ export function App({repository}: AppProps) {
       <div className={environmentClass}>
         {environmentLabel}
       </div>
-      {(user?.canManageDraftJourneys || user?.canManageUsers || user?.canManageCatalog) && (
+      {(user?.canReview || user?.canManageDraftJourneys || user?.canManageUsers || user?.canManageCatalog) && (
         <nav className="workspace-nav" aria-label="Secciones de Maestro">
           <button
             className={activeSection === "MONITOR" ? "workspace-tab workspace-tab--active" : "workspace-tab"}
@@ -449,6 +450,20 @@ export function App({repository}: AppProps) {
           >
             Conteos
           </button>
+          {user.canReview && (
+            <button
+              className={activeSection === "DISCARDS" ? "workspace-tab workspace-tab--active" : "workspace-tab"}
+              type="button"
+              onClick={() => {
+                setReviewDialog(undefined);
+                setReassignmentDialog(undefined);
+                setReleaseDialog(undefined);
+                setActiveSection("DISCARDS");
+              }}
+            >
+              Descartes
+            </button>
+          )}
           <button
             className={activeSection === "JOURNEYS" ? "workspace-tab workspace-tab--active" : "workspace-tab"}
             type="button"
@@ -530,6 +545,8 @@ export function App({repository}: AppProps) {
             </button>
           </form>
         </section>
+      ) : activeSection === "DISCARDS" && user.canReview ? (
+        <DiscardsSection repository={repository} user={user} />
       ) : activeSection === "USERS" && user.canManageUsers ? (
         <UsersSection repository={repository} currentUser={user} />
       ) : activeSection === "CATALOG" && user.canManageCatalog ? (

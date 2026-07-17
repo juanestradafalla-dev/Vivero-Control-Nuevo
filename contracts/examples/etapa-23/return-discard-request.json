@@ -1,0 +1,5 @@
+{
+  "descarteId": "DESCARTE-PRUEBA-23",
+  "motivo": "Verificar cantidades antes de aprobar.",
+  "claveIdempotencia": "devolver-descarte-prueba-23-0001"
+}

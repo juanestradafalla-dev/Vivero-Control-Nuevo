@@ -17,6 +17,7 @@ import type {
   MigrationReversalResult,
   MigrationValidationReport,
   MonitorJourney,
+  MonitorDiscard,
   MonitorRepository,
   MonitorSnapshot,
   MonitorUnsubscribe,
@@ -89,6 +90,26 @@ const journeyOne: MonitorJourney = {
   canClose: true,
 };
 
+const pendingDiscard: MonitorDiscard = {
+  id: "DESCARTE-PRUEBA-23",
+  lineId: "LINEA-003",
+  location: pendingLine.location,
+  authorUserId: "uid-auxiliar-1",
+  authorDisplayName: "Auxiliar Descarte",
+  effectiveRole: "AUXILIAR",
+  deviceId: "ANDROID-PRUEBA-23",
+  females: 8,
+  males: 2,
+  rootstocks: 0,
+  uniqueTotal: 10,
+  causes: {dead: 6, nematodes: 5, gooseNeck: 0, bifurcatedRoots: 0, doubleGrafting: 0},
+  observations: "Causas superpuestas",
+  observedInventoryVersion: 4,
+  deviceTimestamp: "2026-07-17T14:00:00.000Z",
+  serverTimestamp: "2026-07-17T14:01:00.000Z",
+  state: "PENDIENTE_REVISION",
+};
+
 class FakeMonitorRepository implements MonitorRepository {
   readonly environment: "EMULATOR" | "PRODUCTION" | "DISABLED" = "EMULATOR";
   readonly emulatorEnabled = true;
@@ -103,6 +124,9 @@ class FakeMonitorRepository implements MonitorRepository {
   unsubscribeCount = 0;
   approved: Array<{countId: string; key: string; reason?: string}> = [];
   returned: Array<{countId: string; reason: string; key: string}> = [];
+  discards: readonly MonitorDiscard[] = [];
+  approvedDiscards: Array<{discardId: string; key: string; reason?: string}> = [];
+  returnedDiscards: Array<{discardId: string; reason: string; key: string}> = [];
   reassigned: Array<{countId: string; newUserId: string; reason: string; key: string}> = [];
   released: Array<{reservationId: string; reason: string; key: string}> = [];
   manageableListCalls = 0;
@@ -630,6 +654,19 @@ class FakeMonitorRepository implements MonitorRepository {
   async returnCount(countId: string, reason: string, key: string): Promise<void> {
     this.returned.push({countId, reason, key});
   }
+  async approveDiscard(discardId: string, key: string, reason?: string): Promise<void> {
+    this.approvedDiscards.push({discardId, key, ...(reason === undefined ? {} : {reason})});
+  }
+  async returnDiscard(discardId: string, reason: string, key: string): Promise<void> {
+    this.returnedDiscards.push({discardId, reason, key});
+  }
+  observeDiscards(
+    _user: MonitorUser,
+    onSnapshot: (discards: readonly MonitorDiscard[]) => void,
+  ): MonitorUnsubscribe {
+    onSnapshot(this.discards);
+    return () => undefined;
+  }
   async reassignCountCorrection(countId: string, newUserId: string, reason: string, key: string): Promise<void> {
     this.reassigned.push({countId, newUserId, reason, key});
   }
@@ -844,6 +881,22 @@ describe("bandeja de revisión de Vivero Maestro", () => {
     await signIn(repository);
     expect(repository.observedJourneyIds).toEqual([snapshot.journeyId]);
     expect(screen.getByLabelText("Jornada activa")).toHaveValue(snapshot.journeyId);
+  });
+
+  it("revisa un descarte y distingue total único de causas superpuestas", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.discards = [pendingDiscard];
+    await signIn(repository);
+
+    fireEvent.click(screen.getByRole("button", {name: "Descartes"}));
+    await screen.findByRole("heading", {name: "Descartes pendientes"});
+    expect(screen.getByText("Total único").nextSibling).toHaveTextContent("10");
+    expect(screen.getByText(/Las causas pueden superponerse/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", {name: "Aprobar y descontar"}));
+    fireEvent.click(screen.getByRole("button", {name: "Confirmar decisión"}));
+    await waitFor(() => expect(repository.approvedDiscards).toHaveLength(1));
+    expect(repository.approvedDiscards[0]?.discardId).toBe(pendingDiscard.id);
   });
 
   it("muestra selector cuando hay varias jornadas y cambia suscripciones sin mezclar datos", async () => {

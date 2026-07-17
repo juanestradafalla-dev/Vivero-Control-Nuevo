@@ -5,6 +5,8 @@ import com.arles.viverocampo.core.FirebaseServices
 import com.arles.viverocampo.data.local.ConfirmedReservationEntity
 import com.arles.viverocampo.data.local.CountDraftEntity
 import com.arles.viverocampo.data.local.CountLocalPersistence
+import com.arles.viverocampo.data.local.DiscardDraftEntity
+import com.arles.viverocampo.data.local.DiscardLineEntity
 import com.arles.viverocampo.data.local.ViveroCampoDatabase
 import com.arles.viverocampo.data.security.EncryptedReservationToken
 import com.arles.viverocampo.data.security.ReservationTokenVault
@@ -16,11 +18,18 @@ import com.arles.viverocampo.domain.ConfirmedReservation
 import com.arles.viverocampo.domain.CountFormValidator
 import com.arles.viverocampo.domain.CountInput
 import com.arles.viverocampo.domain.CountSyncOutcome
+import com.arles.viverocampo.domain.DiscardFormValidator
+import com.arles.viverocampo.domain.DiscardInput
+import com.arles.viverocampo.domain.DiscardLine
+import com.arles.viverocampo.domain.DiscardSyncOutcome
 import com.arles.viverocampo.domain.FrozenCountPayload
+import com.arles.viverocampo.domain.FrozenDiscardPayload
 import com.arles.viverocampo.domain.InitiateCountCorrectionPayload
 import com.arles.viverocampo.domain.JourneyLine
 import com.arles.viverocampo.domain.JourneySnapshot
 import com.arles.viverocampo.domain.LocalCountDraft
+import com.arles.viverocampo.domain.LocalDiscardDraft
+import com.arles.viverocampo.domain.InventoryValues
 import com.arles.viverocampo.domain.ReserveLinePayload
 import com.arles.viverocampo.domain.RELEASED_RESERVATION_MESSAGE
 import com.arles.viverocampo.domain.ReturnedCount
@@ -42,6 +51,8 @@ class FirebaseCampoRepository(
 ) : CampoRepository {
     private val reservationDao = database.confirmedReservationDao()
     private val draftDao = database.countDraftDao()
+    private val discardLineDao = database.discardLineDao()
+    private val discardDraftDao = database.discardDraftDao()
     private val localPersistence = CountLocalPersistence(database)
 
     override suspend fun signIn(email: String, password: String): UserProfile {
@@ -64,6 +75,23 @@ class FirebaseCampoRepository(
             throw error
         } catch (error: Exception) {
             throw CampoRepositoryException("UNAUTHENTICATED", "Correo o contraseña incorrectos.", error)
+        }
+    }
+
+    override suspend fun restoreSession(): UserProfile? {
+        val user = services.auth.currentUser ?: return null
+        return try {
+            val profile = services.firestore.collection("usuarios").document(user.uid).get().await()
+            if (!profile.exists() || profile.getBoolean("activo") != true) {
+                services.auth.signOut()
+                null
+            } else {
+                val role = (profile.get("roles") as? List<*>)?.firstOrNull() as? String
+                    ?: return null
+                UserProfile(user.uid, profile.getString("nombreVisible") ?: "Usuario", role)
+            }
+        } catch (_: Exception) {
+            null
         }
     }
 
@@ -552,6 +580,219 @@ class FirebaseCampoRepository(
         }
     }
 
+    override suspend fun listDiscardLines(): List<DiscardLine> {
+        assertMutableOperationsEnabled()
+        return try {
+            val response = services.functions.getHttpsCallable("listarLineasDescarte")
+                .call(emptyMap<String, Any>()).await().data as? Map<*, *>
+                ?: throw CampoRepositoryException("INVALID_RESPONSE", "La lista de líneas de descarte es inválida.")
+            val rawLines = response["lineas"] as? List<*>
+                ?: throw CampoRepositoryException("INVALID_RESPONSE", "La respuesta no contiene líneas de descarte.")
+            val lines = rawLines.map { parseDiscardLine(it) }
+            database.withTransaction {
+                discardLineDao.clear()
+                discardLineDao.saveAll(lines.map { it.toEntity() })
+            }
+            lines
+        } catch (error: Exception) {
+            val cached = discardLineDao.all().map { it.toDomain() }
+            if (cached.isNotEmpty()) cached else if (error is CampoRepositoryException) throw error else {
+                throw CampoRepositoryException(
+                    "NETWORK_ERROR",
+                    "No hay conexión ni un catálogo de descarte guardado en este teléfono.",
+                    error,
+                )
+            }
+        }
+    }
+
+    override suspend fun latestPendingDiscard(userId: String, deviceId: String): LocalDiscardDraft? =
+        discardDraftDao.latestPending(userId, deviceId)?.toDomain()
+
+    override suspend fun startDiscardDraft(
+        draftId: String,
+        line: DiscardLine,
+        userId: String,
+        deviceId: String,
+    ): LocalDiscardDraft {
+        assertMutableOperationsEnabled()
+        val entity = emptyDiscardDraft(draftId, line, userId, deviceId)
+        discardDraftDao.save(entity)
+        return entity.toDomain()
+    }
+
+    override fun observeDiscardDraft(
+        draftId: String,
+        userId: String,
+        deviceId: String,
+    ): Flow<LocalDiscardDraft?> = discardDraftDao.observe(draftId, userId, deviceId).map { it?.toDomain() }
+
+    override suspend fun saveDiscardInput(
+        draftId: String,
+        userId: String,
+        deviceId: String,
+        input: DiscardInput,
+    ) {
+        assertMutableOperationsEnabled()
+        val existing = discardDraftDao.byId(draftId)
+            ?: throw CampoRepositoryException("INVALID_ARGUMENT", "No existe el borrador de descarte.")
+        if (existing.userId != userId || existing.deviceId != deviceId) {
+            throw CampoRepositoryException("DRAFT_ACCESS_DENIED", "El borrador pertenece a otra cuenta o dispositivo.")
+        }
+        if (existing.syncState == SyncState.ENVIADA.name) return
+        if (existing.idempotencyKey != null && existing.syncState != SyncState.ERROR.name) return
+        val changedAfterError = existing.syncState == SyncState.ERROR.name && existing.input() != input
+        discardDraftDao.save(
+            existing.copy(
+                femalesInput = input.females,
+                malesInput = input.males,
+                rootstocksInput = input.rootstocks,
+                deadInput = input.dead,
+                nematodesInput = input.nematodes,
+                gooseNeckInput = input.gooseNeck,
+                bifurcatedRootsInput = input.bifurcatedRoots,
+                doubleGraftingInput = input.doubleGrafting,
+                observationsInput = input.observations,
+                syncState = if (changedAfterError) SyncState.PENDIENTE.name else existing.syncState,
+                frozenFemales = if (changedAfterError) null else existing.frozenFemales,
+                frozenMales = if (changedAfterError) null else existing.frozenMales,
+                frozenRootstocks = if (changedAfterError) null else existing.frozenRootstocks,
+                frozenDead = if (changedAfterError) null else existing.frozenDead,
+                frozenNematodes = if (changedAfterError) null else existing.frozenNematodes,
+                frozenGooseNeck = if (changedAfterError) null else existing.frozenGooseNeck,
+                frozenBifurcatedRoots = if (changedAfterError) null else existing.frozenBifurcatedRoots,
+                frozenDoubleGrafting = if (changedAfterError) null else existing.frozenDoubleGrafting,
+                frozenObservations = if (changedAfterError) null else existing.frozenObservations,
+                frozenDeviceTimestamp = if (changedAfterError) null else existing.frozenDeviceTimestamp,
+                idempotencyKey = if (changedAfterError) null else existing.idempotencyKey,
+                errorCode = if (changedAfterError) null else existing.errorCode,
+                errorMessage = if (changedAfterError) null else existing.errorMessage,
+                updatedAtEpochMillis = System.currentTimeMillis(),
+            ),
+        )
+    }
+
+    override suspend fun freezeDiscardAttempt(
+        draftId: String,
+        userId: String,
+        deviceId: String,
+        idempotencyKey: String,
+        deviceTimestamp: String,
+    ): LocalDiscardDraft = database.withTransaction {
+        assertMutableOperationsEnabled()
+        val existing = discardDraftDao.byId(draftId)
+            ?: throw CampoRepositoryException("INVALID_ARGUMENT", "No existe el borrador de descarte.")
+        if (existing.userId != userId || existing.deviceId != deviceId) {
+            throw CampoRepositoryException("DRAFT_ACCESS_DENIED", "El borrador pertenece a otra cuenta o dispositivo.")
+        }
+        if (existing.idempotencyKey != null) return@withTransaction existing.toDomain()
+        val validation = DiscardFormValidator.validate(existing.input())
+        if (!validation.valid) throw CampoRepositoryException("INVALID_ARGUMENT", "Corrige los campos marcados.")
+        val values = validation.values.map { requireNotNull(it) }
+        if (
+            values[0] > existing.inventoryFemales || values[1] > existing.inventoryMales ||
+            values[2] > existing.inventoryRootstocks
+        ) {
+            throw CampoRepositoryException("DISCARD_EXCEEDS_INVENTORY", "El descarte supera el inventario guardado.")
+        }
+        val frozen = existing.copy(
+            syncState = SyncState.PENDIENTE.name,
+            frozenFemales = values[0],
+            frozenMales = values[1],
+            frozenRootstocks = values[2],
+            frozenDead = values[3],
+            frozenNematodes = values[4],
+            frozenGooseNeck = values[5],
+            frozenBifurcatedRoots = values[6],
+            frozenDoubleGrafting = values[7],
+            frozenObservations = existing.observationsInput,
+            frozenDeviceTimestamp = deviceTimestamp,
+            idempotencyKey = idempotencyKey,
+            errorCode = null,
+            errorMessage = null,
+            updatedAtEpochMillis = System.currentTimeMillis(),
+        )
+        discardDraftDao.save(frozen)
+        frozen.toDomain()
+    }
+
+    override suspend fun synchronizeDiscard(draftId: String): DiscardSyncOutcome {
+        assertMutableOperationsEnabled()
+        val draft = discardDraftDao.byId(draftId)
+            ?: return DiscardSyncOutcome.PermanentFailure("DRAFT_NOT_FOUND")
+        if (draft.syncState == SyncState.ENVIADA.name) return DiscardSyncOutcome.Success
+        if (services.auth.currentUser?.uid != draft.userId) {
+            return markDiscardFailure(draft, "DRAFT_ACCESS_DENIED", "Inicia sesión con la cuenta responsable.", false)
+        }
+        val frozen = draft.toDomain().frozenPayload
+            ?: return markDiscardFailure(draft, "ATTEMPT_NOT_CONFIRMED", "Confirma el resumen primero.", false)
+        discardDraftDao.save(draft.copy(syncState = SyncState.SINCRONIZANDO.name, errorCode = null, errorMessage = null))
+        return try {
+            val response = services.functions.getHttpsCallable("registrarDescarte")
+                .call(frozen.toWireMap()).await().data as? Map<*, *>
+                ?: return markDiscardFailure(draft, "INVALID_RESPONSE", "Respuesta inválida del servidor.", true)
+            val discardId = response["descarteId"] as? String
+                ?: return markDiscardFailure(draft, "INVALID_RESPONSE", "Falta el identificador del descarte.", true)
+            val centralState = response["estado"] as? String
+                ?: return markDiscardFailure(draft, "INVALID_RESPONSE", "Falta el estado del descarte.", true)
+            val receivedAt = response["recibidoEn"] as? String
+                ?: return markDiscardFailure(draft, "INVALID_RESPONSE", "Falta la hora de recepción.", true)
+            discardDraftDao.save(
+                draft.copy(
+                    syncState = SyncState.ENVIADA.name,
+                    errorCode = null,
+                    errorMessage = null,
+                    discardId = discardId,
+                    centralState = centralState,
+                    serverReceivedAt = receivedAt,
+                    updatedAtEpochMillis = System.currentTimeMillis(),
+                ),
+            )
+            DiscardSyncOutcome.Success
+        } catch (error: FirebaseFunctionsException) {
+            val code = (error.details as? Map<*, *>)?.get("code") as? String ?: "NETWORK_ERROR"
+            val retryable = code in RETRYABLE_CODES
+            val message = when (code) {
+                "DISCARD_STALE_INVENTORY" -> "El inventario cambió; vuelve a elegir la línea y registra nuevamente."
+                "DISCARD_EXCEEDS_INVENTORY" -> "El descarte supera el inventario oficial disponible."
+                else -> if (retryable) "Sin confirmación central; se reintentará sin duplicar." else "Envío rechazado ($code)."
+            }
+            markDiscardFailure(draft, code, message, retryable)
+        } catch (_: Exception) {
+            markDiscardFailure(draft, "NETWORK_ERROR", "Sin confirmación central; se reintentará sin duplicar.", true)
+        }
+    }
+
+    override suspend fun abandonDiscardDraft(draftId: String, userId: String, deviceId: String) {
+        val draft = discardDraftDao.byId(draftId)
+            ?: throw CampoRepositoryException("DRAFT_NOT_FOUND", "El borrador ya no existe.")
+        if (draft.userId != userId || draft.deviceId != deviceId) {
+            throw CampoRepositoryException("DRAFT_ACCESS_DENIED", "El borrador pertenece a otra cuenta o dispositivo.")
+        }
+        if (draft.syncState == SyncState.SINCRONIZANDO.name || draft.syncState == SyncState.ENVIADA.name) {
+            throw CampoRepositoryException("DRAFT_STATE_INVALID", "Este borrador ya no puede eliminarse localmente.")
+        }
+        discardDraftDao.delete(draftId, userId, deviceId)
+    }
+
+    private suspend fun markDiscardFailure(
+        draft: DiscardDraftEntity,
+        code: String,
+        message: String,
+        retryable: Boolean,
+    ): DiscardSyncOutcome {
+        val current = discardDraftDao.byId(draft.draftId) ?: draft
+        discardDraftDao.save(
+            current.copy(
+                syncState = SyncState.ERROR.name,
+                errorCode = code,
+                errorMessage = message,
+                updatedAtEpochMillis = System.currentTimeMillis(),
+            ),
+        )
+        return if (retryable) DiscardSyncOutcome.Retryable(code) else DiscardSyncOutcome.PermanentFailure(code)
+    }
+
     private suspend fun markFailure(
         draft: CountDraftEntity,
         code: String,
@@ -684,6 +925,144 @@ class FirebaseCampoRepository(
         countId = countId,
         centralState = centralState,
         serverReceivedAt = serverReceivedAt,
+    )
+
+    private fun parseDiscardLine(value: Any?): DiscardLine {
+        val line = value as? Map<*, *> ?: invalidResponse("Una línea de descarte no tiene formato válido.")
+        val inventory = line["inventario"] as? Map<*, *> ?: invalidResponse("Falta el inventario de la línea.")
+        return DiscardLine(
+            lineId = line["lineaId"] as? String ?: invalidResponse("Falta lineaId."),
+            location = parseLocation(line["ubicacion"]) ?: invalidResponse("Falta la ubicación."),
+            inventory = InventoryValues(
+                females = (inventory["hembras"] as? Number)?.toLong() ?: invalidResponse("Faltan hembras."),
+                males = (inventory["machos"] as? Number)?.toLong() ?: invalidResponse("Faltan machos."),
+                rootstocks = (inventory["patrones"] as? Number)?.toLong() ?: invalidResponse("Faltan patrones."),
+                total = (inventory["total"] as? Number)?.toLong() ?: invalidResponse("Falta el total."),
+            ),
+            inventoryVersion = (line["versionInventario"] as? Number)?.toLong()
+                ?: invalidResponse("Falta la versión del inventario."),
+        )
+    }
+
+    private fun DiscardLine.toEntity() = DiscardLineEntity(
+        lineId = lineId,
+        nursery = location.nursery,
+        module = location.module,
+        bed = location.bed,
+        line = location.line,
+        displayName = location.displayName,
+        orderValue = location.order,
+        inventoryFemales = inventory.females,
+        inventoryMales = inventory.males,
+        inventoryRootstocks = inventory.rootstocks,
+        inventoryTotal = inventory.total,
+        inventoryVersion = inventoryVersion,
+        cachedAtEpochMillis = System.currentTimeMillis(),
+    )
+
+    private fun DiscardLineEntity.toDomain() = DiscardLine(
+        lineId = lineId,
+        location = VisibleLocation(nursery, module, bed, line, displayName, orderValue),
+        inventory = InventoryValues(inventoryFemales, inventoryMales, inventoryRootstocks, inventoryTotal),
+        inventoryVersion = inventoryVersion,
+    )
+
+    private fun DiscardDraftEntity.input() = DiscardInput(
+        femalesInput, malesInput, rootstocksInput, deadInput, nematodesInput,
+        gooseNeckInput, bifurcatedRootsInput, doubleGraftingInput, observationsInput,
+    )
+
+    private fun DiscardDraftEntity.toDomain(): LocalDiscardDraft {
+        val line = DiscardLine(
+            lineId = lineId,
+            location = VisibleLocation(nursery, module, bed, this.line, displayName, orderValue),
+            inventory = InventoryValues(inventoryFemales, inventoryMales, inventoryRootstocks, inventoryTotal),
+            inventoryVersion = inventoryVersion,
+        )
+        val frozenValues = listOf(
+            frozenFemales, frozenMales, frozenRootstocks, frozenDead, frozenNematodes,
+            frozenGooseNeck, frozenBifurcatedRoots, frozenDoubleGrafting,
+        )
+        return LocalDiscardDraft(
+            draftId = draftId,
+            userId = userId,
+            deviceId = deviceId,
+            line = line,
+            input = input(),
+            syncState = SyncState.valueOf(syncState),
+            frozenPayload = if (
+                frozenValues.all { it != null } && frozenObservations != null &&
+                frozenDeviceTimestamp != null && idempotencyKey != null
+            ) {
+                FrozenDiscardPayload(
+                    draftId = draftId,
+                    lineId = lineId,
+                    inventoryVersion = inventoryVersion,
+                    deviceId = deviceId,
+                    values = frozenValues.map { requireNotNull(it) },
+                    observations = frozenObservations,
+                    deviceTimestamp = frozenDeviceTimestamp,
+                    idempotencyKey = idempotencyKey,
+                )
+            } else {
+                null
+            },
+            errorCode = errorCode,
+            errorMessage = errorMessage,
+            discardId = discardId,
+            centralState = centralState,
+            serverReceivedAt = serverReceivedAt,
+        )
+    }
+
+    private fun emptyDiscardDraft(
+        draftId: String,
+        line: DiscardLine,
+        userId: String,
+        deviceId: String,
+    ) = DiscardDraftEntity(
+        draftId = draftId,
+        userId = userId,
+        deviceId = deviceId,
+        lineId = line.lineId,
+        inventoryVersion = line.inventoryVersion,
+        nursery = line.location.nursery,
+        module = line.location.module,
+        bed = line.location.bed,
+        line = line.location.line,
+        displayName = line.location.displayName,
+        orderValue = line.location.order,
+        inventoryFemales = line.inventory.females,
+        inventoryMales = line.inventory.males,
+        inventoryRootstocks = line.inventory.rootstocks,
+        inventoryTotal = line.inventory.total,
+        femalesInput = "",
+        malesInput = "",
+        rootstocksInput = "",
+        deadInput = "",
+        nematodesInput = "",
+        gooseNeckInput = "",
+        bifurcatedRootsInput = "",
+        doubleGraftingInput = "",
+        observationsInput = "",
+        syncState = SyncState.PENDIENTE.name,
+        frozenFemales = null,
+        frozenMales = null,
+        frozenRootstocks = null,
+        frozenDead = null,
+        frozenNematodes = null,
+        frozenGooseNeck = null,
+        frozenBifurcatedRoots = null,
+        frozenDoubleGrafting = null,
+        frozenObservations = null,
+        frozenDeviceTimestamp = null,
+        idempotencyKey = null,
+        errorCode = null,
+        errorMessage = null,
+        discardId = null,
+        centralState = null,
+        serverReceivedAt = null,
+        updatedAtEpochMillis = System.currentTimeMillis(),
     )
 
     private fun emptyDraft(reservationId: String, userId: String, deviceId: String) = CountDraftEntity(

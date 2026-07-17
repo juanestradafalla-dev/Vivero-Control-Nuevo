@@ -1,5 +1,22 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "descartes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "estado", "order": "ASCENDING"},
+        {"fieldPath": "recibidoEn", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "descartes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "autorUsuarioId", "order": "ASCENDING"},
+        {"fieldPath": "recibidoEn", "order": "DESCENDING"}
+      ]
+    }
+  ],
   "fieldOverrides": [
     {
       "collectionGroup": "autorizaciones",

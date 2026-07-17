@@ -25,10 +25,12 @@ VITE_FIREBASE_AUTH_DOMAIN=VALOR_LOCAL
 ## Funciones por rol
 
 - Auxiliar: solo la visibilidad que permiten las reglas y autorizaciones centrales; no recibe acciones administrativas.
-- Supervisor autorizado: revisión, devolución, aprobación permitida, correcciones, reasignación, liberación y gestión de sus jornadas.
+- Supervisor autorizado: revisión de conteos y descartes, devolución, aprobación permitida, correcciones, reasignación, liberación y gestión de sus jornadas.
 - Administrador activo: las operaciones anteriores más jornadas globales, usuarios, catálogo, inventario inicial, validación, importación y reversión controlada.
 
 El backend vuelve a validar rol, perfil, jornada, versión, idempotencia y estado. La interfaz no sustituye la autorización central.
+
+En descartes, Maestro muestra categorías, causas, total único, versión observada y autor. Devolver exige motivo y no toca inventario. Aprobar solicita la transacción central; un supervisor no puede autorrevisarse y un administrador necesita motivo de excepción para hacerlo.
 
 ## CSP
 

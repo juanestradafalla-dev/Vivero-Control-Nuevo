@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/approve-discard-request.schema.json",
+  "title": "Solicitud aprobarDescarte",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["descarteId", "claveIdempotencia"],
+  "properties": {
+    "descarteId": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+    "motivoExcepcion": {"type": "string", "minLength": 3, "maxLength": 2000},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}
+  },
+  "description": "motivoExcepcion solo se admite para la autorrevisión excepcional de un administrador."
+}

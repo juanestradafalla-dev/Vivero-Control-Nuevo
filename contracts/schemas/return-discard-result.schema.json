@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/return-discard-result.schema.json",
+  "title": "Resultado devolverDescarte",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["descarteId", "lineaId", "decisionId", "estado", "devueltoEn"],
+  "properties": {
+    "descarteId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "lineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "decisionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "estado": {"const": "DEVUELTO"},
+    "devueltoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

@@ -30,5 +30,5 @@
 
 - [x] Pruebas puras de preparación y ceros confirmados aprobadas.
 - [x] Lint y typecheck de Functions aprobados.
-- [ ] Integración de preflight e importación con Emulator Suite aprobada.
-- [ ] Escaneo final de privados, secretos, diff y estado Git aprobado.
+- [x] Integración de preflight e importación con Emulator Suite aprobada en CI con Java 21.
+- [x] Escaneo final de privados, secretos, diff y estado Git aprobado.

@@ -28,5 +28,6 @@ La validación privada se ejecuta por separado y escribe solo bajo `.private/`. 
 - pruebas puras de auditoría: aprobadas;
 - lint: aprobado;
 - typecheck: aprobado;
-- Emulator Suite: pendiente de ejecución de cierre;
+- Emulator Suite: aprobada en CI con Java 21;
+- contratos, Campo, Maestro y escaneo de secretos: aprobados en CI;
 - operaciones remotas: cero.

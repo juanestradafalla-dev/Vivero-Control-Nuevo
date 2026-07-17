@@ -1,10 +1,18 @@
-# ETAPA 21 — Plan de respaldo, limpieza, corte y rollback
+# ETAPA 21 — Plan futuro de respaldo, limpieza, corte y rollback
 
 ## Regla de no ejecución
 
-Este documento es un diseño para una fase posterior. En FASE A no se ejecuta ningún backup, despliegue, alta, importación, cambio de IAM, limpieza o restauración. Ningún ejemplo constituye autorización y no se define un comando de “borrar todo”.
+Este documento es un diseño para una fase posterior. La preparación de FASE B no ejecuta ningún backup, despliegue, alta, importación, cambio de IAM, limpieza o restauración. Ningún ejemplo constituye autorización y no se define un comando de “borrar todo”.
 
 El Project ID se conserva siempre como `viverocontrol-3f83f`, Firestore permanece en `nam5` y Functions en `us-central1`.
+
+## Bloqueo vigente
+
+```text
+BACKUP_PENDIENTE
+```
+
+El propietario decidió aplazar backups, PITR, protección contra borrado y pruebas de restauración. El aplazamiento mantiene —no elimina— la puerta de seguridad: mientras exista `BACKUP_PENDIENTE`, ningún manifiesto o herramienta futura puede autorizar borrado, reemplazo o limpieza. La utilidad incorporada en esta preparación solo valida que el bloqueo esté presente y nunca devuelve permiso de limpieza.
 
 ## Puertas previas obligatorias
 
@@ -21,7 +29,7 @@ El responsable del cambio debe detener el proceso si falta cualquiera de estas e
 9. datos reales y cuentas iniciales aprobados por el propietario;
 10. criterios de humo, RPO, RTO y responsables de rollback completos.
 
-La evidencia actual no supera las puertas 4 a 10. No hay backup programado, backup listado o PITR.
+La evidencia actual no supera las puertas 4 a 10. No hay backup programado, backup listado o PITR, y su ejecución fue aplazada expresamente.
 
 ## Plan verificable de respaldo
 
@@ -50,13 +58,28 @@ No puede iniciarse limpieza si la exportación Firestore no figura `SUCCESS`, si
 
 Cada objetivo debe tener: servicio, ID exacto mantenido fuera de Git, hash para revisión, motivo, evidencia de clasificación, dependencia, aprobador, operador, hora y resultado. No se admiten prefijos amplios, comodines, rangos por fecha, “todo staging” ni “todo lo antiguo”.
 
-El inventario actual solo confirma como recursos de prueba dos registros de aplicación llamados Staging. No hay usuarios o documentos `FICTICIO_CONFIRMADO`; por tanto, no existe hoy un lote autorizado de limpieza de Auth o Firestore.
+El inventario privado actual marca dos registros llamados Staging como `CANDIDATO_ELIMINACION_FUTURA`; esa etiqueta no confirma eliminación. No hay cuentas o documentos autorizados para limpieza de Auth o Firestore.
+
+### Categorías actuales del futuro manifiesto
+
+| Categoría | Estado sanitizado | Tratamiento mientras exista el bloqueo |
+|---|---|---|
+| cuentas candidatas | 0 confirmadas; 3 en revisión | conservar |
+| aplicaciones candidatas | 2 candidatas provisionales; 1 en revisión | conservar |
+| colecciones o grupos candidatos | 0 confirmados; 12 en revisión | conservar |
+| documentos ambiguos | 41, incluidos 3 anidados | conservar |
+| Functions que serán sustituidas | 11 | conservar hasta reemplazo controlado |
+| buckets técnicos | 2 | conservar |
+| objetos técnicos | no reenumerados en esta preparación | conservar y no abrir/descargar |
+| principales IAM | 5 en revisión | no modificar |
+
+Los identificadores exactos solo existen en `.private/`. Una futura candidatura debe registrar ID exacto, dependencia, motivo y aprobación; las cantidades de esta tabla no constituyen un lote ejecutable.
 
 ### Orden y pausas
 
 1. **Clientes y accesos de prueba.** Revocar distribución y credenciales de clientes aprobados; verificar que no queden sesiones operativas. Pausa y conciliación.
 2. **Authentication.** Procesar solo UID exactos aprobados. Los tres usuarios actuales quedan fuera mientras sean `REQUIERE_REVISION`. Pausa y conciliación de totales.
-3. **Firestore.** Procesar documentos exactos y sus subcolecciones explícitas. Los 38 documentos de nivel superior actuales y todos los documentos anidados aún no cuantificados quedan fuera. Nunca usar borrado recursivo amplio. Pausa por colección.
+3. **Firestore.** Procesar documentos exactos y sus subcolecciones explícitas. Los 38 documentos de nivel superior y los 3 anidados actuales quedan fuera mientras sean `REQUIERE_REVISION`. Nunca usar borrado recursivo amplio. Pausa por colección.
 4. **Storage.** Procesar nombres y generaciones exactas. Los dos buckets técnicos de Functions se conservan. Nunca eliminar buckets completos por patrón. Pausa por bucket.
 5. **Functions.** Retirar únicamente Functions remotas extra y aprobadas; la auditoría encontró cero extras. Las 11 existentes se conservan y las 19 ausentes no son objetivos de limpieza.
 6. **Apps registradas.** Tratar por separado Android staging, Web staging y el Android heredado. Ninguno se elimina sin confirmar consumidores, respaldo de configuración y aprobación.

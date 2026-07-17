@@ -1,128 +1,93 @@
 # ETAPA 21 — Información real requerida al propietario
 
-## Instrucciones
+## Uso seguro
 
-Esta plantilla debe completarse fuera del repositorio si contiene información personal, inventario real o datos operativos sensibles. En Git solo permanece vacía. No adjuntar contraseñas, tokens, API keys, cuentas de servicio, llaves de firma o credenciales.
+Esta copia versionada define campos y permanece vacía. La versión editable se crea bajo `.private/etapa-21/fase-b/`; allí puede contener información real y nunca debe añadirse a Git.
 
-Cada bloque requiere responsable, fuente, fecha de corte y aprobación. Un campo vacío significa “no decidido”; no debe completarse con supuestos.
+Complete un bloque por vez. Un campo vacío significa pendiente y no debe reemplazarse con supuestos. No entregue contraseñas, códigos de recuperación, tokens, API keys, cuentas de servicio, llaves de firma ni credenciales.
 
-## 1. Jerarquía exacta del vivero
+## Bloque A — Estructura
 
-| Campo | Valor aprobado |
+| Campo general | Valor privado aprobado |
 |---|---|
-| nombre operativo | `[pendiente]` |
-| ubicaciones principales | `[pendiente]` |
-| módulos por ubicación | `[pendiente]` |
-| camas por módulo | `[pendiente]` |
-| líneas por cama | `[pendiente]` |
-| relación padre/hijo | `[pendiente]` |
-| responsable de validar estructura | `[pendiente]` |
+| nombre del vivero | `[pendiente]` |
+| responsable de validar la estructura | `[pendiente]` |
 
-Adjuntar fuera de Git una tabla con códigos, nombres visibles, orden, estado y relación exacta de cada elemento.
+Para cada ubicación, módulo o cama:
 
-## 2. Códigos y reglas de identidad
+| clave externa | código | tipo | nombre visible | clave del padre o raíz | orden | activa/inactiva |
+|---|---|---|---|---|---:|---|
+| `[pendiente]` | `[pendiente]` | `[pendiente]` | `[pendiente]` | `[pendiente]` | `[pendiente]` | `[pendiente]` |
 
-| Decisión | Valor aprobado |
-|---|---|
-| formato de código de ubicación | `[pendiente]` |
-| formato de código de línea | `[pendiente]` |
-| unicidad | `[pendiente]` |
-| tratamiento de códigos heredados | `[pendiente]` |
-| tratamiento de inactivos/reorganizados | `[pendiente]` |
-| responsable de aprobar correspondencias | `[pendiente]` |
+Para cada línea:
 
-## 3. Inventario inicial
+| clave externa | código | nombre visible | ubicación asociada | orden | activa/inactiva |
+|---|---|---|---|---:|---|
+| `[pendiente]` | `[pendiente]` | `[pendiente]` | `[pendiente]` | `[pendiente]` | `[pendiente]` |
 
-| Campo | Valor aprobado |
-|---|---|
-| fuente oficial | `[pendiente]` |
-| propietario de la fuente | `[pendiente]` |
-| fecha y hora de corte | `[pendiente]` |
-| zona horaria | `[pendiente]` |
-| cantidad total de líneas | `[pendiente]` |
-| suma de hembras | `[pendiente]` |
-| suma de machos | `[pendiente]` |
-| suma de patrones | `[pendiente]` |
-| conciliación independiente | `[pendiente]` |
-| aprobador final | `[pendiente]` |
+No combine una cama y una línea como si fueran la misma entidad. Declare explícitamente la relación padre/hijo y los elementos inactivos.
 
-La entrega privada debe indicar cantidades por línea, checksum del archivo, versión del contrato y resultado del preflight. No copiar datos reales a ejemplos versionados.
+## Bloque B — Inventario inicial
 
-## 4. Usuarios iniciales y roles
+Una fila por línea. El total debe ser `hembras + machos + patrones`; no lo estime ni lo complete con cero si la fuente no está disponible.
 
-| Identificador interno | Rol requerido | Alcance | Estado de aprobación |
-|---|---|---|---|
-| `[pendiente]` | `[administrador/supervisor/auxiliar]` | `[pendiente]` | `[pendiente]` |
+| línea | hembras | machos | patrones | total calculado | fecha de corte | fuente | responsable | observación |
+|---|---:|---:|---:|---:|---|---|---|---|
+| `[pendiente]` | `[pendiente]` | `[pendiente]` | `[pendiente]` | `[pendiente]` | `[pendiente]` | `[pendiente]` | `[pendiente]` | `[opcional]` |
 
-Los correos de acceso se entregan por un canal privado aprobado. El repositorio solo debe registrar cantidades y roles agregados.
+Antes de aprobar este bloque registre cantidad de líneas, sumas por categoría, zona horaria, conciliador independiente y aprobador final.
 
-Definir además:
+## Bloque C — Usuarios
 
-- quién crea, habilita, deshabilita y revisa cuentas;
-- quién entrega el acceso inicial;
-- recuperación de contraseña y verificación de identidad;
-- tratamiento de retiro, ausencia o cambio de rol;
-- revisión periódica de cuentas y mínimo privilegio.
+| nombre visible | correo | rol | estado | puede contar | puede revisar | jornadas iniciales | zonas iniciales | responsable de creación | responsable de entrega |
+|---|---|---|---|---|---|---|---|---|---|
+| `[pendiente]` | `[privado]` | `[ADMINISTRADOR/SUPERVISOR/AUXILIAR]` | `[ACTIVO/INACTIVO]` | `[sí/no]` | `[sí/no]` | `[lista o ninguna]` | `[lista o ninguna]` | `[pendiente]` | `[pendiente]` |
 
-## 5. Datos históricos a conservar
+No registre contraseñas. Defina por separado quién habilita, deshabilita, revisa y recupera cuentas y cómo se verifica la identidad del titular.
 
-| Fuente | Periodo | Tipo de dato | Motivo de conservación | Responsable |
+## Bloque D — Históricos
+
+Elija exactamente una opción:
+
+- `CONSERVAR_HISTORICOS`, y complete al menos una fuente; o
+- `SIN_HISTORICOS_A_MIGRAR`.
+
+| fuente | formato | rango de fechas | responsable | calidad conocida |
 |---|---|---|---|---|
-| `[pendiente]` | `[pendiente]` | `[pendiente]` | `[pendiente]` | `[pendiente]` |
+| `[pendiente si se conservan]` | `[pendiente]` | `[pendiente]` | `[pendiente]` | `[pendiente]` |
 
-Indicar si deben conservarse usuarios, auditoría, jornadas, conteos, inventario, movimientos, archivos o configuraciones heredadas. Cualquier dato no decidido queda `REQUIERE_REVISION` y no se elimina.
+Indique si la decisión comprende usuarios, jornadas, conteos, inventario, movimientos, auditoría, archivos y configuraciones. Un grupo no decidido permanece `REQUIERE_REVISION`.
 
-## 6. Dispositivos Android y conectividad
+## Bloque E — Dispositivos y conectividad
 
-| Modelo | Versión Android | Cantidad | Restricciones | Responsable |
-|---|---|---:|---|---|
-| `[pendiente]` | `[pendiente]` | `[pendiente]` | `[pendiente]` | `[pendiente]` |
+### Celulares
 
-Medir y entregar:
+| modelo | versión Android | cantidad | compartido/personal |
+|---|---|---:|---|
+| `[pendiente]` | `[pendiente]` | `[pendiente]` | `[COMPARTIDO/PERSONAL]` |
 
-- zonas con señal buena, intermitente y sin señal;
-- duración típica y máxima de interrupciones;
-- red móvil/Wi-Fi disponible;
-- almacenamiento libre, batería y políticas de bloqueo;
-- uso compartido o individual de equipos;
-- procedimiento de pérdida, reemplazo y recuperación de Keystore.
+### Cobertura
 
-## 7. Retención local, auditoría y privacidad
+| zona | señal | interrupción habitual en minutos | interrupción máxima en minutos |
+|---|---|---:|---:|
+| `[pendiente]` | `[BUENA/INTERMITENTE/SIN_SENAL]` | `[pendiente]` | `[pendiente]` |
 
-| Política | Valor aprobado |
-|---|---|
-| retención de borradores locales | `[pendiente]` |
-| retención de conteos enviados | `[pendiente]` |
-| limpieza al cerrar sesión | `[pendiente]` |
-| retención central de auditoría | `[pendiente]` |
-| acceso a auditoría | `[pendiente]` |
-| datos personales visibles entre usuarios | `[pendiente]` |
-| exportación y eliminación legal | `[pendiente]` |
+### Computador de Maestro
 
-## 8. Backups, despliegues y rollback
+| sistema operativo | versión | responsable |
+|---|---|---|
+| `[pendiente]` | `[pendiente]` | `[pendiente]` |
 
-| Responsabilidad | Persona/rol aprobado |
-|---|---|
-| propietario del servicio | `[pendiente]` |
-| operador de backup | `[pendiente]` |
-| revisor de restauración | `[pendiente]` |
-| operador de despliegue | `[pendiente]` |
-| aprobador del corte | `[pendiente]` |
-| responsable de rollback | `[pendiente]` |
-| responsable de costos/alertas | `[pendiente]` |
+Registre además disponibilidad de Wi-Fi/datos, dispositivos compartidos, pérdida o reemplazo, almacenamiento, batería y política de bloqueo.
 
-Definir frecuencia y retención de backups, RPO, RTO, bucket autorizado, cifrado, prueba de restauración, ventana de corte, umbrales de humo y canal de incidente.
+## Validación y aprobación
 
-## 9. Aprobación final
+| Bloque | Responsable | Fecha | Evidencia privada | Estado |
+|---|---|---|---|---|
+| estructura | `[pendiente]` | `[pendiente]` | `[pendiente]` | `INCOMPLETO` |
+| inventario inicial | `[pendiente]` | `[pendiente]` | `[pendiente]` | `INCOMPLETO` |
+| usuarios | `[pendiente]` | `[pendiente]` | `[pendiente]` | `INCOMPLETO` |
+| históricos | `[pendiente]` | `[pendiente]` | `[pendiente]` | `INCOMPLETO` |
+| dispositivos y conectividad | `[pendiente]` | `[pendiente]` | `[pendiente]` | `INCOMPLETO` |
 
-| Control | Responsable | Fecha | Evidencia |
-|---|---|---|---|
-| estructura validada | `[pendiente]` | `[pendiente]` | `[pendiente]` |
-| inventario conciliado | `[pendiente]` | `[pendiente]` | `[pendiente]` |
-| usuarios/roles aprobados | `[pendiente]` | `[pendiente]` | `[pendiente]` |
-| históricos definidos | `[pendiente]` | `[pendiente]` | `[pendiente]` |
-| dispositivos/señal medidos | `[pendiente]` | `[pendiente]` | `[pendiente]` |
-| backup/restore aprobados | `[pendiente]` | `[pendiente]` | `[pendiente]` |
-| corte y rollback aprobados | `[pendiente]` | `[pendiente]` | `[pendiente]` |
-
-FASE B no comienza mientras exista un campo obligatorio pendiente.
+El paquete privado de catálogo no puede generarse mientras estructura o inventario estén incompletos, ni cuando el conjunto contenga errores. Los cinco bloques deben completarse antes del corte. La validación local y un paquete válido tampoco autorizan importación, despliegue o limpieza.

@@ -1,54 +1,70 @@
-# ETAPA 21 — FASE A: criterios de aceptación
+# ETAPA 21 — Preparación de FASE B: criterios de aceptación
 
-## Seguridad y sesión
+## Rama y alcance
 
-- [x] La rama parte del commit `c9edc0eb711e7b5f7ecf314f1bbb28ab0a31ec86` de `main`.
-- [x] Se confirmó una sesión Firebase autorizada sin publicar identidad o credenciales.
-- [x] Todas las lecturas remotas usaron el Project ID literal `viverocontrol-3f83f`.
-- [x] La salida real está en `.private/`, ignorada por Git.
-- [x] No se leyó el contenido de archivos privados locales.
-- [x] No hubo escrituras, borrados, despliegues, altas, importaciones, activación de APIs, cambios IAM o backups reales.
+- [x] La rama parte exactamente de `8060f1ec04bf93b0f02c94d4dbd205ab4f834c7c`.
+- [x] El trabajo se realiza en `ops/etapa-21-preparacion-fase-b`, sin publicar, fusionar o modificar directamente `main`.
+- [x] FASE B, despliegue, limpieza, importación, alta de cuentas y creación de aplicaciones definitivas no se iniciaron.
 
-## Inventario y clasificación
+## Clasificación privada
 
-- [x] Firestore se verificó en `nam5` y Functions en `us-central1`.
-- [x] Proyecto, apps, Authentication, Firestore, Functions, Storage, reglas, índices, IAM, facturación y observabilidad tienen inventario sanitizado.
-- [x] Las 3 cuentas, los 38 documentos ambiguos de nivel superior y cualquier documento bajo `autorizaciones` permanecen `REQUIERE_REVISION`; el volumen anidado no se infiere ni se oculta.
-- [x] Ninguna cuenta o documento se clasificó ficticio sin evidencia inequívoca.
-- [x] Los dos registros explícitamente Staging se clasificaron `FICTICIO_CONFIRMADO` sin autorizar su eliminación.
-- [x] La comparación registra 11/30 Functions, ausencia de apps productivas y 10 colecciones todavía no materializadas.
-- [x] Reglas e índices locales coinciden con lo remoto.
-- [x] Se documentaron los límites de Secret Manager, presupuestos y cuotas sin intentar evadirlos.
+- [x] La hoja identificable existe solo bajo `.private/`.
+- [x] Las 3 aplicaciones se clasificaron como 2 candidatas futuras por nombre Staging y 1 en revisión.
+- [x] Las 3 cuentas, sus 3 perfiles y referencias operativas quedaron inventariados; las 3 decisiones siguen `REQUIERE_REVISION`.
+- [x] Firestore quedó navegable en privado: 12 grupos y 41 documentos, todos `REQUIERE_REVISION`.
+- [x] Los 20 documentos con marcadores de prueba no se reclasificaron automáticamente.
+- [x] Los 5 principales IAM siguen `REQUIERE_REVISION`.
+- [x] Las 11 Functions permanecen `CONSERVAR_HASTA_REEMPLAZO_CONTROLADO`.
+- [x] Los 2 buckets técnicos y sus objetos permanecen `CONSERVAR`; los objetos no fueron abiertos, descargados ni eliminados.
+- [x] No se publicó correo, UID completo, App ID completo, principal IAM ni ruta privada.
 
-## Planes y datos requeridos
+## Datos reales
 
-- [x] Existe un plan verificable de respaldo y restauración, sin ejecución.
-- [x] Existe un plan de limpieza por objetivos exactos, sin globs ni comandos ejecutables amplios.
-- [x] Existe un plan de corte de 13 pasos con detención y rollback por grupo.
-- [x] El plan prohíbe limpiar `REQUIERE_REVISION` y conserva proyecto, `nam5` y `us-central1`.
-- [x] Existe una plantilla vacía para la información real del propietario.
-- [x] Se declara que no hay backup/PITR comprobado y que FASE B está bloqueada.
+- [x] Existe copia Markdown privada y JSON editable por bloques.
+- [x] El validador comprueba estructura, ciclos, relaciones, cantidades, totales, usuarios, roles y secretos.
+- [x] La plantilla vacía se reconoce como válida pero incompleta, sin inventar información.
+- [ ] Estructura real aprobada por el propietario.
+- [ ] Inventario inicial real, fuente y corte aprobados.
+- [ ] Usuarios y roles reales aprobados.
+- [ ] Históricos definidos o `SIN_HISTORICOS_A_MIGRAR` confirmado.
+- [ ] Dispositivos y conectividad medidos.
 
-## Herramienta y pruebas
+Los cinco controles pendientes requieren información del propietario; no son fallos técnicos ni pueden cerrarse con fixtures.
 
-- [x] La herramienta rechaza otro Project ID, enmascara PII y clasifica conservadoramente.
-- [x] La herramienta no contiene métodos de escritura/borrado y aborta en CI.
-- [x] Contratos compartidos aprobados en la ejecución final.
-- [x] Android debug/release, unit tests y lint aprobados.
-- [x] Maestro lint, typecheck, tests y build aprobados.
-- [x] Backend lint, typecheck, unit tests y build aprobados.
-- [x] Emulator Suite, integración y Firestore Rules aprobados sin reducir suites ni aumentar timeouts.
-- [x] Auditorías npm ejecutadas y riesgos registrados.
-- [x] Escaneo final de secretos, artefactos y archivos no ignorados aprobado.
+## Paquete privado
 
-## Condición operativa
+- [x] La generación exige estructura e inventario completos y un conjunto sin errores; no confunde los otros tres bloques con el contrato de catálogo.
+- [x] El formato y hash se prueban localmente con fixtures ficticios.
+- [x] Un conjunto incompleto falla antes de escribir un paquete.
+- [x] No se llama validación remota, importación o reversión.
+- [x] No existe paquete preliminar de datos reales porque no se recibió información completa.
 
-FASE A puede documentarse y revisarse, pero FASE B no puede comenzar hasta que el propietario:
+## Seguridad operacional
 
-1. apruebe o descarte cada recurso ambiguo;
-2. defina responsables, RPO, RTO, retención, presupuesto y alertas;
-3. aporte la información real requerida;
-4. autorice y compruebe un backup restaurable;
-5. apruebe los registros productivos de Android y Maestro;
-6. apruebe el despliegue completo de 30 Functions y smoke tests;
-7. resuelva o acepte formalmente los bloqueos de permisos/herramientas.
+- [x] El Project ID permitido continúa siendo únicamente `viverocontrol-3f83f`.
+- [x] La lectura manual aborta en CI y la lógica de CI usa solo fixtures y emuladores.
+- [x] Las rutas locales de entrada y salida deben estar bajo `.private/`.
+- [x] `.private/` continúa ignorado y no versionado.
+- [x] `BACKUP_PENDIENTE` bloquea cualquier limpieza.
+- [x] No hubo escrituras, borrados, despliegues, backups, PITR, protección contra borrado, cambios IAM, reglas, índices, Functions, Apps, Auth, Storage o APIs.
+
+## Pruebas de cierre
+
+- [x] Pruebas puras de auditoría y preparación aprobadas.
+- [x] Contratos compartidos repetidos en la ejecución final.
+- [x] Android debug/release, unit tests y lint repetidos en la ejecución final.
+- [x] Maestro lint, typecheck, tests, build y audit repetidos en la ejecución final.
+- [x] Backend lint, typecheck, tests, build, Emulator Suite, Rules y audit repetidos en la ejecución final.
+- [x] Escaneo final de secretos, privados, artefactos y estado Git aprobado.
+
+La matriz técnica está verde. Los cinco controles de información real continúan pendientes y FASE B permanece bloqueada; este cierre no los sustituye.
+
+## Condición que impide iniciar FASE B
+
+Aunque el código de preparación quede verde, FASE B sigue bloqueada hasta que:
+
+1. el propietario cierre las clasificaciones privadas;
+2. los cinco bloques reales estén completos y aprobados;
+3. exista, en una etapa posterior autorizada, backup restaurable y prueba de restauración;
+4. se resuelvan responsables, RPO, RTO, retención, costos, alertas y ventana;
+5. se autorice expresamente el corte, las cuentas, las Apps productivas y el despliegue completo.

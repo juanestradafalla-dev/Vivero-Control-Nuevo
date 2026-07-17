@@ -1,5 +1,7 @@
 # ETAPA 21 — Clasificación sanitizada de recursos
 
+> **Estado posterior:** el 17 de julio de 2026 el propietario resolvió la clasificación de las 3 cuentas y los 41 documentos como datos de prueba y los eliminó manualmente. Este archivo conserva el inventario previo para trazabilidad. Véase `../ETAPA_21_FASE_B1_LIMPIEZA_MANUAL.md`.
+
 ## Alcance y fuente
 
 Esta preparación no inicia la FASE B. El inventario identificable se generó el 17 de julio de 2026 mediante una ejecución local, manual y estrictamente de lectura contra el único proyecto autorizado, `viverocontrol-3f83f`. La hoja completa está bajo `.private/`, permanece ignorada y no se reproduce aquí.

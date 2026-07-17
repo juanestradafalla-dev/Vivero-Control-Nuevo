@@ -191,6 +191,23 @@ describe("importación y reversión controladas mediante emuladores reales", () 
     expect(JSON.stringify(stored)).not.toContain("Planilla controlada");
   });
 
+  it("importa una línea vacía confirmada y conserva la trazabilidad", async () => {
+    const admin = await authenticatedClient("administrador@prueba.local", "confirmed-empty-import");
+    const base = validPackage("VACIA");
+    const packageData: MigrationCatalogPackageV1 = {
+      ...base,
+      inventariosIniciales: base.inventariosIniciales.map((inventory) => ({
+        ...inventory, hembras: 0, machos: 0, patrones: 0, lineaVaciaConfirmada: true
+      }))
+    };
+    const result = await importPackage(admin.functions, packageData, "IMPORTAR-MIG19-VACIA");
+    const lineId = result.mapa.lineas[0]!.idInterno;
+    expect((await database().collection("inventarioOficialLineas").doc(lineId).get()).data())
+      .toMatchObject({total: 0, lineaVaciaConfirmada: true});
+    expect((await database().collection("cargasInventarioInicial").doc(lineId).get()).data())
+      .toMatchObject({total: 0, lineaVaciaConfirmada: true});
+  });
+
   it("importa y revierte una línea inactiva sin inventario inicial inexistente", async () => {
     const admin = await authenticatedClient("administrador@prueba.local", "inactive-without-inventory");
     const base = validPackage("INACTIVA");

@@ -2,6 +2,8 @@
 
 > **Actualización FASE B1 — 17 de julio de 2026:** el propietario clasificó como prueba y eliminó manualmente las 3 cuentas Authentication y los 41 documentos Firestore inventariados. Las capturas posteriores muestran Authentication sin usuarios y Firestore sin colecciones visibles. La renuncia al backup aplica solo a ese conjunto eliminado; la política de respaldo para datos reales continúa pendiente. Véase `ETAPA_21_FASE_B1_LIMPIEZA_MANUAL.md`.
 
+> **Actualización ETAPA 22 — 17 de julio de 2026:** los cinco bloques de datos reales quedaron completos y validados localmente bajo `.private/`; se generó un paquete privado sin validarlo ni importarlo contra Firebase. Los valores identificables y las cantidades no se publican.
+
 ## 1. Control de decisiones
 
 Este registro conserva los identificadores de las 50 decisiones originales para mantener trazabilidad. Una decisión puede estar:
@@ -24,7 +26,7 @@ Nada marcado como pendiente debe resolverse inventando datos. Cada cierre poster
 - Secret Manager, presupuestos y cuotas no pudieron inventariarse completamente sin habilitar APIs, permisos o herramientas adicionales. FASE A no realizó esos cambios.
 - Reglas e índices Firestore coinciden con el repositorio; cualquier cambio futuro debe preservar esa trazabilidad.
 
-Estas evidencias corresponden al estado previo a FASE B1. Posteriormente, el propietario clasificó las 3 cuentas y los 41 documentos como datos de prueba, renunció al backup de ese conjunto y los eliminó manualmente. Los datos reales, las Apps productivas, el despliegue completo, los responsables y los umbrales continúan bloqueados; backup, PITR, protección contra borrado y restauración siguen siendo decisiones obligatorias antes de operar información real.
+Estas evidencias corresponden al estado previo a FASE B1. Posteriormente, el propietario clasificó las 3 cuentas y los 41 documentos como datos de prueba, renunció al backup de ese conjunto y los eliminó manualmente. La ETAPA 22 completó de forma privada los datos reales y responsables requeridos para la preparación local. Las Apps productivas y el despliegue completo continúan bloqueados; backup, PITR, protección contra borrado y restauración siguen siendo decisiones obligatorias antes de operar información real.
 
 ## 3. Decisiones resueltas
 
@@ -32,24 +34,30 @@ Estas evidencias corresponden al estado previo a FASE B1. Posteriormente, el pro
 |---:|---|---|
 | 1 | RESUELTA | Vivero Maestro es una aplicación para Windows. |
 | 2 | RESUELTA | Vivero Maestro usa Electron, React y TypeScript; Electron Builder prepara la distribución Windows. La política de actualización posterior sigue pendiente en la decisión 50. |
+| 6 | RESUELTA | La estructura real y sus relaciones quedaron aprobadas en el conjunto privado de la ETAPA 22. |
 | 8 | RESUELTA | La unidad del inventario oficial será cada línea. |
 | 9 | RESUELTA | Aprobar reemplaza la fotografía oficial de la línea con el conteo aprobado y registra un movimiento histórico con la diferencia. Ejemplo: `1000` pasa a `980` y el ajuste es `-20`. |
+| 10 | RESUELTA | Fuente, corte, responsable e inventario inicial quedaron validados en privado; una línea vacía exige confirmación explícita. |
+| 13 | RESUELTA | Usuarios iniciales, roles y capacidades quedaron definidos en privado. |
+| 15 | RESUELTA | La responsabilidad de crear cuentas y entregar accesos quedó definida en privado. |
 | 18 | RESUELTA | Un supervisor no puede aprobar su propio conteo. Un administrador puede hacerlo excepcionalmente con advertencia, motivo obligatorio y auditoría. |
 | 19 | RESUELTA | La cuenta maestra tendrá rol de administrador y contará desde Vivero Campo usando el mismo flujo de reserva y envío. |
 | 20 | RESUELTA | Si el autor de un conteo devuelto está ausente, supervisor o administrador puede reasignar la corrección conservando el original y su autoría. |
 | 22 | RESUELTA | Existen `BORRADOR`, `ACTIVA`, cierre, cancelación controlada de borrador y reapertura exclusiva de borradores cancelados; no se reabren jornadas activadas o cerradas. |
+| 24 | RESUELTA PARA EL MVP | La cobertura por zona quedó clasificada en privado; Campo debe operar offline fuera del alcance de red y sincronizar al recuperarla. |
 | 25 | RESUELTA PARA EL MVP | Una línea abandonada solo se libera manualmente por supervisor o administrador, con motivo y auditoría. |
 | 26 | RESUELTA PARA EL MVP | Las reservas no tienen vencimiento automático durante el MVP. |
 | 28 | RESUELTA PARA EL MVP | No se implementará reserva anticipada de bloques hasta medir la calidad real de la señal. |
 | 29 | RESUELTA PARA EL MVP | La verificación adicional queda fuera del primer MVP; el revisor solo puede aprobar o devolver. |
 | 30 | RESUELTA | `ENVIADA` es un estado local de sincronización. Firestore cambia la línea directamente de `EN_CONTEO` a `PENDIENTE_REVISION` en una sola transacción. |
 | 38 | RESUELTA | No existe un envío central huérfano en estado `ENVIADA`; una respuesta perdida se recupera con la misma clave idempotente. |
-| 39 | RESUELTA PARA EL MVP | El contrato de paquete, preflight, importación atómica y reversión condicionada están implementados para datos ficticios; fuentes y datos reales siguen pendientes. |
+| 37 | RESUELTA PARA EL MVP | El inventario privado de dispositivos y compatibilidad Android quedó registrado; los equipos variables se mantienen dentro del perfil Android declarado. |
+| 39 | RESUELTA PARA EL MVP | El propietario cerró la decisión histórica y el paquete privado de catálogo e inventario quedó generado y validado localmente, aún sin importación remota. |
 | 41 | RESUELTA | Desarrollo usa Emulator Suite con proyectos `demo-*`; producción usará únicamente `viverocontrol-3f83f`, Firestore `nam5` y Functions `us-central1`. No existe un tercer ambiente funcional. |
 
-## 4. Información real prioritaria para cerrar
+## 4. Información real cerrada en privado
 
-Antes de iniciar FASE B se necesita recibir, en bloques privados:
+La ETAPA 22 recibió y validó en bloques privados:
 
 1. **Jerarquía exacta del vivero:** estructura y relaciones entre ubicaciones.
 2. **Cantidad de módulos, camas y líneas:** sin inventar nombres ni volúmenes.
@@ -58,7 +66,7 @@ Antes de iniciar FASE B se necesita recibir, en bloques privados:
 5. **Usuarios iniciales:** cantidad, responsables y rol requerido.
 6. **Datos anteriores que deben conservarse:** fuentes, formatos, calidad y alcance histórico.
 
-Estos datos corresponden principalmente a las decisiones 6, 13, 24, 37 y 39. La jerarquía y las cantidades se solicitan por separado aunque pertenecen al mismo bloque de estructura.
+Estos datos cerraron las decisiones 6, 10, 13, 15, 24, 37 y 39 para la preparación local. No sustituyen el preflight remoto ni autorizan el corte.
 
 ## 5. Decisiones que continúan pendientes
 
@@ -70,17 +78,13 @@ Estos datos corresponden principalmente a las decisiones 6, 13, 24, 37 y 39. La 
 
 ### Estructura real e inventario
 
-6. **Estructura completa del vivero:** suministrar jerarquía, módulos, camas, líneas, códigos, nombres, relaciones y cantidades reales.
 7. **Reglas de identidad:** definir unicidad, nomenclatura, orden y tratamiento de ubicaciones inactivas o reorganizadas.
-10. **Inventario inicial:** determinar fuente, fecha de corte, responsable y validación.
 11. **Conteo total cero:** decidir si se permite directamente, exige observación o requiere otro control.
 12. **Límites operativos:** definir rangos máximos realistas para hembras, machos, patrones y longitud de observaciones.
 
 ### Usuarios, autenticación y permisos
 
-13. **Usuarios iniciales:** suministrar cantidad, cuentas requeridas y rol de cada persona.
 14. **Método de autenticación:** elegir correo, teléfono, proveedor corporativo u otro método compatible con Firebase Authentication.
-15. **Alta y recuperación de cuentas:** definir quién crea usuarios, cómo se entrega el acceso y cómo se recupera o bloquea una cuenta.
 16. **Autorización de jornadas:** decidir quién añade o retira usuarios de una jornada y si los supervisores pueden delegar ese acceso.
 17. **Alcance por ubicación:** confirmar si además de la jornada habrá restricciones por módulo, cama u otra zona.
 21. **Registro de dispositivos:** decidir si los dispositivos requieren aprobación, pueden compartirse y cómo se bloquean o sustituyen.
@@ -88,7 +92,6 @@ Estos datos corresponden principalmente a las decisiones 6, 13, 24, 37 y 39. La 
 ### Jornada y operación
 
 23. **Política de cierre:** establecer si se permite cierre excepcional con líneas no aprobadas y cómo quedan registradas.
-24. **Calidad y cobertura de señal:** medir zonas, duración de interrupciones y capacidad real de los dispositivos.
 27. **Actividad visible:** determinar qué evento central actualiza el último contacto mostrado al supervisor, sin usarlo para vencimiento automático.
 31. **Observaciones obligatorias:** establecer en qué devoluciones, ceros, diferencias u otros casos se exige una explicación.
 32. **Comparación de conteos:** definir qué alertas se muestran cuando una versión difiere de otra o del inventario oficial, sin promediar automáticamente.
@@ -99,11 +102,9 @@ Estos datos corresponden principalmente a las decisiones 6, 13, 24, 37 y 39. La 
 34. **Diferencia de reloj:** definir el umbral de advertencia y si alguna discrepancia debe bloquear el envío.
 35. **Retención de borradores locales:** decidir cuánto se conservan conteos enviados, erróneos, liberados o pertenecientes a usuarios que cerraron sesión.
 36. **Protección local:** definir requisitos de cifrado, bloqueo de pantalla y manejo de tokens en los celulares reales.
-37. **Compatibilidad Android:** suministrar modelos, versiones de Android y restricciones de los dispositivos de campo.
 
 ### Migración y ambientes
 
-39. **Datos anteriores que deben conservarse:** identificar fuentes, formatos, calidad, propietarios y alcance histórico.
 40. **Correspondencia con el sistema anterior:** definir qué catálogos o inventarios son confiables y cómo se validarán; no se copiarán automáticamente.
 42. **Acceso a ambientes:** definir quién administra credenciales, despliegues y reglas; los secretos no deben guardarse en Git.
 43. **Datos de prueba:** establecer un conjunto ficticio autorizado que no exponga producción ni se confunda con valores reales.

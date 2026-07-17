@@ -143,7 +143,7 @@ La verificación final debe confirmar:
 | Backend lint/typecheck/unit/build | todo aprobado; 5 archivos y 24/24 pruebas, más 9/9 de la auditoría |
 | Emulator Suite + integración + reglas | 17 archivos y 179/179 pruebas de integración; 22/22 pruebas de Rules |
 | npm audit Maestro | 0 vulnerabilidades de producción |
-| npm audit Backend | 8 moderadas de producción; 0 altas y 0 críticas; el árbol completo reporta 12 moderadas |
+| npm audit Backend | CI con Node 22: 9 moderadas de producción y 11 en el árbol instalado; revalidación local con Node 24: 8 de producción y 12 en el árbol completo; 0 altas y 0 críticas en ambos entornos |
 | secretos, artefactos y métodos de escritura | aprobado: 0 secretos/artefactos prohibidos versionados y 0 métodos remotos de mutación en la herramienta |
 
 ## Incidencias observadas y resolución
@@ -155,7 +155,7 @@ La verificación final debe confirmar:
 - Dos pruebas unitarias deterministas confirman que la recuperación devuelve `RESERVATION_NOT_ACTIVE` cuando otra operación ya consumió la reserva y conserva la excepción original si la reserva todavía está activa.
 - La prueba de integración afectada aprobó después 6/6 con `testTimeout=30000`. La suite completa se repitió sin reducir archivos ni aumentar el timeout y aprobó 179/179 integración y 22/22 Rules.
 - Emulator Suite advirtió que el host usa Node 24.15.0 frente a Node 22 solicitado y que existe una versión posterior de `firebase-functions`. La matriz conserva Node 22 como runtime objetivo y no actualiza dependencias fuera del alcance.
-- El audit de producción del backend pasó el umbral `high`, pero conserva 8 vulnerabilidades moderadas transitivas asociadas al advisory de `uuid`; el árbol completo reporta 12 al incluir desarrollo y el advisory de OpenTelemetry. Las correcciones automáticas propuestas requieren cambios incompatibles y no se aplicaron sin una actualización controlada.
+- El audit de producción del backend pasó el umbral `high` en ambos entornos. CI con Node 22 reportó 9 vulnerabilidades moderadas de producción y 11 en el árbol instalado; la revalidación local con Node 24 reportó 8 y 12, respectivamente. Se conservan ambos resultados tal como los devolvió npm, sin normalizar ni ocultar la diferencia. Los hallazgos transitivos incluyen `uuid` y, en el árbol local completo, OpenTelemetry. No hubo altas o críticas y las correcciones automáticas propuestas requieren cambios incompatibles, por lo que no se aplicaron sin una actualización controlada.
 - La revisión del PR detectó que la ejecución original solo enumeraba nombres de subcolecciones y no contaba sus documentos. La herramienta ahora lista, agrega y clasifica esos documentos con rutas REST anidadas permitidas; el esquema privado sube a versión 2 para distinguir conteo de nivel superior y total. La documentación conserva 38 como conteo de nivel superior y declara el volumen anidado como no cuantificado, sin repetir la lectura de producción.
 - La misma revisión detectó que un release de Storage puede usar el alcance `firebase.storage/<bucket>`. La detección ahora admite ese formato y lo cubre con una prueba local determinista. Las dos correcciones quedaron incluidas en 9/9 pruebas y en el lint oficial de la herramienta.
 

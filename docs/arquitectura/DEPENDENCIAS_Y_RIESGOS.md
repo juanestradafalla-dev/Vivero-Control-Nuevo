@@ -53,9 +53,9 @@ Se ejecutó `npm audit --omit=dev --audit-level=high`:
 |---|---|
 | Contratos | 0 vulnerabilidades |
 | Vivero Maestro | 0 vulnerabilidades |
-| Backend Functions | 8 moderadas de producción; 12 moderadas en el árbol completo; 0 altas y 0 críticas |
+| Backend Functions | CI con Node 22: 9 moderadas de producción y 11 en el árbol instalado; revalidación local con Node 24: 8 de producción y 12 en el árbol completo; 0 altas y 0 críticas en ambos entornos |
 
-Las nueve alertas de producción del backend corresponden a paquetes de la cadena del advisory `uuid <11.1.1`, a través de dependencias de Firebase/Google (`gaxios`, `google-gax`, Firestore, Storage, `retry-request` y `teeny-request`). La corrección automática completa exige `--force` y propone una regresión mayor de `firebase-admin`; no se aplica sin una actualización compatible y pruebas completas. El código del proyecto usa `node:crypto.randomUUID` y no llama UUID v3, v5 o v6 con búfer, pero esto no elimina la necesidad de actualizar la cadena.
+Las alertas de producción del backend corresponden a paquetes de la cadena del advisory `uuid <11.1.1`, a través de dependencias de Firebase/Google (`gaxios`, `google-gax`, Firestore, Storage, `retry-request` y `teeny-request`); CI las contó como 9 y el host local como 8. El árbol local completo añadió el advisory de OpenTelemetry. La corrección automática completa exige `--force` y propone cambios mayores de dependencias; no se aplica sin una actualización compatible y pruebas completas. El código del proyecto usa `node:crypto.randomUUID` y no llama UUID v3, v5 o v6 con búfer, pero esto no elimina la necesidad de actualizar la cadena.
 
 CI falla ante vulnerabilidades altas o críticas y mantiene visibles las moderadas. Este criterio no autoriza un despliegue.
 

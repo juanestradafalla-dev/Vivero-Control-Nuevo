@@ -112,6 +112,14 @@ export type ControlledErrorCode =
   | "EXCEPTION_REASON_REQUIRED"
   | "RETURN_REASON_REQUIRED"
   | "INVENTORY_NOT_FOUND"
+  | "DISCARD_NOT_FOUND"
+  | "DISCARD_NOT_PENDING_REVIEW"
+  | "DISCARD_REVIEW_NOT_ALLOWED"
+  | "DISCARD_STALE_INVENTORY"
+  | "DISCARD_EXCEEDS_INVENTORY"
+  | "DISCARD_TOTAL_REQUIRED"
+  | "DISCARD_CAUSE_REQUIRED"
+  | "DISCARD_CAUSE_EXCEEDS_TOTAL"
   | "ACTIVE_RESERVATION_EXISTS"
   | "IDEMPOTENCY_CONFLICT"
   | "ENVIRONMENT_NOT_ALLOWED"
@@ -801,6 +809,83 @@ export interface ReturnCountResult {
   readonly estadoCentral: "DEVUELTA";
   readonly versionLinea: number;
   readonly devueltaEn: string;
+}
+
+export interface DiscardCauses {
+  readonly muertos: number;
+  readonly nematodos: number;
+  readonly cuelloGanso: number;
+  readonly raicesBifurcadas: number;
+  readonly dobleInjertacion: number;
+}
+
+export interface DiscardLineSummary {
+  readonly lineaId: string;
+  readonly ubicacion: VisibleLocation;
+  readonly inventario: InventoryValues;
+  readonly versionInventario: number;
+}
+
+export interface ListDiscardLinesResult {
+  readonly lineas: readonly DiscardLineSummary[];
+}
+
+export interface RegisterDiscardRequest {
+  readonly lineaId: string;
+  readonly versionInventarioObservada: number;
+  readonly dispositivoId: string;
+  readonly hembras: number;
+  readonly machos: number;
+  readonly patrones: number;
+  readonly causas: DiscardCauses;
+  readonly observaciones?: string;
+  readonly timestampDispositivo: string;
+  readonly claveIdempotencia: string;
+}
+
+export interface RegisterDiscardResult {
+  readonly descarteId: string;
+  readonly lineaId: string;
+  readonly estado: "PENDIENTE_REVISION";
+  readonly hembras: number;
+  readonly machos: number;
+  readonly patrones: number;
+  readonly totalUnico: number;
+  readonly causas: DiscardCauses;
+  readonly versionInventarioObservada: number;
+  readonly recibidoEn: string;
+}
+
+export interface ApproveDiscardRequest {
+  readonly descarteId: string;
+  readonly motivoExcepcion?: string;
+  readonly claveIdempotencia: string;
+}
+
+export interface ApproveDiscardResult {
+  readonly descarteId: string;
+  readonly lineaId: string;
+  readonly decisionId: string;
+  readonly movimientoId: string;
+  readonly estado: "APROBADO";
+  readonly inventarioAnterior: InventoryValues;
+  readonly inventarioNuevo: InventoryValues;
+  readonly versionInventario: number;
+  readonly aprobadaEn: string;
+}
+
+export interface ReturnDiscardRequest {
+  readonly descarteId: string;
+  readonly motivo: string;
+  readonly claveIdempotencia: string;
+}
+
+export interface ReturnDiscardResult {
+  readonly descarteId: string;
+  readonly lineaId: string;
+  readonly decisionId: string;
+  readonly estado: "DEVUELTO";
+  readonly devueltoEn: string;
 }
 
 export interface OperationResult {

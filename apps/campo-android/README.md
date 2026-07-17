@@ -1,6 +1,6 @@
 # Vivero Campo
 
-Aplicación Android de captura operativa. Auxiliares, supervisores y administradores usan el mismo flujo según sus permisos centrales: autenticación, selección de jornada, reserva, conteo offline, sincronización, corrección e historial local.
+Aplicación Android de captura operativa. Auxiliares, supervisores y administradores usan el mismo flujo según sus permisos centrales: autenticación, selección de jornada, reserva, conteo, descarte offline, sincronización, corrección e historial local.
 
 ## Ambientes
 
@@ -21,8 +21,11 @@ Room, preferencias, FirebaseApp, WorkManager y Android Keystore derivan nombres 
 - `ENVIADA` solo aparece después de confirmación central.
 - una reserva liberada conserva el borrador local y cancela su trabajo único.
 - las correcciones crean una versión nueva sin alterar la autoría ni el historial anterior.
+- Room conserva también el catálogo de líneas y un borrador de descarte por cuenta y dispositivo.
+- una sesión previamente iniciada se restaura desde Firebase y Firestore local al reiniciar sin cobertura.
+- el descarte confirmado se sincroniza con WorkManager al recuperar señal y queda pendiente de revisión.
 
-Campo no aprueba, devuelve, reasigna, libera ni modifica inventario. Esas operaciones pertenecen a Maestro y al backend; Campo solo ejecuta las operaciones centrales autorizadas para su rol.
+Campo no aprueba, devuelve, reasigna, libera ni modifica inventario. Registrar un descarte tampoco descuenta inventario: esas decisiones pertenecen a Maestro y al backend.
 
 ## Compilación segura
 

@@ -1,0 +1,17 @@
+{
+  "lineaId": "LINEA-PRUEBA-23",
+  "versionInventarioObservada": 4,
+  "dispositivoId": "ANDROID-PRUEBA-23",
+  "hembras": 3,
+  "machos": 2,
+  "patrones": 0,
+  "causas": {
+    "muertos": 6,
+    "nematodos": 0,
+    "cuelloGanso": 0,
+    "raicesBifurcadas": 0,
+    "dobleInjertacion": 0
+  },
+  "timestampDispositivo": "2026-07-17T14:00:00.000Z",
+  "claveIdempotencia": "descarte-prueba-etapa-23-0002"
+}

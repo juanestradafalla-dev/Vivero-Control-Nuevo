@@ -55,6 +55,24 @@ export function movementInvariantErrors(value) {
   return errors;
 }
 
+function discardRequestInvariantErrors(value) {
+  if (!value || !categories.every((category) => Number.isInteger(value[category]))) {
+    return [];
+  }
+  const total = categories.reduce((sum, category) => sum + value[category], 0);
+  const causes = value.causas;
+  if (!causes || typeof causes !== "object") return [];
+  const causeFields = ["muertos", "nematodos", "cuelloGanso", "raicesBifurcadas", "dobleInjertacion"];
+  const errors = [];
+  if (total <= 0) errors.push("El total único del descarte debe ser mayor que cero");
+  for (const field of causeFields) {
+    if (Number.isInteger(causes[field]) && causes[field] > total) {
+      errors.push(`causas.${field} no puede superar el total único ${total}`);
+    }
+  }
+  return errors;
+}
+
 export function invariantErrorsFor(schemaFilename, value) {
   if (schemaFilename === "conteo.schema.json") {
     return totalInvariantErrors(value, "conteo");
@@ -71,6 +89,29 @@ export function invariantErrorsFor(schemaFilename, value) {
       valoresNuevos: value?.inventarioNuevo,
       diferencias: value?.diferencias
     });
+  }
+  if (schemaFilename === "register-discard-request.schema.json") {
+    return discardRequestInvariantErrors(value);
+  }
+  if (schemaFilename === "register-discard-result.schema.json") {
+    if (!value) return [];
+    const expected = Number.isInteger(value.hembras) && Number.isInteger(value.machos) && Number.isInteger(value.patrones)
+      ? value.hembras + value.machos + value.patrones
+      : undefined;
+    return expected === undefined || value.totalUnico === expected
+      ? []
+      : [`totalUnico debe ser ${expected} y se recibió ${value.totalUnico}`];
+  }
+  if (schemaFilename === "list-discard-lines-result.schema.json") {
+    return Array.isArray(value?.lineas)
+      ? value.lineas.flatMap((line, index) => totalInvariantErrors(line?.inventario, `lineas[${index}].inventario`))
+      : [];
+  }
+  if (schemaFilename === "approve-discard-result.schema.json") {
+    return [
+      ...totalInvariantErrors(value?.inventarioAnterior, "inventarioAnterior"),
+      ...totalInvariantErrors(value?.inventarioNuevo, "inventarioNuevo")
+    ];
   }
   return [];
 }

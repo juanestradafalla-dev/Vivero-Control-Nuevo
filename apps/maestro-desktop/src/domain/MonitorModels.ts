@@ -106,6 +106,34 @@ export interface MonitorSnapshot {
   readonly correctionCandidates: readonly MonitorCorrectionCandidate[];
 }
 
+export interface MonitorDiscardCauses {
+  readonly dead: number;
+  readonly nematodes: number;
+  readonly gooseNeck: number;
+  readonly bifurcatedRoots: number;
+  readonly doubleGrafting: number;
+}
+
+export interface MonitorDiscard {
+  readonly id: string;
+  readonly lineId: string;
+  readonly location: MonitorLocation;
+  readonly authorUserId: string;
+  readonly authorDisplayName: string;
+  readonly effectiveRole: MonitorRole;
+  readonly deviceId: string;
+  readonly females: number;
+  readonly males: number;
+  readonly rootstocks: number;
+  readonly uniqueTotal: number;
+  readonly causes: MonitorDiscardCauses;
+  readonly observations?: string;
+  readonly observedInventoryVersion: number;
+  readonly deviceTimestamp: string;
+  readonly serverTimestamp: string;
+  readonly state: "PENDIENTE_REVISION";
+}
+
 export interface ManageableDraftJourney {
   readonly id: string;
   readonly displayName: string;
@@ -449,6 +477,13 @@ export interface MonitorRepository {
   closeJourney(journeyId: string, expectedVersion: number, idempotencyKey: string): Promise<void>;
   approveCount(countId: string, idempotencyKey: string, exceptionReason?: string): Promise<void>;
   returnCount(countId: string, reason: string, idempotencyKey: string): Promise<void>;
+  approveDiscard(discardId: string, idempotencyKey: string, exceptionReason?: string): Promise<void>;
+  returnDiscard(discardId: string, reason: string, idempotencyKey: string): Promise<void>;
+  observeDiscards(
+    user: MonitorUser,
+    onSnapshot: (discards: readonly MonitorDiscard[]) => void,
+    onError: (message: string) => void,
+  ): MonitorUnsubscribe;
   reassignCountCorrection(countId: string, newUserId: string, reason: string, idempotencyKey: string): Promise<void>;
   releaseReservation(reservationId: string, reason: string, idempotencyKey: string): Promise<void>;
   observeMonitor(

@@ -104,6 +104,18 @@ beforeAll(async () => {
     await setDoc(doc(database, "cargasInventarioInicial/LINEA-PRUEBA-1"), {
       id: "LINEA-PRUEBA-1", lineaId: "LINEA-PRUEBA-1", total: 1000, inmutable: true
     });
+    await setDoc(doc(database, "descartes/DESCARTE-AUXILIAR-1"), {
+      id: "DESCARTE-AUXILIAR-1", lineaId: "LINEA-PRUEBA-1",
+      autorUsuarioId: "uid-auxiliar-1", estado: "PENDIENTE_REVISION", totalUnico: 5
+    });
+    await setDoc(doc(database, "descartes/DESCARTE-AUXILIAR-2"), {
+      id: "DESCARTE-AUXILIAR-2", lineaId: "LINEA-PRUEBA-2",
+      autorUsuarioId: "uid-auxiliar-2", estado: "DEVUELTO", totalUnico: 3
+    });
+    await setDoc(doc(database, "decisionesDescartes/DECISION-DESCARTE-1"), {
+      id: "DECISION-DESCARTE-1", descarteId: "DESCARTE-AUXILIAR-1",
+      lineaId: "LINEA-PRUEBA-1", autorUsuarioId: "uid-auxiliar-1", decision: "APROBAR"
+    });
   });
 });
 
@@ -229,6 +241,33 @@ describe("lecturas mínimas y escrituras críticas cerradas en la ETAPA 5", () =
     await assertFails(getDoc(doc(database, "cargasInventarioInicial/LINEA-PRUEBA-1")));
     await assertFails(setDoc(doc(database, "cargasInventarioInicial/LINEA-DIRECTA"), {total: 1}));
     await assertFails(deleteDoc(doc(database, "decisionesRevision/DECISION-AUXILIAR-1")));
+  });
+
+  it("aísla descartes por autor y permite la revisión global autorizada", async () => {
+    const auxiliary = testEnvironment.authenticatedContext("uid-auxiliar-1").firestore();
+    await assertSucceeds(getDoc(doc(auxiliary, "descartes/DESCARTE-AUXILIAR-1")));
+    await assertFails(getDoc(doc(auxiliary, "descartes/DESCARTE-AUXILIAR-2")));
+    await assertSucceeds(getDocs(query(
+      collection(auxiliary, "descartes"), where("autorUsuarioId", "==", "uid-auxiliar-1")
+    )));
+    await assertSucceeds(getDoc(doc(auxiliary, "decisionesDescartes/DECISION-DESCARTE-1")));
+
+    for (const uid of ["uid-supervisor", "uid-administrador"]) {
+      const reviewer = testEnvironment.authenticatedContext(uid).firestore();
+      await assertSucceeds(getDoc(doc(reviewer, "descartes/DESCARTE-AUXILIAR-1")));
+      await assertSucceeds(getDocs(query(
+        collection(reviewer, "descartes"), where("estado", "==", "PENDIENTE_REVISION")
+      )));
+      await assertSucceeds(getDoc(doc(reviewer, "decisionesDescartes/DECISION-DESCARTE-1")));
+    }
+  });
+
+  it("impide cualquier escritura directa de descartes y sus decisiones", async () => {
+    const database = testEnvironment.authenticatedContext("uid-administrador").firestore();
+    await assertFails(setDoc(doc(database, "descartes/DESCARTE-DIRECTO"), {estado: "PENDIENTE_REVISION"}));
+    await assertFails(updateDoc(doc(database, "descartes/DESCARTE-AUXILIAR-1"), {estado: "APROBADO"}));
+    await assertFails(deleteDoc(doc(database, "descartes/DESCARTE-AUXILIAR-1")));
+    await assertFails(setDoc(doc(database, "decisionesDescartes/DECISION-DIRECTA"), {decision: "APROBAR"}));
   });
 
   it("permite al asignado leer la corrección y mantiene terceros fuera", async () => {

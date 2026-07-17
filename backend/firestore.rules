@@ -22,6 +22,13 @@ service cloud.firestore {
       return activeUser() && 'ADMINISTRADOR' in currentUser().roles;
     }
 
+    function canReviewDiscards() {
+      return activeUser() && (
+        'SUPERVISOR' in currentUser().roles ||
+        'ADMINISTRADOR' in currentUser().roles
+      );
+    }
+
     function hasJourneyAccess(journeyId) {
       let authorization = get(/databases/$(database)/documents/jornadas/$(journeyId)/autorizaciones/$(request.auth.uid)).data;
       return activeUser() &&
@@ -112,6 +119,18 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /descartes/{descarteId} {
+      allow read: if activeUser() &&
+        (resource.data.autorUsuarioId == request.auth.uid || canReviewDiscards());
+      allow create, update, delete: if false;
+    }
+
+    match /decisionesDescartes/{decisionId} {
+      allow read: if activeUser() &&
+        (resource.data.autorUsuarioId == request.auth.uid || canReviewDiscards());
+      allow create, update, delete: if false;
+    }
+
     match /reasignacionesCorreccion/{reasignacionId} {
       allow read: if activeUser() && (
         resource.data.autorOriginalUsuarioId == request.auth.uid ||
@@ -144,7 +163,8 @@ service cloud.firestore {
     }
 
     match /movimientosInventario/{movimientoId} {
-      allow read: if canSupervise(resource.data.jornadaId);
+      allow read: if canSupervise(resource.data.jornadaId) ||
+        (resource.data.descarteId != null && canReviewDiscards());
       allow create, update, delete: if false;
     }
 

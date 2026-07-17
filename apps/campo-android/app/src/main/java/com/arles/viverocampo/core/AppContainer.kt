@@ -9,6 +9,9 @@ import com.arles.viverocampo.data.local.ViveroCampoDatabase
 import com.arles.viverocampo.data.security.AndroidKeystoreReservationTokenVault
 import com.arles.viverocampo.data.sync.CountSyncScheduler
 import com.arles.viverocampo.data.sync.CountSyncWorkerDependencies
+import com.arles.viverocampo.data.sync.DiscardSyncScheduler
+import com.arles.viverocampo.data.sync.DiscardSyncWorkerDependencies
+import com.arles.viverocampo.data.sync.WorkManagerDiscardSyncScheduler
 import com.arles.viverocampo.data.sync.WorkManagerCountSyncScheduler
 import com.arles.viverocampo.domain.CampoRepository
 import com.arles.viverocampo.domain.CampoEnvironment
@@ -18,6 +21,7 @@ class AppContainer private constructor(
     val repository: CampoRepository,
     val deviceId: String,
     val syncScheduler: CountSyncScheduler,
+    val discardSyncScheduler: DiscardSyncScheduler,
 ) {
     companion object {
         fun create(context: Context): AppContainer {
@@ -43,6 +47,7 @@ class AppContainer private constructor(
                 ).addMigrations(
                     ViveroCampoDatabase.MIGRATION_1_2,
                     ViveroCampoDatabase.MIGRATION_2_3,
+                    ViveroCampoDatabase.MIGRATION_3_4,
                 ).build()
                 FirebaseCampoRepository(
                     services,
@@ -52,7 +57,13 @@ class AppContainer private constructor(
                 )
             }
             CountSyncWorkerDependencies.repository = repository
-            return AppContainer(repository, deviceId, WorkManagerCountSyncScheduler(context, namespace))
+            DiscardSyncWorkerDependencies.repository = repository
+            return AppContainer(
+                repository,
+                deviceId,
+                WorkManagerCountSyncScheduler(context, namespace),
+                WorkManagerDiscardSyncScheduler(context, namespace),
+            )
         }
     }
 }

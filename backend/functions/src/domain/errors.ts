@@ -310,6 +310,28 @@ export const domainErrors = {
   exceptionReasonRequired: () => new DomainError("EXCEPTION_REASON_REQUIRED", "La autorrevisión administrativa exige un motivo."),
   returnReasonRequired: () => new DomainError("RETURN_REASON_REQUIRED", "La devolución exige un motivo."),
   inventoryNotFound: () => new DomainError("INVENTORY_NOT_FOUND", "La línea no tiene un inventario oficial inicial."),
+  discardNotFound: () => new DomainError("DISCARD_NOT_FOUND", "El descarte no existe."),
+  discardNotPendingReview: () => new DomainError(
+    "DISCARD_NOT_PENDING_REVIEW", "El descarte ya no está pendiente de revisión."
+  ),
+  discardReviewNotAllowed: () => new DomainError(
+    "DISCARD_REVIEW_NOT_ALLOWED", "La cuenta no puede revisar descartes."
+  ),
+  discardStaleInventory: () => new DomainError(
+    "DISCARD_STALE_INVENTORY", "El inventario de la línea cambió. Actualiza y registra nuevamente el descarte."
+  ),
+  discardExceedsInventory: () => new DomainError(
+    "DISCARD_EXCEEDS_INVENTORY", "El descarte supera el inventario oficial disponible."
+  ),
+  discardTotalRequired: () => new DomainError(
+    "DISCARD_TOTAL_REQUIRED", "Registra al menos una planta descartada."
+  ),
+  discardCauseRequired: () => new DomainError(
+    "DISCARD_CAUSE_REQUIRED", "Registra al menos una causa del descarte."
+  ),
+  discardCauseExceedsTotal: () => new DomainError(
+    "DISCARD_CAUSE_EXCEEDS_TOTAL", "Una causa no puede superar el total único de plantas descartadas."
+  ),
   activeReservationExists: () => new DomainError("ACTIVE_RESERVATION_EXISTS", "La cuenta ya tiene otra reserva activa."),
   idempotencyConflict: () => new DomainError("IDEMPOTENCY_CONFLICT", "La clave de reintento ya se utilizó con otra solicitud."),
   environmentNotAllowed: () => new DomainError(

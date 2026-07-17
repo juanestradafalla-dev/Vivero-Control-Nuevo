@@ -21,6 +21,12 @@ import {
   ReopenCancelledJourneyService
 } from "./domain/cancelDraftJourney.js";
 import {DomainError, domainErrors} from "./domain/errors.js";
+import {
+  ApproveDiscardService,
+  ListDiscardLinesService,
+  RegisterDiscardService,
+  ReturnDiscardService
+} from "./domain/discards.js";
 import {InitiateCountCorrectionService} from "./domain/correctCount.js";
 import {
   CreateDraftJourneyService,
@@ -46,6 +52,7 @@ import {ApproveCountService, ReturnCountService} from "./domain/reviewCount.js";
 import {SendCountService} from "./domain/sendCount.js";
 import {
   parseApproveCountRequest,
+  parseApproveDiscardRequest,
   parseActivateJourneyRequest,
   parseCancelDraftJourneyRequest,
   parseCloseJourneyRequest,
@@ -55,6 +62,7 @@ import {
   parseInitiateCountCorrectionRequest,
   parseImportMigrationPackageRequest,
   parseListActiveJourneysRequest,
+  parseListDiscardLinesRequest,
   parseListDraftJourneyParticipantsRequest,
   parseListManageableJourneysRequest,
   parseListManageableCatalogRequest,
@@ -62,11 +70,13 @@ import {
   parseListMigrationImportsRequest,
   parseReassignCountCorrectionRequest,
   parseRegisterInitialInventoryRequest,
+  parseRegisterDiscardRequest,
   parseRevertMigrationImportRequest,
   parseReopenCancelledJourneyRequest,
   parseReleaseReservationRequest,
   parseReserveLineRequest,
   parseReturnCountRequest,
+  parseReturnDiscardRequest,
   parseSendCountRequest,
   parseUpdateDraftJourneyLinesRequest,
   parseUpdateDraftJourneyParticipantsRequest,
@@ -80,7 +90,12 @@ import {assertRuntimeEnvironment} from "./runtimeEnvironment.js";
 
 function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof HttpsError>[0] {
   if (code === "UNAUTHENTICATED") return "unauthenticated";
-  if (code === "INVALID_ARGUMENT") return "invalid-argument";
+  if ([
+    "INVALID_ARGUMENT",
+    "DISCARD_TOTAL_REQUIRED",
+    "DISCARD_CAUSE_REQUIRED",
+    "DISCARD_CAUSE_EXCEEDS_TOTAL"
+  ].includes(code)) return "invalid-argument";
   if (code === "LINE_NOT_AVAILABLE") return "failed-precondition";
   if ([
     "JOURNEY_NOT_DRAFT",
@@ -154,6 +169,11 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
   }
   if (["COUNT_NOT_RETURNED", "ACTIVE_RESERVATION_EXISTS"].includes(code)) return "failed-precondition";
   if ([
+    "DISCARD_NOT_PENDING_REVIEW",
+    "DISCARD_STALE_INVENTORY",
+    "DISCARD_EXCEEDS_INVENTORY"
+  ].includes(code)) return "failed-precondition";
+  if ([
     "CORRECTION_REASSIGNMENT_REASON_REQUIRED",
     "CORRECTION_REASSIGNMENT_NO_CHANGE"
   ].includes(code)) {
@@ -172,6 +192,7 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
     "ACTIVATION_LINE_NOT_FOUND",
     "RESERVATION_NOT_FOUND",
     "COUNT_NOT_FOUND",
+    "DISCARD_NOT_FOUND",
     "CATALOG_LOCATION_NOT_FOUND",
     "CATALOG_LINE_NOT_FOUND",
     "MIGRATION_IMPORT_NOT_FOUND"
@@ -215,6 +236,10 @@ const validateMigrationPackageService = new ValidateMigrationPackageService(fire
 const importMigrationPackageService = new ImportMigrationPackageService(firestore);
 const listMigrationImportsService = new ListMigrationImportsService(firestore);
 const revertMigrationImportService = new RevertMigrationImportService(firestore);
+const listDiscardLinesService = new ListDiscardLinesService(firestore);
+const registerDiscardService = new RegisterDiscardService(firestore);
+const approveDiscardService = new ApproveDiscardService(firestore);
+const returnDiscardService = new ReturnDiscardService(firestore);
 
 export const importarPaqueteMigracion = onCall({region: "us-central1"}, async (request) => {
   try {
@@ -652,6 +677,69 @@ export const devolverConteo = onCall({region: "us-central1"}, async (request) =>
   } catch (error) {
     if (error instanceof DomainError) throw toHttpsError(error);
     logger.error("Fallo interno en devolverConteo", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const listarLineasDescarte = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertRuntimeEnvironment();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    parseListDiscardLinesRequest(request.data);
+    return await listDiscardLinesService.execute({actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en listarLineasDescarte", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const registrarDescarte = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertRuntimeEnvironment();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    return await registerDiscardService.execute(
+      parseRegisterDiscardRequest(request.data), {actorId: request.auth.uid}
+    );
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en registrarDescarte", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const aprobarDescarte = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertRuntimeEnvironment();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    return await approveDiscardService.execute(
+      parseApproveDiscardRequest(request.data), {actorId: request.auth.uid}
+    );
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en aprobarDescarte", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const devolverDescarte = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertRuntimeEnvironment();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    return await returnDiscardService.execute(
+      parseReturnDiscardRequest(request.data), {actorId: request.auth.uid}
+    );
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en devolverDescarte", {
       errorName: error instanceof Error ? error.name : "UnknownError"
     });
     throw toHttpsError(domainErrors.internal());

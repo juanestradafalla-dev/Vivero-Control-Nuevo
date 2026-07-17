@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/register-discard-request.schema.json",
+  "title": "Solicitud registrarDescarte",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["lineaId", "versionInventarioObservada", "dispositivoId", "hembras", "machos", "patrones", "causas", "timestampDispositivo", "claveIdempotencia"],
+  "properties": {
+    "lineaId": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+    "versionInventarioObservada": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "dispositivoId": {"type": "string", "minLength": 3, "maxLength": 200},
+    "hembras": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "machos": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "patrones": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "causas": {"$ref": "#/$defs/causas"},
+    "observaciones": {"type": "string", "maxLength": 4000},
+    "timestampDispositivo": {"type": "string", "format": "date-time"},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}
+  },
+  "$defs": {
+    "causas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["muertos", "nematodos", "cuelloGanso", "raicesBifurcadas", "dobleInjertacion"],
+      "properties": {
+        "muertos": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+        "nematodos": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+        "cuelloGanso": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+        "raicesBifurcadas": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+        "dobleInjertacion": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"}
+      },
+      "anyOf": [
+        {"properties": {"muertos": {"type": "integer", "minimum": 1}}},
+        {"properties": {"nematodos": {"type": "integer", "minimum": 1}}},
+        {"properties": {"cuelloGanso": {"type": "integer", "minimum": 1}}},
+        {"properties": {"raicesBifurcadas": {"type": "integer", "minimum": 1}}},
+        {"properties": {"dobleInjertacion": {"type": "integer", "minimum": 1}}}
+      ]
+    }
+  },
+  "description": "El total único se calcula con hembras, machos y patrones. Las causas pueden superponerse, pero ninguna causa individual puede superar ese total."
+}

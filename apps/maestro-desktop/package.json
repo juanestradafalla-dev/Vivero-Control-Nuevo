@@ -15,10 +15,10 @@
     "test": "vitest run",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.electron.json",
-    "validate:staging-env": "node scripts/validate-staging-env.mjs",
-    "verify:staging": "npm run validate:staging-env && npm run lint && npm run typecheck && npm test && npm run build",
-    "package:win:unpacked": "npm run verify:staging && electron-builder --win dir --x64 --config electron-builder.yml",
-    "package:win:staging": "npm run verify:staging && electron-builder --win nsis --x64 --config electron-builder.yml --publish never"
+    "validate:production-env": "node scripts/validate-production-env.mjs",
+    "verify:production": "npm run validate:production-env && npm run lint && npm run typecheck && npm test && npm run build",
+    "package:win:unpacked": "npm run verify:production && electron-builder --win dir --x64 --config electron-builder.yml",
+    "package:win:production": "npm run verify:production && electron-builder --win nsis --x64 --config electron-builder.yml --publish never"
   },
   "engines": {
     "node": ">=22.12.0"

@@ -4,13 +4,11 @@ import {resolve} from "node:path";
 const envPath = resolve(process.cwd(), ".env.local");
 
 function fail(message) {
-  console.error(`Configuración staging inválida: ${message}`);
+  console.error(`Configuración production inválida: ${message}`);
   process.exit(1);
 }
 
-if (!existsSync(envPath)) {
-  fail("falta el archivo local .env.local.");
-}
+if (!existsSync(envPath)) fail("falta el archivo local .env.local.");
 
 const variables = new Map();
 for (const rawLine of readFileSync(envPath, "utf8").split(/\r?\n/u)) {
@@ -25,13 +23,13 @@ for (const rawLine of readFileSync(envPath, "utf8").split(/\r?\n/u)) {
 }
 
 const expected = new Map([
-  ["VITE_APP_ENV", "staging"],
+  ["VITE_APP_ENV", "production"],
   ["VITE_USE_FIREBASE_EMULATORS", "false"],
   ["VITE_FIREBASE_PROJECT_ID", "viverocontrol-3f83f"],
 ]);
 
 for (const [key, value] of expected) {
-  if (variables.get(key) !== value) fail(`${key} no tiene el valor staging requerido.`);
+  if (variables.get(key) !== value) fail(`${key} no tiene el valor production requerido.`);
 }
 
 const requiredWebValues = [
@@ -42,4 +40,4 @@ const requiredWebValues = [
 const missing = requiredWebValues.filter((key) => !variables.get(key));
 if (missing.length > 0) fail(`faltan valores Web requeridos: ${missing.join(", ")}.`);
 
-console.log("Configuración local de Vivero Maestro Staging validada.");
+console.log("Configuración local de Vivero Maestro Production validada.");

@@ -45,12 +45,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6.2.0
       - run: chmod +x gradlew
       - run: ./gradlew assembleDebug
-      - name: Compilar staging con identificadores ficticios
+      - name: Compilar production sin firma y con identificadores ficticios
         run: >-
-          ./gradlew assembleStaging
-          -PstagingFirebaseProjectId=viverocontrol-3f83f
-          -PstagingFirebaseApiKey=API_KEY_FICTICIA_SOLO_CI
-          -PstagingFirebaseAppId=1:000000000000:android:app-ficticia-solo-ci
+          ./gradlew assembleRelease --no-configuration-cache
+          -PproductionFirebaseProjectId=viverocontrol-3f83f
+          -PproductionFirebaseApiKey=API_KEY_FICTICIA_SOLO_CI
+          -PproductionFirebaseAppId=1:000000000000:android:app-ficticia-solo-ci
       - run: ./gradlew testDebugUnitTest
       - run: ./gradlew lintDebug
 
@@ -109,8 +109,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          forbidden_files="$(find . -type f \( -name 'google-services.json' -o -name '*.apk' -o -name '*.exe' -o -name '*.keystore' -o -name '*.jks' -o -name '.env' \) -print)"
+          forbidden_files="$(find . -type f \( -name 'google-services.json' -o -name '*.apk' -o -name '*.aab' -o -name '*.exe' -o -name '*.msi' -o -name '*.keystore' -o -name '*.jks' -o -name '*.p12' -o -name '*.pfx' -o -name '.env' -o -name '.env.local' -o -name '.env.viverocontrol*' \) -print)"
           forbidden_dirs="$(find . -type d \( -name node_modules -o -name build -o -name .gradle -o -name .idea \) -not -path './.git/*' -print)"
           test -z "$forbidden_files"
           test -z "$forbidden_dirs"
-          ! grep -R --line-number -E 'firebase[[:space:]]+deploy' .github backend/functions/package.json
+          ! git grep -n -E -- 'AIza[0-9A-Za-z_-]{35}|-----BEGIN (PRIVATE KEY|CERTIFICATE)' ':!**/package-lock.json'
+          ! git grep -n -E -- 'firebase[[:space:]]+deploy' ':!.github/workflows/ci.yml' ':!docs/**' ':!README.md'

@@ -67,15 +67,15 @@ class CampoViewModelTest {
     }
 
     @Test
-    fun `staging permite acceso pero bloquea seleccionar una línea`() = runTest {
-        repository.environment = CampoEnvironment.STAGING
+    fun `production permite el flujo operativo de selección de línea`() = runTest {
+        repository.environment = CampoEnvironment.PRODUCTION
         viewModel = CampoViewModel(repository, DEVICE_ID, scheduler)
 
         login()
         viewModel.selectLine(journeySnapshot.lines.first())
 
-        assertNull(viewModel.uiState.value.selectedLine)
-        assertTrue(viewModel.uiState.value.message.orEmpty().contains("solo lectura"))
+        assertEquals(journeySnapshot.lines.first(), viewModel.uiState.value.selectedLine)
+        assertTrue(viewModel.uiState.value.mutableOperationsEnabled)
     }
 
     @Test

@@ -8,7 +8,7 @@
   "patrones": 20,
   "total": 180,
   "versionInventario": 1,
-  "origen": "CARGA_INICIAL_ADMINISTRATIVA_EMULADOR",
+  "origen": "CARGA_INICIAL_ADMINISTRATIVA",
   "conteoAprobadoId": null,
   "referenciaFuente": "Planilla ficticia de prueba ETAPA 17",
   "registradaPorUsuarioId": "uid-administrador",

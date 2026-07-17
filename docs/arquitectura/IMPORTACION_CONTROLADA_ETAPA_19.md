@@ -10,7 +10,7 @@ La importación recibe el paquete v1, `hashEsperado`, `confirmacionHash` y `clav
 
 La proyección es `2 × (ubicaciones + líneas + inventarios) + 4`: cada entidad crea su documento y trazabilidad asociada; las cuatro escrituras finales corresponden al registro histórico, bloqueo permanente de hash, auditoría e idempotencia. El máximo seguro es 450. Si se supera o falla cualquier lectura, hash, permiso o validación, no se confirma ninguna escritura.
 
-El backend genera todos los IDs. Crea ubicaciones en orden de padres, líneas, bloqueos deterministas de códigos, inventarios versión 1 y cargas iniciales `MIGRACION_CONTROLADA_EMULADOR`. No crea movimientos porque no existe fotografía anterior. `importacionesMigracion` conserva solo hash, cantidades, mapa, actor, fecha, versión y estado `APLICADA`; nunca almacena el paquete original.
+El backend genera todos los IDs. Crea ubicaciones en orden de padres, líneas, bloqueos deterministas de códigos, inventarios versión 1 y cargas iniciales `MIGRACION_CONTROLADA`. No crea movimientos porque no existe fotografía anterior. `importacionesMigracion` conserva solo hash, cantidades, mapa, actor, fecha, versión y estado `APLICADA`; nunca almacena el paquete original. La reversión mantiene compatibilidad con el origen histórico `MIGRACION_CONTROLADA_EMULADOR`.
 
 `bloqueosHashesMigracion` proporciona exclusión concurrente y permanece aunque la importación sea revertida. La misma clave y payload recuperan el resultado; otra solicitud con la misma clave produce `IDEMPOTENCY_CONFLICT`, y otra clave con el mismo hash produce `MIGRATION_HASH_ALREADY_IMPORTED`.
 

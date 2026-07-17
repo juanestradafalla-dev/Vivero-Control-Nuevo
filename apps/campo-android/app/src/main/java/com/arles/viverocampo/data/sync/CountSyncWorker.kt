@@ -9,6 +9,7 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.arles.viverocampo.core.LocalRuntimeNames
 import com.arles.viverocampo.domain.CampoRepository
 import com.arles.viverocampo.domain.CountSyncOutcome
 
@@ -20,15 +21,13 @@ interface CountSyncScheduler {
 class WorkManagerCountSyncScheduler(context: Context, private val namespace: String = "emulator") : CountSyncScheduler {
     private val workManager = WorkManager.getInstance(context.applicationContext)
 
-    init {
-        require(namespace.matches(Regex("[a-z0-9_-]+"))) { "El namespace de sincronización no es seguro." }
-    }
+    init { LocalRuntimeNames.validateNamespace(namespace) }
 
     override fun schedule(reservationId: String, idempotencyKey: String) {
         val request = OneTimeWorkRequestBuilder<CountSyncWorker>()
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .setInputData(Data.Builder().putString(INPUT_RESERVATION_ID, reservationId).build())
-            .addTag(if (namespace == "emulator") TAG_COUNT_SEND else "$TAG_COUNT_SEND-$namespace")
+            .addTag(LocalRuntimeNames.workTag(namespace))
             .build()
         workManager.enqueueUniqueWork(workName(reservationId, idempotencyKey), ExistingWorkPolicy.KEEP, request)
     }
@@ -38,11 +37,7 @@ class WorkManagerCountSyncScheduler(context: Context, private val namespace: Str
     }
 
     private fun workName(reservationId: String, idempotencyKey: String) =
-        if (namespace == "emulator") {
-            "count-send-$reservationId-$idempotencyKey"
-        } else {
-            "$namespace-count-send-$reservationId-$idempotencyKey"
-        }
+        LocalRuntimeNames.workName(namespace, reservationId, idempotencyKey)
 
     companion object {
         const val INPUT_RESERVATION_ID = "reservation_id"

@@ -110,9 +110,9 @@ function containsPrivateData(value: unknown): boolean {
     /\b(?:CONTRASE[NÑ]A|PASSWORD|TOKEN|SECRETO|SECRET|CREDENTIAL|PRIVATE[ _-]?KEY|API[ _-]?KEY)\b/i.test(joined);
 }
 
-function isFictitiousReference(value: string): boolean {
-  const normalized = value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
-  return /(PRUEBA|FICTICI|EMULADOR|SIMULAD)/.test(normalized);
+function isTraceableReference(value: string): boolean {
+  const normalized = normalizeText(value);
+  return normalized.length >= 3 && /[\p{L}\p{N}]/u.test(normalized);
 }
 
 function issue(
@@ -379,10 +379,10 @@ function validateInventories(
       issue(state, "ERROR", "TOTAL_CERO", "INVENTARIO_INICIAL", value.lineaClaveExterna,
         "El inventario inicial total cero permanece bloqueado.");
     }
-    if (!isFictitiousReference(value.referenciaFuente)) {
+    if (!isTraceableReference(value.referenciaFuente)) {
       block(item);
-      issue(state, "ERROR", "REFERENCIA_NO_FICTICIA", "INVENTARIO_INICIAL", value.lineaClaveExterna,
-        "La fuente debe indicar claramente que es ficticia o de prueba.");
+      issue(state, "ERROR", "REFERENCIA_NO_TRAZABLE", "INVENTARIO_INICIAL", value.lineaClaveExterna,
+        "La fuente debe contener una referencia trazable de al menos tres caracteres.");
     }
     const duplicate = inventoriesByLine.get(value.lineaClaveExterna);
     if (duplicate) {
@@ -568,9 +568,9 @@ export function validateMigrationPackage(
       issue(state, "ERROR", "ESTRUCTURA_INVALIDA", "PAQUETE", null, "Los metadatos no son válidos.");
     }
     if (typeof root.metadatos.referenciaFuente === "string" &&
-        !isFictitiousReference(root.metadatos.referenciaFuente)) {
-      issue(state, "ERROR", "REFERENCIA_NO_FICTICIA", "PAQUETE", null,
-        "La referencia general debe identificar datos ficticios o de prueba.");
+        !isTraceableReference(root.metadatos.referenciaFuente)) {
+      issue(state, "ERROR", "REFERENCIA_NO_TRAZABLE", "PAQUETE", null,
+        "La referencia general debe ser trazable y contener al menos tres caracteres.");
     }
   }
   const rawLocations = Array.isArray(root.ubicaciones) ? root.ubicaciones : [];

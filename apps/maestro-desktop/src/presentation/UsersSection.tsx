@@ -5,7 +5,6 @@ import type {ManageableUser, MonitorRepository, MonitorRole, MonitorUser} from "
 interface UsersSectionProps {
   readonly repository: MonitorRepository;
   readonly currentUser: MonitorUser;
-  readonly readOnly: boolean;
 }
 
 interface UserDialog {
@@ -35,7 +34,7 @@ function workSummary(user: ManageableUser): string {
   ].filter(Boolean).join(" · ");
 }
 
-export function UsersSection({repository, currentUser, readOnly}: UsersSectionProps) {
+export function UsersSection({repository, currentUser}: UsersSectionProps) {
   const [users, setUsers] = useState<readonly ManageableUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -210,7 +209,7 @@ export function UsersSection({repository, currentUser, readOnly}: UsersSectionPr
               {user.activeWork.hasActiveWork && (
                 <small>Desactivar no libera ni reasigna este trabajo.</small>
               )}
-              {!readOnly && <div className="user-card__actions">
+              <div className="user-card__actions">
                 <button
                   className={user.active ? "button button--danger" : "button"}
                   type="button"
@@ -233,14 +232,14 @@ export function UsersSection({repository, currentUser, readOnly}: UsersSectionPr
                 >
                   Cambiar rol
                 </button>
-              </div>}
+              </div>
             </article>
           ))}
           {visibleUsers.length === 0 && <p>No hay usuarios que coincidan con los filtros.</p>}
         </div>
       )}
 
-      {!readOnly && dialog && (
+      {dialog && (
         <div className="dialog-backdrop">
           <section className="review-dialog" role="dialog" aria-modal="true" aria-labelledby="user-change-title">
             <h2 id="user-change-title">

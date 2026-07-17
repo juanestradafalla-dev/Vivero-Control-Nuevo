@@ -13,7 +13,6 @@ import {DraftParticipantsEditor} from "./DraftParticipantsEditor";
 interface DraftJourneysSectionProps {
   readonly repository: MonitorRepository;
   readonly user: MonitorUser;
-  readonly staging: boolean;
   readonly onActiveJourneysChanged: () => void | Promise<void>;
 }
 
@@ -32,7 +31,7 @@ function groupKey(line: DraftCatalogLine): string {
   return `${line.location.nursery}\u0000${line.location.module}\u0000${line.location.bed}`;
 }
 
-export function DraftJourneysSection({repository, user, staging, onActiveJourneysChanged}: DraftJourneysSectionProps) {
+export function DraftJourneysSection({repository, user, onActiveJourneysChanged}: DraftJourneysSectionProps) {
   const [data, setData] = useState<ManageableJourneysData>({journeys: [], cancelledJourneys: [], catalogLines: []});
   const [selectedDraftId, setSelectedDraftId] = useState<string>();
   const [selectedCancelledId, setSelectedCancelledId] = useState<string>();
@@ -300,11 +299,9 @@ export function DraftJourneysSection({repository, user, staging, onActiveJourney
                   <h2 id="cancelled-draft-title">{selectedCancelled.displayName}</h2>
                   <p>BORRADOR CANCELADO — SOLO LECTURA</p>
                 </div>
-                {!staging && (
-                  <button className="button" type="button" disabled={reopening} onClick={() => setShowReopenSummary(true)}>
-                    Reabrir borrador
-                  </button>
-                )}
+                <button className="button" type="button" disabled={reopening} onClick={() => setShowReopenSummary(true)}>
+                  Reabrir borrador
+                </button>
               </div>
               <div className="inventory-summary" aria-label="Datos de cancelación">
                 <span>Creada por: {selectedCancelled.creatorDisplayName}</span>
@@ -404,7 +401,6 @@ export function DraftJourneysSection({repository, user, staging, onActiveJourney
                 journey={selectedDraft}
                 catalogLines={data.catalogLines}
                 lineSelectionDirty={lineSelectionDirty}
-                staging={staging}
                 onActivated={handleActivated}
                 onCancelled={handleCancelled}
               />
@@ -436,7 +432,7 @@ export function DraftJourneysSection({repository, user, staging, onActiveJourney
         </div>
       )}
 
-      {!staging && showReopenSummary && selectedCancelled && (
+      {showReopenSummary && selectedCancelled && (
         <div className="dialog-backdrop" role="presentation">
           <section className="review-dialog" role="dialog" aria-modal="true" aria-labelledby="reopen-draft-title">
             <p className="eyebrow">REAPERTURA TRANSACCIONAL</p>

@@ -10,7 +10,7 @@ La operación vuelve a leer perfil, línea, versión, ocupación, inventario e h
 
 En una sola transacción crea:
 
-- `inventarioOficialLineas/{lineaId}` con versión 1, total central y origen `CARGA_INICIAL_ADMINISTRATIVA_EMULADOR`;
+- `inventarioOficialLineas/{lineaId}` con versión 1, total central y origen `CARGA_INICIAL_ADMINISTRATIVA`;
 - `cargasInventarioInicial/{lineaId}` como trazabilidad inmutable;
 - auditoría `INVENTARIO_INICIAL_REGISTRADO`;
 - resultado idempotente `REGISTRAR_INVENTARIO_INICIAL`.

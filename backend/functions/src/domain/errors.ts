@@ -211,7 +211,7 @@ export const domainErrors = {
     "INVENTORY_INITIAL_ZERO_NOT_ALLOWED", "El inventario inicial total cero no está permitido en esta etapa."
   ),
   initialInventorySourceInvalid: () => new DomainError(
-    "INVENTORY_INITIAL_SOURCE_INVALID", "La referencia debe identificar claramente una fuente ficticia de prueba."
+    "INVENTORY_INITIAL_SOURCE_INVALID", "La referencia de fuente debe ser trazable y tener al menos tres caracteres."
   ),
   initialInventoryOperationalActivity: () => new DomainError(
     "INVENTORY_INITIAL_OPERATIONAL_ACTIVITY", "La línea ya inició actividad operativa y no admite una carga inicial."
@@ -312,6 +312,9 @@ export const domainErrors = {
   inventoryNotFound: () => new DomainError("INVENTORY_NOT_FOUND", "La línea no tiene un inventario oficial inicial."),
   activeReservationExists: () => new DomainError("ACTIVE_RESERVATION_EXISTS", "La cuenta ya tiene otra reserva activa."),
   idempotencyConflict: () => new DomainError("IDEMPOTENCY_CONFLICT", "La clave de reintento ya se utilizó con otra solicitud."),
-  emulatorOnly: () => new DomainError("EMULATOR_ONLY", "La operación solo está disponible en el entorno local de prueba."),
+  environmentNotAllowed: () => new DomainError(
+    "ENVIRONMENT_NOT_ALLOWED",
+    "La configuración de Firebase no corresponde a un ambiente autorizado."
+  ),
   internal: () => new DomainError("INTERNAL_ERROR", "No fue posible completar la operación.")
 } as const;

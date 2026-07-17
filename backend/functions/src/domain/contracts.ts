@@ -114,7 +114,7 @@ export type ControlledErrorCode =
   | "INVENTORY_NOT_FOUND"
   | "ACTIVE_RESERVATION_EXISTS"
   | "IDEMPOTENCY_CONFLICT"
-  | "EMULATOR_ONLY"
+  | "ENVIRONMENT_NOT_ALLOWED"
   | "INTERNAL_ERROR";
 
 export interface ReserveLineRequest {
@@ -565,7 +565,7 @@ export interface RegisterInitialInventoryResult extends InventoryValues {
   readonly jornadaId: string | null;
   readonly jornadaLineaId: string | null;
   readonly versionInventario: 1;
-  readonly origen: "CARGA_INICIAL_ADMINISTRATIVA_EMULADOR";
+  readonly origen: "CARGA_INICIAL_ADMINISTRATIVA";
   readonly conteoAprobadoId: null;
   readonly referenciaFuente: string;
   readonly registradaPorUsuarioId: string;

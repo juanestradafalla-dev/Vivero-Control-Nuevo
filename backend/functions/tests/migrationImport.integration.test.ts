@@ -69,7 +69,7 @@ function validPackage(suffix = "A"): MigrationCatalogPackageV1 {
     metadatos: {
       nombrePaquete: `PRUEBA FICTICIA ETAPA 19 ${suffix}`,
       creadoEn: "2026-07-16T12:00:00.000Z",
-      referenciaFuente: "PRUEBA FICTICIA EMULADOR ETAPA 19"
+      referenciaFuente: "Acta general de migración ETAPA 20"
     },
     ubicaciones: [
       {
@@ -89,7 +89,7 @@ function validPackage(suffix = "A"): MigrationCatalogPackageV1 {
     }],
     inventariosIniciales: [{
       lineaClaveExterna: `LINEA-MIG19-${suffix}`, hembras: 12, machos: 7, patrones: 3,
-      referenciaFuente: "PRUEBA FICTICIA planilla simulada ETAPA 19"
+      referenciaFuente: "Planilla controlada de inventario ETAPA 20"
     }]
   };
 }
@@ -182,13 +182,13 @@ describe("importación y reversión controladas mediante emuladores reales", () 
     });
     expect((await database().collection("inventarioOficialLineas").doc(lineId).get()).data()).toMatchObject({
       hembras: 12, machos: 7, patrones: 3, total: 22, version: 1,
-      origen: "MIGRACION_CONTROLADA_EMULADOR"
+      origen: "MIGRACION_CONTROLADA"
     });
     expect((await database().collection("movimientosInventario").where("lineaId", "==", lineId).get()).empty).toBe(true);
     const stored = (await database().collection("importacionesMigracion").doc(result.importacionId).get()).data()!;
     expect(stored.paquete).toBeUndefined();
     expect(stored.metadatos).toBeUndefined();
-    expect(JSON.stringify(stored)).not.toContain("planilla simulada");
+    expect(JSON.stringify(stored)).not.toContain("Planilla controlada");
   });
 
   it("importa y revierte una línea inactiva sin inventario inicial inexistente", async () => {

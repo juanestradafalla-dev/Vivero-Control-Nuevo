@@ -15,7 +15,7 @@ No admite usuarios, correos, contraseñas, cuentas Firebase Auth, datos personal
 
 ## Validaciones
 
-El validador aplica estructura estricta, tamaño y cantidades máximas, claves y códigos únicos, referencias, ciclos, enteros seguros, suma segura, bloqueo de total cero, fuente ficticia y detección defensiva de secretos. Toda línea activa debe incluir exactamente un inventario inicial.
+El validador aplica estructura estricta, tamaño y cantidades máximas, claves y códigos únicos, referencias, ciclos, enteros seguros, suma segura, bloqueo de total cero, fuente trazable de al menos tres caracteres y detección defensiva de secretos. Toda línea activa debe incluir exactamente un inventario inicial.
 
 Después lee el catálogo, inventario, ocupaciones, `jornadaLineas` y jornadas actuales. Clasifica elementos como nuevos, coincidentes o bloqueados y reporta códigos existentes, claves incompatibles, inventario previo y conflictos operativos.
 

@@ -55,7 +55,7 @@ function activeAdministrativeActor(snapshot: DocumentSnapshot): {role: Administr
       ? "SUPERVISOR"
       : undefined;
   if (!role) throw domainErrors.permissionDenied();
-  return {role, name: actor.nombreVisible ?? "Usuario de prueba"};
+  return {role, name: actor.nombreVisible ?? "Usuario"};
 }
 
 function assertOwner(journey: JourneyDocument, actorId: string, role: AdministrativeRole): void {

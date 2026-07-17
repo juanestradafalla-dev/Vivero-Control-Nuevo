@@ -1,177 +1,84 @@
 # Vivero Control Nuevo
 
-Sistema nuevo para operar inventario por línea mediante Vivero Campo (Android), Vivero Maestro (Windows) y un backend transaccional. Este repositorio no consulta, modifica ni reutiliza el proyecto anterior `Vivero-Control`.
+Sistema de inventario por línea compuesto por Vivero Campo (Android), Vivero Maestro (Electron/React para Windows) y un backend transaccional en Firebase. Este repositorio es independiente y no reutiliza código del proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 19
+## Estado: ETAPA 20
 
-La vertical disponible funciona exclusivamente con Firebase Emulator Suite y datos ficticios:
+El código quedó preparado para dos ambientes y un único proyecto Firebase real. **No se ha desplegado ni se afirma que el sistema esté en producción.**
 
-1. Campo reserva una línea, captura el conteo offline y lo sincroniza idempotentemente.
-2. Después de `ENVIADA`, la persona finaliza y puede tomar otra línea sin perder el historial local.
-3. `enviarConteo` deja la línea en `PENDIENTE_REVISION` sin tocar inventario.
-4. Maestro presenta una bandeja con conteo, inventario oficial actual y diferencias.
-5. Supervisor o administrador autorizado solicita `aprobarConteo` o `devolverConteo`.
-6. La aprobación reemplaza la fotografía oficial y crea un movimiento histórico en una sola transacción.
-7. La devolución conserva el inventario intacto y permite que el autor inicie una reserva `CORRECCION`.
-8. Campo restaura los valores devueltos como un borrador nuevo; el reenvío crea la versión siguiente y conserva las anteriores.
-9. Maestro muestra el historial, el motivo de devolución y cuál versión es vigente; aprobar y devolver siguen operando solo sobre la vigente.
+| Ambiente | Proyecto | Uso | Datos |
+|---|---|---|---|
+| `EMULATOR` | `demo-*` | Desarrollo y pruebas con Firebase Emulator Suite | Exclusivamente ficticios |
+| `PRODUCTION` | `viverocontrol-3f83f` | Operación futura de cuentas autorizadas | Reales solo después del corte controlado |
 
-10. Supervisor o administrador autorizado puede reasignar una corrección `DEVUELTA` a otro usuario activo y autorizado.
-11. La reasignación es inmutable, idempotente y auditada; no cambia el conteo original, su autor ni el inventario.
-12. Solo el responsable actual inicia la reserva `CORRECCION`; la nueva versión conserva el enlace anterior y registra como autor a quien corrigió.
+No existe `STAGING` como ambiente funcional. Firestore permanecerá en `nam5` y Functions en `us-central1`.
 
-13. Supervisor o administrador autorizado puede liberar manualmente una reserva `ACTIVA` mediante `liberarReservaLinea`.
-14. Una reserva inicial vuelve de `EN_CONTEO` a `DISPONIBLE`; una reserva `CORRECCION` vuelve a `DEVUELTA` y restaura su reasignación vigente.
-15. Campo conserva el borrador local, cancela reintentos y muestra el rechazo supervisado sin borrar el token cifrado.
-16. La liberación es inmutable, auditada e idempotente; competir con `enviarConteo` produce exactamente un ganador.
+La ETAPA 20 modifica y prueba código. Todavía no se han limpiado datos, creado cuentas reales, cargado inventario real, desplegado Firebase, firmado un APK ni generado el instalador definitivo de Windows.
 
-17. `listarJornadasActivas` devuelve solo jornadas `ACTIVA` autorizadas para la cuenta autenticada.
-18. Campo selecciona automáticamente una única jornada o muestra selector cuando existen varias y bloquea el cambio con trabajo pendiente.
-19. Maestro cambia todas sus suscripciones al seleccionar otra jornada y nunca mezcla líneas, reservas, conteos o inventario.
-20. El ID histórico `JORNADA-PRUEBA-ETAPA-3` permanece solo como fixture del seed; ya no dirige consultas funcionales.
+## Frontera del backend
 
-21. Supervisor y administrador pueden crear jornadas `BORRADOR` mediante `crearJornadaBorrador`.
-22. Maestro permite seleccionar líneas activas del catálogo y guarda la preparación mediante `actualizarLineasJornadaBorrador`, sin crear `jornadaLineas` operativas.
-23. Supervisor administra exclusivamente sus borradores; administrador puede administrar todos y auxiliares no los consultan.
-24. Campo continúa recibiendo únicamente jornadas `ACTIVA`; un borrador no genera estados `DISPONIBLE` ni modifica inventario.
+Cada Callable ejecuta la misma frontera antes de autenticar o procesar la solicitud:
 
-25. Supervisor y administrador pueden preparar participantes de una jornada `BORRADOR` mediante `listarParticipantesJornadaBorrador` y `actualizarParticipantesJornadaBorrador`.
-26. El backend obtiene nombre y rol desde perfiles centrales activos; el cliente solo selecciona la cuenta e indica si puede contar.
-27. La preparación se guarda en `seleccionesParticipantesJornada`, separada de las autorizaciones operativas, con auditoría e idempotencia.
-28. Maestro permite buscar, filtrar, seleccionar y confirmar participantes mientras la jornada continúa en `BORRADOR` y no se expone en Campo.
+- `EMULATOR`: `FUNCTIONS_EMULATOR=true` y Project ID `demo-*`.
+- `PRODUCTION`: `FUNCTIONS_EMULATOR` distinto de `true`, Project ID exacto `viverocontrol-3f83f` y `APP_ENV=production`.
+- cualquier otra combinación se rechaza con `ENVIRONMENT_NOT_ALLOWED`.
 
-29. Supervisor activa exclusivamente sus borradores preparados y administrador puede activar cualquier borrador mediante `activarJornada`.
-30. La activación revalida perfiles, roles, líneas y tres versiones observadas; luego materializa autorizaciones y `jornadaLineas` `DISPONIBLE` en una única transacción.
-31. `ocupacionesLineasActivas/{lineaId}` garantiza un único ganador si dos borradores compiten por la misma línea física.
-32. Maestro muestra el resumen completo, exige confirmación y refresca tanto borradores como jornadas activas después del éxito.
-33. Campo ve la nueva jornada únicamente para los participantes seleccionados; las selecciones preparatorias permanecen como trazabilidad.
-34. Activar no inicializa ni reemplaza inventario oficial y no crea movimientos de inventario.
-
-35. Supervisor creador o administrador puede cerrar una jornada `ACTIVA` mediante `cerrarJornada` cuando todas sus líneas están `APROBADA`.
-36. El cierre rechaza versiones obsoletas, reservas activas, estados pendientes, correcciones y reasignaciones sin producir escrituras parciales.
-37. La transacción conserva líneas, autorizaciones e historia, las marca inactivas y libera `ocupacionesLineasActivas/{lineaId}`.
-38. Maestro muestra estados y bloqueos exactos, exige confirmación y retira la jornada de los selectores después del éxito.
-39. Campo detecta que la jornada dejó de estar activa, limpia la selección segura y nunca elimina el historial o un borrador local.
-40. Cerrar no modifica inventario, movimientos, conteos, decisiones, reservas ni selecciones preparatorias.
-
-41. Supervisor creador o administrador puede cancelar una jornada `BORRADOR` mediante `cancelarJornadaBorrador`, con motivo y versión observada.
-42. La cancelación conserva líneas y participantes preparados, registra trazabilidad inmutable y no materializa datos operativos.
-43. `reabrirJornadaCancelada` restaura exclusivamente cancelaciones de borrador que nunca fueron activadas ni cerradas normalmente.
-44. Maestro separa borradores editables y cancelados, muestra la preparación conservada en modo lectura y confirma ambas operaciones.
-45. Cancelar compite transaccionalmente con editar líneas, editar participantes y activar; solo una operación puede confirmar.
-
-46. `listarUsuariosAdministrables` entrega a administradores activos solo nombre, rol, estado, versión y advertencias operativas centrales.
-47. `actualizarEstadoUsuario` desactiva o reactiva perfiles con motivo, versión, auditoría e idempotencia sin modificar Firebase Auth.
-48. `actualizarRolUsuario` admite únicamente los tres roles centrales y rechaza trabajo activo, versiones obsoletas y cambios que dejarían al sistema sin administrador.
-49. Desactivar conserva reservas, correcciones, autorizaciones e historia para su liberación o reasignación supervisada; toda nueva operación central queda bloqueada inmediatamente.
-50. Maestro limita “Usuarios” a administradores y Campo/Maestro invalidan una sesión desactivada sin borrar borradores locales ni tokens cifrados.
-
-51. `listarCatalogoAdministrable` entrega a administradores activos el árbol genérico de ubicaciones y sus líneas, con versión, estado y advertencias.
-52. `crearUbicacion`, `actualizarUbicacion`, `crearLinea` y `actualizarLinea` normalizan códigos, usan bloqueos deterministas y confirman escrituras versionadas, auditadas e idempotentes.
-53. Código, tipo y padre de una ubicación, y código y ubicación de una línea, permanecen inmutables; ninguna desactivación se propaga en cascada.
-54. Maestro limita “Catálogo” a administradores, muestra el árbol expandible y refresca los borradores después de cada cambio central.
-55. Una línea desactivada conserva sus selecciones preparatorias y aparece inválida hasta corregirlas; una línea ocupada por jornada `ACTIVA` no puede modificarse y su fotografía histórica permanece intacta.
-
-56. `registrarInventarioInicial` permite únicamente a un administrador activo crear la primera fotografía oficial de una línea elegible.
-57. Las cantidades se validan como enteros seguros y el total se calcula centralmente; una carga total cero se rechaza mientras no exista política real.
-58. La carga crea inventario versión 1, trazabilidad inmutable y auditoría, pero ningún movimiento porque no existe fotografía anterior.
-59. Maestro muestra `SIN INICIALIZAR` o `INICIALIZADO`, exige fuente ficticia y confirmación explícita, y no ofrece edición, reemplazo, borrado o importación.
-60. Una aprobación posterior sustituye normalmente la versión 1, crea la versión 2 y registra diferencias sin alterar la carga inicial conservada.
-
-61. `paquete-migracion-catalogo-v1` define exclusivamente metadatos, ubicaciones, líneas e inventarios iniciales relacionados por `claveExterna`.
-62. `validarPaqueteMigracion` funciona solo para administradores activos y en Emulator Suite; valida estructura, cantidades, relaciones, secretos y conflictos sin escribir en Firestore.
-63. El resultado incluye hash SHA-256 determinista, cantidades, errores, advertencias y elementos nuevos, coincidentes o bloqueados; `aptoParaImportar` es exclusivamente informativo.
-64. Maestro permite seleccionar el JSON solo en memoria, validar primero su estructura, filtrar hallazgos y exportar un informe que no contiene el paquete ni secretos.
-65. La plantilla `data/templates/paquete-migracion-catalogo-v1.example.json` contiene solo valores `PRUEBA`, no representa el vivero real y no autoriza una importación.
-
-66. `importarPaqueteMigracion` vuelve a normalizar, recalcula y confirma el hash, revalida Firestore y aplica únicamente paquetes ficticios completamente nuevos.
-67. Ubicaciones, líneas, bloqueos de códigos, inventarios y cargas iniciales se crean con IDs centrales en una sola transacción de máximo 450 escrituras.
-68. `bloqueosHashesMigracion` garantiza que un mismo hash nunca se importe dos veces, incluso después de una reversión.
-69. `importacionesMigracion` conserva hash, mapa, cantidades, actor, fecha y estado, pero nunca guarda el paquete original ni datos privados.
-70. `revertirImportacionMigracion` elimina solo los recursos creados cuando continúan intactos y sin uso; el registro histórico, mapa, auditoría e idempotencia permanecen.
-71. Maestro exige un fragmento del hash, muestra la proyección y el mapa, y solo ofrece reversión cuando la comprobación central la declara elegible.
-
-> **MODO DE PRUEBA — EMULADOR.** No existe Firebase real configurado, no hay credenciales de producción y ningún comando despliega recursos.
-
-Los conteos y las decisiones son inmutables desde clientes. Maestro no escribe directamente inventario, movimientos, decisiones, auditoría ni estados de línea.
-
-## Reglas de revisión
-
-- Un auxiliar no revisa conteos.
-- Supervisor y administrador requieren autorización activa de la jornada.
-- Un supervisor no puede aprobar su propio conteo.
-- Un administrador puede hacerlo excepcionalmente con advertencia y motivo obligatorio auditado.
-- Toda devolución exige motivo.
-- Repetir la misma clave con el mismo payload recupera el resultado anterior.
-- Una misma clave con otro payload produce `IDEMPOTENCY_CONFLICT`.
-- Si dos decisiones compiten, solo una puede confirmar la transición y sus efectos.
-- Nunca se asume inventario cero: si falta la fotografía inicial, la aprobación se rechaza íntegramente.
-
-## Inventario ficticio del emulador
-
-El seed repetible crea estas fotografías claramente ficticias:
-
-| Línea | Hembras | Machos | Patrones | Total |
-|---|---:|---:|---:|---:|
-| `LINEA-PRUEBA-1` | 500 | 300 | 200 | 1.000 |
-| `LINEA-PRUEBA-2` | 380 | 220 | 150 | 750 |
-| `LINEA-PRUEBA-3` | 270 | 180 | 90 | 540 |
-
-Una aprobación de 450 hembras, 320 machos y 210 patrones para la primera línea reemplaza 1.000 por 980 y registra diferencias `-50`, `+20`, `+10` y `-20`.
-
-## Estructura
+Las 30 Callables conservan autenticación, perfil activo, roles, autorización de jornada, validación, versión observada, idempotencia, concurrencia, transacciones y auditoría:
 
 ```text
-Vivero-Control-Nuevo/
-|-- .github/workflows/       # CI y auditoría, sin despliegue
-|-- apps/campo-android/      # Kotlin, Compose, Room, WorkManager y Keystore
-|-- apps/maestro-desktop/    # Electron, React y bandeja de revisión
-|-- backend/                 # Callables, reglas, emuladores y seed ficticio
-|-- contracts/               # JSON Schema y ejemplos compartidos
-|-- data/templates/          # plantilla ficticia versionada; nunca paquetes reales
-|-- docs/                    # definición, arquitectura y pruebas
-`-- tests/                   # espacio para escenarios integrales futuros
+importarPaqueteMigracion             listarImportacionesMigracion
+revertirImportacionMigracion         validarPaqueteMigracion
+registrarInventarioInicial           listarCatalogoAdministrable
+crearUbicacion                       actualizarUbicacion
+crearLinea                           actualizarLinea
+listarUsuariosAdministrables        actualizarEstadoUsuario
+actualizarRolUsuario                 cancelarJornadaBorrador
+reabrirJornadaCancelada              cerrarJornada
+activarJornada                       listarParticipantesJornadaBorrador
+actualizarParticipantesJornadaBorrador
+crearJornadaBorrador                 actualizarLineasJornadaBorrador
+listarJornadasAdministrables         listarJornadasActivas
+reservarLinea                        enviarConteo
+iniciarCorreccionConteo              reasignarCorreccionConteo
+liberarReservaLinea                  aprobarConteo
+devolverConteo
 ```
 
-## Emuladores
+Importación, reversión, inventario inicial, catálogo y usuarios continúan restringidos a administradores donde corresponde y conservan confirmaciones adicionales. Los clientes no escriben directamente inventario, movimientos, decisiones, auditoría, idempotencia ni estados críticos.
 
-Requisitos: JDK 21, Android SDK 36.1, Node.js 22 o posterior y npm.
+## Aplicaciones
 
-```powershell
-Set-Location backend/functions
-npm ci
-npm run build
-npm run emulators:start
-```
+### Vivero Campo
 
-En otra terminal:
+- `debug` instala `com.arles.viverocampo.emulator`, usa `demo-*` y llama `useEmulator`.
+- `release` conserva `com.arles.viverocampo`, exige `viverocontrol-3f83f` y nunca configura emuladores.
+- Room, preferencias, FirebaseApp, WorkManager y el alias de Android Keystore usan namespaces `emulator` o `production` distintos.
+- autenticación, selección de jornada, reserva, conteo offline, sincronización, corrección e historial local están disponibles en ambos ambientes según permisos.
+- la firma real solo puede proporcionarse mediante propiedades locales o variables de entorno; no se versiona ninguna llave.
 
-```powershell
-Set-Location backend/functions
-npm run emulator:seed
-```
+### Vivero Maestro
 
-Servicios: Auth `9099`, Firestore `8180`, Functions `5001` y Emulator UI `4000`. Todas las operaciones mutables se niegan a operar fuera de `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`. Únicamente `listarJornadasActivas` admite además la frontera staging documentada.
+- `VITE_APP_ENV=emulator` exige emuladores y un proyecto `demo-*`.
+- `VITE_APP_ENV=production` exige `VITE_USE_FIREBASE_EMULATORS=false` y `viverocontrol-3f83f`.
+- API key, App ID y Auth Domain se proporcionan en `.env.local`, ignorado por Git.
+- la interfaz muestra conteos, revisiones, correcciones, jornadas, usuarios, catálogo, inventario inicial y migración según el rol central.
+- Electron Builder queda preparado como `com.arles.viveromaestro`, `Vivero Maestro` y `Vivero-Maestro-Setup-${version}.${ext}`; esta etapa no genera el instalador.
 
-| Correo ficticio | Rol |
-|---|---|
-| `auxiliar1@prueba.local` | Auxiliar |
-| `auxiliar2@prueba.local` | Auxiliar |
-| `supervisor@prueba.local` | Supervisor |
-| `administrador@prueba.local` | Administrador |
+## Seguridad
 
-Contraseña exclusiva del emulador: `SoloEmulador-Etapa3!`. Es pública y no debe reutilizarse.
+- Firestore Rules conserva denegación final por defecto.
+- las escrituras críticas solo se realizan mediante Functions.
+- colecciones administrativas, auditoría e idempotencia permanecen inaccesibles directamente desde clientes.
+- no se usa `allow read, write: if true`, puertas traseras ni credenciales versionadas.
+- las pruebas de backend y reglas solo usan Emulator Suite.
+- CI no contiene despliegues, firmas, cuentas ni identificadores Web reales.
 
-## Primera fase Firebase staging
+## Verificación local
 
-El build `staging` instala `com.arles.viverocampo.staging`, usa firma debug y se conecta exclusivamente al proyecto `viverocontrol-3f83f`. No usa `google-services.json` ni llama `useEmulator`. API key y App ID se inyectan desde `apps/campo-android/local.properties`, ignorado por Git, o mediante parámetros `-P`.
-
-Esta fase permite autenticación real y lectura de jornadas activas. Reservar, enviar, revisar, administrar, importar y revertir permanecen bloqueados. No se realizó ningún despliegue.
-
-## Verificación
+Requisitos: Node.js 22, JDK 21, Android SDK 36.1 y npm.
 
 ```powershell
-# contratos
+# Contratos
 Set-Location contracts
 npm ci
 npm run validate
@@ -180,7 +87,10 @@ npm test
 # Android
 Set-Location ../apps/campo-android
 ./gradlew.bat assembleDebug
-./gradlew.bat assembleStaging "-PstagingFirebaseProjectId=viverocontrol-3f83f" "-PstagingFirebaseApiKey=API_KEY_FICTICIA_SOLO_COMPILACION" "-PstagingFirebaseAppId=1:000000000000:android:app-ficticia"
+./gradlew.bat assembleRelease --no-configuration-cache `
+  -PproductionFirebaseProjectId=viverocontrol-3f83f `
+  -PproductionFirebaseApiKey=API_KEY_FICTICIA_SOLO_COMPILACION `
+  -PproductionFirebaseAppId=1:000000000000:android:app-ficticia
 ./gradlew.bat testDebugUnitTest
 ./gradlew.bat lintDebug
 
@@ -193,7 +103,7 @@ npm test
 npm run build
 npm audit --omit=dev --audit-level=high
 
-# backend, reglas y concurrencia
+# Backend, reglas y concurrencia
 Set-Location ../../backend/functions
 npm ci
 npm run lint
@@ -204,107 +114,28 @@ npm run test:emulators
 npm audit --omit=dev --audit-level=high
 ```
 
-## Documentación de la primera fase staging
+Ninguno de estos comandos despliega Firebase. La compilación `release` usa identificadores manifiestamente ficticios, no inicia la aplicación y produce únicamente un artefacto local no firmado e ignorado por Git.
 
-- [Preparación controlada de Firebase staging](docs/arquitectura/FIREBASE_STAGING_PRIMERA_FASE.md)
-- [Pruebas de configuración y frontera](docs/pruebas/PRUEBAS_FIREBASE_STAGING.md)
-- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
+## Configuración local posterior
 
-## Documentación de la ETAPA 19
+Cuando se prepare el despliegue controlado, el archivo local de Functions `.env.viverocontrol-3f83f` deberá contener:
 
-- [Importación controlada y reversión segura](docs/arquitectura/IMPORTACION_CONTROLADA_ETAPA_19.md)
-- [Pruebas de atomicidad y reversión](docs/pruebas/PRUEBAS_ETAPA_19.md)
-- [Criterios de aceptación](docs/ETAPA_19_CRITERIOS_DE_ACEPTACION.md)
-- [Plantilla ficticia](data/templates/paquete-migracion-catalogo-v1.example.json)
-- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
-- [Contratos compartidos](contracts/README.md)
+```dotenv
+APP_ENV=production
+```
 
-## Documentación de la ETAPA 18
+Ese archivo no se crea ni se versiona en esta etapa. Consulte los README de [Vivero Campo](apps/campo-android/README.md) y [Vivero Maestro](apps/maestro-desktop/README.md) para las variables locales de cada cliente.
 
-- [Validación previa de migración](docs/arquitectura/PREFLIGHT_MIGRACION_ETAPA_18.md)
-- [Pruebas y garantía de cero escrituras](docs/pruebas/PRUEBAS_ETAPA_18.md)
-- [Criterios de aceptación](docs/ETAPA_18_CRITERIOS_DE_ACEPTACION.md)
-- [Plantilla ficticia](data/templates/paquete-migracion-catalogo-v1.example.json)
-- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
-- [Contratos compartidos](contracts/README.md)
+## Documentación vigente
 
-## Documentación de la ETAPA 17
-
-- [Inventario inicial controlado](docs/arquitectura/INVENTARIO_INICIAL_ETAPA_17.md)
-- [Pruebas, concurrencia y trazabilidad](docs/pruebas/PRUEBAS_ETAPA_17.md)
-- [Criterios de aceptación](docs/ETAPA_17_CRITERIOS_DE_ACEPTACION.md)
-- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
-- [Contratos compartidos](contracts/README.md)
-
-## Documentación de la ETAPA 16
-
-- [Catálogo central de ubicaciones y líneas](docs/arquitectura/CATALOGO_UBICACIONES_LINEAS_ETAPA_16.md)
-- [Pruebas y concurrencia](docs/pruebas/PRUEBAS_ETAPA_16.md)
-- [Criterios de aceptación](docs/ETAPA_16_CRITERIOS_DE_ACEPTACION.md)
-- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
-- [Contratos compartidos](contracts/README.md)
-
-## Documentación de la ETAPA 14
-
-- [Cancelación y reapertura segura de borradores](docs/arquitectura/CANCELACION_REAPERTURA_BORRADORES_ETAPA_14.md)
-- [Pruebas y concurrencia](docs/pruebas/PRUEBAS_ETAPA_14.md)
-- [Criterios de aceptación](docs/ETAPA_14_CRITERIOS_DE_ACEPTACION.md)
-- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
-- [Contratos compartidos](contracts/README.md)
-
-## Documentación de la ETAPA 13
-
-- [Cierre seguro de jornadas](docs/arquitectura/CIERRE_JORNADA_ETAPA_13.md)
-- [Pruebas y concurrencia](docs/pruebas/PRUEBAS_ETAPA_13.md)
-- [Criterios de aceptación](docs/ETAPA_13_CRITERIOS_DE_ACEPTACION.md)
-- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
-- [Contratos compartidos](contracts/README.md)
-
-## Documentación de la ETAPA 12
-
-- [Activación transaccional de jornadas](docs/arquitectura/ACTIVACION_JORNADA_ETAPA_12.md)
-- [Pruebas y concurrencia](docs/pruebas/PRUEBAS_ETAPA_12.md)
-- [Criterios de aceptación](docs/ETAPA_12_CRITERIOS_DE_ACEPTACION.md)
-- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
-- [Contratos compartidos](contracts/README.md)
-
-## Documentación de la ETAPA 11
-
-- [Participantes de jornadas en borrador](docs/arquitectura/PARTICIPANTES_JORNADA_BORRADOR_ETAPA_11.md)
-- [Pruebas](docs/pruebas/PRUEBAS_ETAPA_11.md)
-- [Criterios de aceptación](docs/ETAPA_11_CRITERIOS_DE_ACEPTACION.md)
-- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
-
-## Documentación de la ETAPA 10
-
-- [Jornadas en borrador y selección de líneas](docs/arquitectura/JORNADAS_BORRADOR_ETAPA_10.md)
-- [Pruebas](docs/pruebas/PRUEBAS_ETAPA_10.md)
-- [Criterios de aceptación](docs/ETAPA_10_CRITERIOS_DE_ACEPTACION.md)
-- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
-
-## Documentación de la ETAPA 9
-
-- [Jornadas activas dinámicas](docs/arquitectura/JORNADAS_DINAMICAS_ETAPA_09.md)
-- [Pruebas](docs/pruebas/PRUEBAS_ETAPA_09.md)
-- [Criterios de aceptación](docs/ETAPA_09_CRITERIOS_DE_ACEPTACION.md)
-- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
-
-## Documentación de la ETAPA 8
-
-- [Liberación manual supervisada](docs/arquitectura/LIBERACION_RESERVAS_ETAPA_08.md)
-- [Pruebas y concurrencia](docs/pruebas/PRUEBAS_ETAPA_08.md)
-- [Criterios de aceptación](docs/ETAPA_08_CRITERIOS_DE_ACEPTACION.md)
-- [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
+- [Arquitectura de producción de la ETAPA 20](docs/arquitectura/PRODUCCION_ETAPA_20.md)
+- [Matriz de pruebas de la ETAPA 20](docs/pruebas/PRUEBAS_ETAPA_20.md)
+- [Criterios de aceptación](docs/ETAPA_20_CRITERIOS_DE_ACEPTACION.md)
 - [Decisiones pendientes](docs/DECISIONES_PENDIENTES.md)
-
-## Documentación de la ETAPA 7
-
-- [Reasignación supervisada](docs/arquitectura/REASIGNACION_CORRECCIONES_ETAPA_07.md)
-- [Pruebas y concurrencia](docs/pruebas/PRUEBAS_ETAPA_07.md)
-- [Criterios de aceptación](docs/ETAPA_07_CRITERIOS_DE_ACEPTACION.md)
 - [Dependencias y riesgos](docs/arquitectura/DEPENDENCIAS_Y_RIESGOS.md)
-- [Decisiones pendientes](docs/DECISIONES_PENDIENTES.md)
+- [Seguridad](docs/arquitectura/SEGURIDAD.md)
+- [Importación y reversión de la ETAPA 19](docs/arquitectura/IMPORTACION_CONTROLADA_ETAPA_19.md)
 
-## Exclusiones vigentes
+## Fuera de alcance
 
-No están implementados: escritura o importación de paquetes; generación definitiva de IDs; migración, reversión o datos reales; edición o eliminación de inventario inicial; importación masiva; ajustes manuales posteriores; cambios en movimientos históricos; cierre forzado o excepcional; cancelación de jornadas activas; reapertura de jornadas activadas o cerradas; eliminación definitiva; edición de jornadas cerradas; modificación histórica; creación o eliminación de cuentas Firebase Auth; cambio de correo, contraseña, nombre visible o recuperación de acceso; edición directa de autorizaciones activas; vencimiento automático; temporizadores de abandono; eliminación o recuperación administrativa de borradores locales; corrección simultánea por varios usuarios; Firebase de producción; despliegues; APK de producción; instalador Windows definitivo; descartes, despachos, químicos, aplicaciones ni reingresos.
+No se despliega Firebase, no se eliminan datos o usuarios, no se crean cuentas reales, no se cargan datos reales, no se crean paquetes reales de migración, no se generan llaves de firma, APK firmados ni instaladores definitivos, y no se modifica o fusiona directamente `main`.

@@ -186,7 +186,7 @@ export class CreateDraftJourneyService {
       }
 
       const now = Timestamp.now();
-      const actorName = actor.nombreVisible ?? "Usuario de prueba";
+      const actorName = actor.nombreVisible ?? "Usuario";
       const result: CreateDraftJourneyResult = {
         jornadaId: journeyId,
         nombreVisible: request.nombreVisible,
@@ -214,7 +214,7 @@ export class CreateDraftJourneyService {
         version: 1,
         cantidadLineasSeleccionadas: 0,
         cantidadParticipantesSeleccionados: 0,
-        entorno: "FICTICIO_EMULADOR",
+        entorno: "GESTION_CENTRAL",
         creadaEn: now,
         actualizadaEn: now
       });
@@ -441,7 +441,7 @@ export class ListManageableJourneysService {
         nombreVisible: journey.nombreVisible,
         estado: "BORRADOR",
         creadorUsuarioId: journey.creadaPorUsuarioId,
-        creadorNombreVisible: journey.creadorNombreVisible ?? "Usuario de prueba",
+        creadorNombreVisible: journey.creadorNombreVisible ?? "Usuario",
         version: journey.version,
         cantidadLineas: lineIds.length,
         lineaIds: lineIds,
@@ -477,7 +477,7 @@ export class ListManageableJourneysService {
         estado: "INACTIVA",
         tipoInactivacion: "CANCELACION_BORRADOR",
         creadorUsuarioId: journey.creadaPorUsuarioId,
-        creadorNombreVisible: journey.creadorNombreVisible ?? "Usuario de prueba",
+        creadorNombreVisible: journey.creadorNombreVisible ?? "Usuario",
         version: journey.version,
         cantidadLineas: lineIds.length,
         lineaIds: lineIds,

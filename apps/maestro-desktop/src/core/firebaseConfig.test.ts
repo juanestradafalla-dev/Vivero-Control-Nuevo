@@ -1,6 +1,6 @@
 import {describe, expect, it} from "vitest";
 
-import {loadFirebaseConfig} from "./firebaseConfig";
+import {PRODUCTION_PROJECT_ID, loadFirebaseConfig} from "./firebaseConfig";
 
 const emulatorEnvironment = {
   VITE_APP_ENV: "emulator",
@@ -11,40 +11,48 @@ const emulatorEnvironment = {
   VITE_USE_FIREBASE_EMULATORS: "true",
 };
 
+const productionEnvironment = {
+  ...emulatorEnvironment,
+  VITE_APP_ENV: "production",
+  VITE_FIREBASE_PROJECT_ID: PRODUCTION_PROJECT_ID,
+  VITE_USE_FIREBASE_EMULATORS: "false",
+};
+
 describe("configuración Firebase de Maestro", () => {
   it("conserva emulator para proyectos demo", () => {
-    const config = loadFirebaseConfig(emulatorEnvironment);
-
-    expect(config).toMatchObject({
+    expect(loadFirebaseConfig(emulatorEnvironment)).toMatchObject({
       environment: "EMULATOR",
       projectId: "demo-vivero-control-etapa3",
       useEmulators: true,
     });
   });
 
-  it("admite staging únicamente en el proyecto autorizado y sin emuladores", () => {
-    const config = loadFirebaseConfig({
-      ...emulatorEnvironment,
-      VITE_APP_ENV: "staging",
-      VITE_FIREBASE_PROJECT_ID: "viverocontrol-3f83f",
-      VITE_USE_FIREBASE_EMULATORS: "false",
-    });
-
-    expect(config).toMatchObject({
-      environment: "STAGING",
-      projectId: "viverocontrol-3f83f",
+  it("admite production únicamente en el proyecto autorizado y sin emuladores", () => {
+    expect(loadFirebaseConfig(productionEnvironment)).toMatchObject({
+      environment: "PRODUCTION",
+      projectId: PRODUCTION_PROJECT_ID,
       useEmulators: false,
     });
   });
 
-  it("rechaza proyecto staging incorrecto, producción y configuración faltante", () => {
+  it("rechaza otro proyecto real", () => {
     expect(() => loadFirebaseConfig({
-      ...emulatorEnvironment,
-      VITE_APP_ENV: "staging",
-      VITE_FIREBASE_PROJECT_ID: "otro-proyecto",
-      VITE_USE_FIREBASE_EMULATORS: "false",
+      ...productionEnvironment,
+      VITE_FIREBASE_PROJECT_ID: "otro-proyecto-real",
     })).toThrow(/viverocontrol-3f83f/);
-    expect(() => loadFirebaseConfig({...emulatorEnvironment, VITE_APP_ENV: "production"})).toThrow(/emulator o staging/);
-    expect(() => loadFirebaseConfig({...emulatorEnvironment, VITE_FIREBASE_API_KEY: ""})).toThrow(/VITE_FIREBASE_API_KEY/);
+  });
+
+  it("rechaza production con emuladores o configuración incompleta", () => {
+    expect(() => loadFirebaseConfig({
+      ...productionEnvironment,
+      VITE_USE_FIREBASE_EMULATORS: "true",
+    })).toThrow(/sin emuladores/);
+    expect(() => loadFirebaseConfig({...productionEnvironment, VITE_FIREBASE_API_KEY: ""}))
+      .toThrow(/VITE_FIREBASE_API_KEY/);
+  });
+
+  it("rechaza cualquier tercer ambiente", () => {
+    expect(() => loadFirebaseConfig({...emulatorEnvironment, VITE_APP_ENV: "legacy"}))
+      .toThrow(/emulator o production/);
   });
 });

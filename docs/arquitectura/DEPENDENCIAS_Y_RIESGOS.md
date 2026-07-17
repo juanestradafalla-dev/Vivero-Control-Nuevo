@@ -1,197 +1,98 @@
-# Dependencias y riesgos
+# Dependencias y riesgos — ETAPA 20
 
-## Revisión
+## Estado vigente
 
-Registro actualizado el 13 de julio de 2026 con:
+Este documento sustituye las conclusiones operativas de etapas anteriores. Los documentos numerados de ETAPA 1 a 19 explican la evolución histórica, pero la arquitectura vigente es la descrita en `PRODUCCION_ETAPA_20.md`.
 
-```powershell
-npm audit --omit=dev
-npm audit fix --dry-run --omit=dev
-```
+Vivero Maestro ya usa Electron, React y TypeScript. Los estados de jornada, inventario inicial, validación, importación y reversión controlada ya están implementados. La ETAPA 20 habilita su código en `PRODUCTION` sin desplegarlo ni usar datos reales.
 
-No se ejecutó `npm audit fix` ni `npm audit fix --force`.
+Solo existen dos ambientes funcionales: `EMULATOR` sobre `demo-*` y `PRODUCTION` sobre `viverocontrol-3f83f`. No existe staging funcional.
 
-## Vivero Maestro
+## Dependencias principales
 
-`npm audit --omit=dev` informó 0 vulnerabilidades: 0 bajas, 0 moderadas, 0
-altas y 0 críticas.
+### Android
 
-## Backend Functions
+- Android Gradle Plugin 9.2.1, Kotlin/Compose 2.3.21 y Java 17 para compilación.
+- Compose, Lifecycle, Firebase Android BoM, Room 2.8.4 y WorkManager 2.11.2.
+- Android Keystore con AES-GCM para tokens de reserva.
+- SDK de compilación Android 36.1 y JDK 21 en CI.
 
-`npm audit --omit=dev` informó 9 vulnerabilidades moderadas, 0 altas y 0
-críticas. El aviso raíz es `GHSA-w5hq-g745-h8pq`, una falta de comprobación de
-límites en `uuid` menor que 11.1.1 al usar un búfer con UUID v3, v5 o v6.
+### Maestro
 
-| Paquete informado | Relación | Severidad |
-|---|---|---|
-| `firebase-admin` 13.10.0 | Directa | Moderada |
-| `firebase-functions` 7.2.5 | Directa | Moderada |
-| `@google-cloud/firestore` | Transitiva | Moderada |
-| `@google-cloud/storage` | Transitiva | Moderada |
-| `google-gax` | Transitiva | Moderada |
-| `gaxios` | Transitiva | Moderada |
-| `retry-request` | Transitiva | Moderada |
-| `teeny-request` | Transitiva | Moderada |
-| `uuid` | Transitiva, aviso raíz | Moderada |
+- Node.js 22.
+- Electron 43, React 19, Vite 8, TypeScript 5.9 y Firebase Web SDK 12.
+- Electron Builder 26 queda configurado, pero no se ejecuta para producir el instalador definitivo.
 
-El dry-run solo ofrece resolver todo mediante `--force`, instalando versiones
-anteriores y con cambios mayores de las dependencias directas. Ese cambio no se
-aplica porque podría romper compatibilidad y no constituye una actualización
-segura del árbol aprobado.
+### Backend
 
-## Android en la ETAPA 4
+- Node.js 22.
+- Firebase Functions 7.2.5 y Firebase Admin 13.10.0.
+- Firebase Emulator Suite mediante Firebase Tools 15.23.0.
+- Firestore Rules Unit Testing y Vitest.
 
-Se incorporan WorkManager 2.11.2 para trabajo persistente con restricción de red y pruebas locales con Room/Robolectric. El token de reserva usa AES-GCM y una clave no exportable de Android Keystore. Los riesgos pendientes son compatibilidad con modelos reales, pérdida o invalidación de claves por condiciones del dispositivo, retención local y calidad de señal; no se inventan políticas para ellos.
+## Auditorías npm del 16 de julio de 2026
 
-La migración Room 1 a 2 conserva reservas anteriores, pero no puede reconstruir tokens que la Etapa 3 nunca persistió. El entorno ficticio debe reiniciar el escenario; queda prohibido resolverlo guardando un token plano.
+Se ejecutó `npm audit --omit=dev --audit-level=high`:
 
-## Exposición en la ETAPA 4
+| Componente | Resultado |
+|---|---|
+| Contratos | 0 vulnerabilidades |
+| Vivero Maestro | 0 vulnerabilidades |
+| Backend Functions | 8 moderadas; 0 altas y 0 críticas |
 
-Las Functions `reservarLinea` y `enviarConteo` existen, pero el riesgo permanece contenido en el
-entorno local porque:
+Las ocho alertas del backend provienen de `uuid <11.1.1` a través de dependencias transitivas de Firebase/Google (`gaxios`, `google-gax`, Firestore, Storage, `retry-request` y `teeny-request`). La corrección automática disponible exige `--force` y propone una regresión mayor de `firebase-admin`; no se aplica sin una actualización compatible y pruebas completas. El código del proyecto usa `node:crypto.randomUUID` y no llama UUID v3, v5 o v6 con búfer, pero esto no elimina la necesidad de actualizar la cadena.
 
-- la Function exige `FUNCTIONS_EMULATOR=true` y un proyecto `demo-*`;
-- no existe proyecto Firebase real, credencial ni despliegue;
-- CI solo ejecuta Emulator Suite y no contiene pasos de despliegue;
-- el código de negocio genera UUID con `node:crypto.randomUUID`, no invoca las
-  variantes v3, v5 o v6 afectadas de la dependencia transitiva;
-- las operaciones persisten únicamente el hash central y el token local cifrado;
-- `enviarConteo` no escribe inventario oficial y todas sus escrituras son transaccionales.
+CI falla ante vulnerabilidades altas o críticas y mantiene visibles las moderadas. Este criterio no autoriza un despliegue.
 
-Estos controles no aceptan el riesgo para producción. Antes de desplegar
-cualquier Function se debe actualizar a una cadena compatible sin el aviso o
-registrar una aceptación formal con responsable, alcance, controles y fecha de
-revisión.
+## Riesgos pendientes para ETAPA 21
 
-## Política de CI
+### Corte y datos
 
-Maestro y backend ejecutan:
+- aprobar la jerarquía real, fuentes, fecha de corte e inventario inicial;
+- limpiar o respaldar el proyecto antes de cargar información real;
+- definir propietario, doble revisión y recuperación para importaciones;
+- probar restauración y reversión operacional, no solo la reversión técnica de un paquete intacto;
+- conservar fuera de Git cualquier paquete real de migración.
 
-```powershell
-npm audit --omit=dev --audit-level=high
-```
+### Identidad y acceso
 
-Las alertas moderadas permanecen visibles y documentadas. Cualquier alerta alta
-o crítica hace fallar CI. El umbral no autoriza despliegues y el workflow no
-contiene ninguno.
+- crear y validar cuentas reales y perfiles centrales sin modificar usuarios existentes por accidente;
+- definir alta, recuperación, baja y responsables de credenciales;
+- revisar autorizaciones iniciales de jornadas y el principio de mínimo privilegio;
+- decidir App Check y controles de dispositivos antes de operación abierta.
 
-## Actualización de la ETAPA 5
+### Firebase
 
-La revisión agrega dos Callables y lecturas de inventario en Maestro sin incorporar dependencias nuevas. Se mantienen las versiones bloqueadas y el mismo perfil de auditoría.
+- crear localmente la configuración de Functions con `APP_ENV=production`;
+- revisar reglas, índices, regiones, límites, cuotas, presupuesto y alertas antes del despliegue;
+- desplegar en orden controlado y verificar `nam5` / `us-central1`;
+- ejecutar pruebas de humo con cuentas y datos específicamente aprobados, nunca desde CI;
+- definir rollback de código y datos para cada paso.
 
-Riesgos vigentes:
+### Clientes
 
-- las 9 alertas moderadas del backend continúan sin altas ni críticas;
-- ningún control local equivale a autorización para producción;
-- la calidad de red, compatibilidad con dispositivos reales y tolerancia del reloj siguen sin validación de campo;
-- el seed de inventario es completamente ficticio y no puede interpretarse como dato migrable;
-- la corrección versionada existe solo para el autor original y no incluye reasignación ni liberación;
-- una aprobación requiere inventario inicial; la ausencia produce rollback y necesita intervención operativa futura, no un cero automático.
+- probar Campo en modelos Android y condiciones de señal reales;
+- definir retención local, pérdida o invalidación de Keystore y reemplazo de dispositivos;
+- generar y custodiar una llave de firma Android real;
+- definir certificados, firma, distribución y actualizaciones de Vivero Maestro;
+- dividir el bundle de Maestro si las mediciones de arranque confirman impacto; Vite advierte actualmente un chunk minificado de 867,39 kB;
+- producir APK e instalador únicamente después de validar Firebase y el plan de soporte.
 
-Las operaciones de revisión conservan el bloqueo `FUNCTIONS_EMULATOR=true` más proyecto `demo-*`. CI continúa sin pasos de despliegue.
+### Operación
 
-## Actualización de la ETAPA 6
+- establecer monitoreo de Functions, sincronización, reservas, correcciones y costos;
+- definir responsables y tiempos de respuesta;
+- fijar retención de auditoría, backups y pruebas periódicas de restauración;
+- confirmar en la ejecución remota de CI la matriz con Node 22; la verificación local se ejecutó con Node 24.15.0 y JDK 21;
+- resolver la cadena transitiva moderada del backend o documentar una aceptación formal con fecha de vencimiento.
 
-No se agregan dependencias externas. Room migra de 2 a 3 para conservar metadatos de la reserva de corrección; el token continúa cifrado con Android Keystore y se elimina tras la confirmación central.
+## Controles que no deben retirarse
 
-Persisten los riesgos de compatibilidad con dispositivos reales, pérdida de claves del Keystore, señal real, retención local y alertas moderadas transitivas del backend. La corrección por un usuario distinto, la reasignación y la liberación permanecen fuera de alcance. Firebase real sigue sin configurarse ni desplegarse.
-
-## Actualización de la ETAPA 7
-
-No se agregan dependencias externas ni migraciones Room. La reasignación reutiliza Functions, transacciones, Auth y contratos existentes. Maestro construye candidatos desde autorizaciones de jornada con nombre, rol y actividad denormalizados por el seed; el backend vuelve a validar el perfil vigente antes de escribir.
-
-Persisten los riesgos de señal y dispositivos reales, retención local, pérdida de claves Keystore y alertas moderadas transitivas del backend. Un usuario seleccionado puede adquirir otra reserva antes de iniciar la corrección; en ese caso el backend rechaza el inicio con `ACTIVE_RESERVATION_EXISTS` y la reasignación permanece visible para decisión supervisada posterior. No se implementa liberación. Firebase real continúa sin configurarse ni desplegarse.
-
-## Actualización de la ETAPA 8
-
-No se agregan dependencias externas ni migraciones Room. La liberación reutiliza Auth, Functions, transacciones, auditoría, idempotencia, snapshots y WorkManager existentes. La reserva consumida guarda `conteoId` para resolver la carrera liberar/enviar mediante la misma disputa documental y devolver siempre un resultado o error controlado.
-
-La operación es exclusivamente manual: no hay temporizadores, vencimiento ni inferencia de abandono. Un borrador liberado y su token cifrado permanecen en el dispositivo hasta que exista una política posterior; esto evita pérdida silenciosa, pero mantiene pendiente la retención local definitiva. También persisten los riesgos de señal y dispositivos reales, pérdida de claves Keystore y alertas moderadas transitivas del backend. Firebase real continúa sin configurarse ni desplegarse.
-
-## Actualización de la ETAPA 9
-
-No se agregan dependencias externas, migraciones Room ni índices de producción. La selección dinámica reutiliza Auth, Functions y snapshots existentes; cada cambio de Maestro cancela todas las suscripciones anteriores antes de abrir las nuevas.
-
-Persisten los riesgos de señal y dispositivos reales, retención local, pérdida de claves Keystore y alertas moderadas transitivas del backend. La fecha central ordena la lista, pero la política operativa para nombrar, crear, activar y cerrar jornadas continúa fuera de alcance. Firebase real sigue sin configurarse ni desplegarse.
-
-## Actualización de la ETAPA 10
-
-No se agregan dependencias externas, migraciones Room ni índices de producción. La gestión de borradores reutiliza Auth, Functions, transacciones, auditoría e idempotencia. La selección se conserva en una colección de preparación separada y no materializa líneas operativas ni inventario.
-
-Persisten como decisiones futuras la activación, el cierre, la cancelación, la eliminación y la autorización de usuarios. Una línea puede dejar de ser seleccionable entre la lectura del catálogo y la confirmación; el backend vuelve a validar todo dentro de la operación y rechaza la escritura completa. También continúan pendientes la estructura real del vivero, los datos reales, la señal y dispositivos reales, la retención local y las alertas moderadas transitivas del backend. Firebase real sigue sin configurarse ni desplegarse.
-
-## Actualización de la ETAPA 11
-
-No se agregan dependencias externas, migraciones Room ni índices de producción. La preparación de participantes reutiliza Auth, Functions, transacciones, auditoría e idempotencia y permanece en una colección separada de las autorizaciones operativas.
-
-Un perfil seleccionado puede quedar inactivo o cambiar de rol antes de una futura activación; esta etapa valida el estado al guardar, pero la operación de activación deberá volver a validar todos los perfiles y definir el rol efectivo definitivo. Activación, creación de cuentas y edición de roles o perfiles continúan fuera de alcance. Persisten además los riesgos de datos, señal y dispositivos reales, retención local y alertas moderadas transitivas del backend. Firebase real sigue sin configurarse ni desplegarse.
-
-## Actualización de la ETAPA 12
-
-No se agregan dependencias externas, migraciones Room ni índices de producción. La activación reutiliza Auth, Functions, transacciones, auditoría e idempotencia. La revalidación central resuelve el riesgo de perfiles o líneas que cambian después de preparar el borrador; las tres versiones esperadas evitan confirmar un resumen obsoleto.
-
-El bloqueo determinista por `lineaId` evita dos jornadas activas simultáneas. Su ciclo de liberación queda pendiente porque cierre, cancelación y reapertura no existen aún. El límite combinado de 200 mantiene el peor caso en 402 escrituras dentro de una única transacción, pero deberá revisarse con la estructura real del vivero antes de producción.
-
-Persisten los riesgos de estructura y datos reales, calidad de señal, dispositivos Android reales, retención local, pérdida de claves Keystore y 8 alertas moderadas transitivas del backend, sin alertas altas ni críticas en la auditoría actual. No se inicializa inventario: una jornada activa puede tener líneas sin fotografía oficial y una aprobación futura continuará rechazándose hasta contar con inventario inicial válido. Firebase real sigue sin configurarse ni desplegarse.
-
-## Actualización de la ETAPA 13
-
-No se agregan dependencias externas, migraciones Room ni índices de producción. El cierre reutiliza Auth, Functions, transacciones, auditoría, idempotencia y el bloqueo determinista de líneas. El máximo combinado de 200 limita el peor caso a 403 escrituras y evita cualquier cierre por lotes.
-
-La liberación de ocupaciones permite reutilizar líneas físicas en nuevos borradores, pero no autoriza reapertura ni edición histórica. Una ocupación faltante o perteneciente a otra jornada bloquea el cierre para evitar ocultar inconsistencias. Campo conserva los datos locales ante revocación; la política definitiva de retención local sigue pendiente.
-
-Persisten los riesgos de estructura y datos reales, calidad de señal, dispositivos Android reales, pérdida de claves Keystore y 9 alertas moderadas transitivas del backend, sin alertas altas ni críticas. No existe cierre forzado para resolver trabajo pendiente: debe completarse por los flujos normales. Firebase real sigue sin configurarse ni desplegarse.
-
-## Actualización de la ETAPA 14
-
-No se agregan dependencias externas, migraciones Room ni índices de producción. Cancelación y reapertura reutilizan Auth, Functions, transacciones, auditoría e idempotencia. La cancelación verifica que el borrador nunca haya materializado datos operativos; la reapertura exige la marca central `CANCELACION_BORRADOR` y ausencia de cualquier activación o cierre normal.
-
-Las selecciones conservadas pueden quedar obsoletas mientras la jornada permanece cancelada. Esto es intencional: no se revalidan al reabrir y deben volver a validarse al editar o activar. El historial inmutable de cancelaciones crece con cada nuevo ciclo y requerirá una política de retención antes de producción.
-
-Persisten los riesgos de estructura y datos reales, calidad de señal, dispositivos Android reales, pérdida de claves Keystore y 9 alertas moderadas transitivas del backend, sin alertas altas ni críticas. No se implementan cancelación de jornadas activas, reapertura de jornadas activadas o cerradas, eliminación definitiva ni cierre forzado. Firebase real sigue sin configurarse ni desplegarse.
-
-## Actualización de la ETAPA 15
-
-No se agregan dependencias externas ni migraciones Room. La administración de perfiles reutiliza Auth Emulator, Functions, Firestore, transacciones, auditoría e idempotencia. Firebase Auth permanece fuera de las escrituras: desactivar un perfil central bloquea operaciones sin deshabilitar ni eliminar la cuenta técnica del emulador.
-
-Una desactivación con trabajo activo conserva deliberadamente reservas, correcciones y autorizaciones. Esto evita cambios silenciosos, pero exige una decisión posterior de liberación, reasignación o reactivación. El listener del perfil propio permite invalidar la sesión en línea; sin conectividad, cualquier intento central se rechazará cuando alcance el backend y el borrador local continuará protegido.
-
-Persisten los riesgos de estructura y datos reales, calidad de señal, dispositivos Android reales, pérdida de claves Keystore, retención local y alertas moderadas transitivas del backend. No se crean ni eliminan cuentas, no se cambian credenciales y no se editan autorizaciones activas. Firebase real sigue sin configurarse ni desplegarse.
-
-## Actualización de la ETAPA 16
-
-No se agregan dependencias externas, migraciones Room ni datos productivos. El catálogo reutiliza transacciones, versiones, auditoría, idempotencia y el bloqueo emulator-only. `bloqueosCodigosCatalogo` serializa la unicidad normalizada entre hermanos y dentro de cada ubicación, y permanece inaccesible desde clientes.
-
-La jerarquía real del vivero continúa pendiente. `VIVERO`, `MODULO` y `CAMA` son únicamente fixtures para conservar las pruebas existentes y no constituyen una decisión productiva. El adaptador de fotografía visible mantiene compatibilidad con Campo mientras `jornadaLineas.ubicacion` permanece histórica e inmutable.
-
-Desactivar una línea elegida en un borrador conserva deliberadamente la selección y la vuelve inválida. Esto exige corregir el borrador antes de activar, pero evita cambios silenciosos. No existe eliminación física ni cascada. Tampoco existe importación, migración o inicialización de inventario. Persisten los riesgos de estructura y datos reales, señal, dispositivos, retención local, Keystore y dependencias transitivas moderadas. Firebase real sigue sin configurarse ni desplegarse.
-
-## Actualización de la ETAPA 17
-
-No se agregan dependencias externas ni cambios funcionales en Campo. La carga inicial reutiliza Auth Emulator, Functions, Firestore, transacciones, auditoría e idempotencia. El documento de inventario y la trazabilidad se crean atómicamente; la ausencia de movimiento es deliberada porque no existe fotografía anterior.
-
-Todas las cifras y referencias usadas en esta etapa son ficticias. La fuente real, la fecha de corte y el inventario productivo siguen pendientes. No existe importación ni migración, y nunca se interpreta la ausencia de inventario como cero. Una corrección futura de una carga inicial exigirá un flujo auditado diferente: esta Callable no edita, sustituye ni elimina.
-
-Persisten los riesgos de estructura real, calidad de señal, dispositivos Android, retención local, Keystore y dependencias transitivas moderadas del backend. Una línea con actividad operativa queda bloqueada para carga inicial, por lo que cualquier inconsistencia histórica deberá resolverse mediante un procedimiento futuro. Firebase real sigue sin configurarse ni desplegarse.
-
-## Actualización de la ETAPA 18
-
-No se agregan dependencias externas ni cambios funcionales en Campo. El preflight reutiliza Auth Emulator, Functions y lecturas administrativas de Firestore, pero deliberadamente no abre transacciones, no crea auditoría y no utiliza idempotencia porque no existe ningún efecto persistente.
-
-El límite técnico es 512.000 bytes, 500 ubicaciones, 2.000 líneas y 2.000 inventarios. Estos valores protegen el transporte y la memoria; no representan la capacidad ni estructura real del vivero. Un hash coincidente solo prueba equivalencia del JSON normalizado validado, no la identidad de una futura importación.
-
-La plantilla no representa el vivero real. Fuente, fecha de corte, jerarquía e inventario productivos continúan pendientes. Los paquetes reales nunca deben subirse a Git; `.gitignore` bloquea rutas y extensiones privadas, pero la revisión humana y el escaneo de secretos siguen siendo necesarios. Importación, reversión, asignación definitiva de IDs y corrección de datos continúan fuera de alcance. Firebase productivo no existe ni fue configurado o desplegado.
-
-## Actualización de la ETAPA 19
-
-No se agregan dependencias externas ni cambios funcionales en Campo. La importación reutiliza el validador de la Etapa 18, Auth Emulator, Functions, Firestore, transacciones, auditoría e idempotencia. El máximo es 450 escrituras proyectadas, por debajo del límite técnico de Firestore, y nunca se divide una operación en lotes parciales.
-
-El bloqueo por hash se conserva incluso después de revertir para impedir que el mismo paquete se aplique nuevamente. Esto consume trazabilidad deliberadamente y requerirá una política histórica antes de producción. Una importación deja de ser reversible en cuanto cualquier recurso cambia, se selecciona o participa en actividad operativa; no existe reversión forzada.
-
-Solo se prueban paquetes ficticios. La jerarquía, fuente, fecha de corte, inventario y autorizaciones reales continúan pendientes. Tampoco están definidos el proceso productivo de aprobación, respaldo, corte, reversión excepcional ni recuperación ante datos reales incorrectos. Firebase real no está configurado y no existe despliegue, migración real, APK o instalador.
-
-## Primera fase de pruebas Firebase staging
-
-El build Android `staging` agrega una frontera real limitada al proyecto `viverocontrol-3f83f`: autenticación y `listarJornadasActivas`. No habilita operaciones mutables ni cambia el bloqueo compartido `assertEmulatorOnly`. Las credenciales de cuentas, API key y App ID no se versionan; el propietario debe configurarlos localmente y realizar cualquier despliegue posterior de forma explícita.
-
-Persisten riesgos de configuración manual de Firebase Authentication, perfiles incompletos, reglas o índices aún no desplegados, conectividad de celulares reales y coste operativo. El applicationId y los namespaces de Room, preferencias, WorkManager y Keystore aíslan staging del emulador, pero esta fase no valida datos reales, carga, señal, recuperación ni producción. No se ejecutó ningún despliegue.
+- frontera exacta de proyecto y ambiente;
+- autenticación y perfil activo;
+- autorización por rol y jornada;
+- validación central, versiones, idempotencia y transacciones;
+- auditoría y trazabilidad inmutable;
+- Firestore Rules con denegación final;
+- aislamiento local entre emulator y production;
+- prohibición de secretos, despliegues y artefactos definitivos en CI.

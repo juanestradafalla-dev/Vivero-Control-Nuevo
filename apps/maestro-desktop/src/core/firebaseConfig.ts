@@ -1,4 +1,4 @@
-export type FirebaseEnvironment = "EMULATOR" | "STAGING";
+export type FirebaseEnvironment = "EMULATOR" | "PRODUCTION";
 
 export interface FirebaseRuntimeConfig {
   readonly environment: FirebaseEnvironment;
@@ -12,7 +12,7 @@ export interface FirebaseRuntimeConfig {
 
 type ViteEnvironment = Readonly<Record<string, string | undefined>>;
 
-const STAGING_PROJECT_ID = "viverocontrol-3f83f";
+export const PRODUCTION_PROJECT_ID = "viverocontrol-3f83f";
 
 function required(environment: ViteEnvironment, name: string): string {
   const value = environment[name]?.trim();
@@ -47,12 +47,12 @@ export function loadFirebaseConfig(environment: ViteEnvironment = import.meta.en
     };
   }
 
-  if (appEnvironment === "staging") {
-    if (useEmulators || projectId !== STAGING_PROJECT_ID) {
-      throw new Error(`El modo staging solo admite ${STAGING_PROJECT_ID} sin emuladores.`);
+  if (appEnvironment === "production") {
+    if (useEmulators || projectId !== PRODUCTION_PROJECT_ID) {
+      throw new Error(`El modo production solo admite ${PRODUCTION_PROJECT_ID} sin emuladores.`);
     }
     return {
-      environment: "STAGING",
+      environment: "PRODUCTION",
       projectId,
       apiKey,
       appId,
@@ -62,5 +62,5 @@ export function loadFirebaseConfig(environment: ViteEnvironment = import.meta.en
     };
   }
 
-  throw new Error("VITE_APP_ENV debe ser emulator o staging.");
+  throw new Error("VITE_APP_ENV debe ser emulator o production.");
 }

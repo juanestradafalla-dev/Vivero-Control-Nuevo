@@ -68,7 +68,7 @@ async function register(
     hembras: overrides.hembras ?? 100,
     machos: overrides.machos ?? 50,
     patrones: overrides.patrones ?? 25,
-    referenciaFuente: overrides.referenciaFuente ?? "Planilla ficticia de prueba ETAPA 17",
+    referenciaFuente: overrides.referenciaFuente ?? "Acta de inventario inicial ETAPA 20",
     claveIdempotencia: overrides.claveIdempotencia ?? `inventario-inicial-${crypto.randomUUID()}`
   })).data;
 }
@@ -99,7 +99,7 @@ describe("registrarInventarioInicial mediante emuladores reales", () => {
     expect(result).toMatchObject({
       lineaId: FREE_CATALOG_LINE_ID, jornadaId: null, jornadaLineaId: null,
       hembras: 12, machos: 7, patrones: 3, total: 22, versionInventario: 1,
-      origen: "CARGA_INICIAL_ADMINISTRATIVA_EMULADOR", conteoAprobadoId: null
+      origen: "CARGA_INICIAL_ADMINISTRATIVA", conteoAprobadoId: null
     });
     expect((await db.collection("inventarioOficialLineas").doc(FREE_CATALOG_LINE_ID).get()).data())
       .toMatchObject({total: 22, version: 1, conteoAprobadoId: null});
@@ -131,7 +131,7 @@ describe("registrarInventarioInicial mediante emuladores reales", () => {
     await expectCode(register(admin.functions, {lineaId: "LINEA-PRUEBA-1"}), "INVENTORY_ALREADY_EXISTS");
   });
 
-  it("rechaza cantidades inválidas, total cero, fuente no ficticia, total cliente y campos adicionales", async () => {
+  it("rechaza cantidades inválidas, total cero, fuente no trazable, total cliente y campos adicionales", async () => {
     const admin = await client("administrador@prueba.local", "invalid-payloads");
     await expectCode(register(admin.functions, {lineaId: FREE_CATALOG_LINE_ID, hembras: -1}), "INVALID_ARGUMENT");
     await expectCode(register(admin.functions, {lineaId: FREE_CATALOG_LINE_ID, hembras: 1.5}), "INVALID_ARGUMENT");
@@ -142,12 +142,12 @@ describe("registrarInventarioInicial mediante emuladores reales", () => {
       lineaId: FREE_CATALOG_LINE_ID, hembras: 0, machos: 0, patrones: 0
     }), "INVENTORY_INITIAL_ZERO_NOT_ALLOWED");
     await expectCode(register(admin.functions, {
-      lineaId: FREE_CATALOG_LINE_ID, referenciaFuente: "Planilla productiva"
+      lineaId: FREE_CATALOG_LINE_ID, referenciaFuente: "x"
     }), "INVENTORY_INITIAL_SOURCE_INVALID");
     const callable = httpsCallable<Record<string, unknown>, unknown>(admin.functions, "registrarInventarioInicial");
     const base = {
       lineaId: FREE_CATALOG_LINE_ID, versionLineaEsperada: 1, hembras: 1, machos: 1, patrones: 1,
-      referenciaFuente: "Fuente ficticia de prueba", claveIdempotencia: "payload-extra-etapa-17-0001"
+      referenciaFuente: "Acta de control", claveIdempotencia: "payload-extra-etapa-17-0001"
     };
     await expectCode(callable({...base, total: 3}), "INVALID_ARGUMENT");
     await expectCode(callable({...base, usuarioId: "uid-administrador"}), "INVALID_ARGUMENT");

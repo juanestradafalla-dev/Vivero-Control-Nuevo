@@ -242,7 +242,7 @@ export class SendCountService {
         lineaId: line.lineaId,
         reservaId: request.reservaId,
         autorUsuarioId: context.actorId,
-        autorNombreVisible: user.nombreVisible ?? "Usuario de prueba",
+        autorNombreVisible: user.nombreVisible ?? "Usuario",
         rolEfectivo: authorization.rolEfectivo,
         dispositivoId: request.dispositivoId,
         hembras: request.hembras,

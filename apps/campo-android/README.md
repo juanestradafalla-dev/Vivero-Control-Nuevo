@@ -1,25 +1,32 @@
 # Vivero Campo
 
-Aplicación Android `debug` de la Etapa 9. Auxiliares, supervisores y administradores usan el mismo flujo: autenticar, seleccionar una jornada activa autorizada, reservar, capturar, confirmar y sincronizar.
+Aplicación Android de captura operativa. Auxiliares, supervisores y administradores usan el mismo flujo según sus permisos centrales: autenticación, selección de jornada, reserva, conteo offline, sincronización, corrección e historial local.
 
-- Una sola jornada se selecciona automáticamente; varias muestran una pantalla de selección.
-- Líneas y correcciones se observan exclusivamente para la jornada elegida.
-- El cambio queda bloqueado mientras exista reserva, borrador, sincronización o corrección activa.
+## Ambientes
+
+| Build type | Ambiente | Application ID | Firebase | Namespace local |
+|---|---|---|---|---|
+| `debug` | `EMULATOR` | `com.arles.viverocampo.emulator` | Proyecto `demo-*` y Emulator Suite | `emulator` |
+| `release` | `PRODUCTION` | `com.arles.viverocampo` | Proyecto exacto `viverocontrol-3f83f` | `production` |
+
+`PRODUCTION` rechaza Project ID distinto, API key o App ID ausentes, applicationId incorrecto, host de emulador o namespace local diferente. `FirebaseServicesInitializer` solo invoca `useEmulator` cuando el ambiente validado es `EMULATOR`.
+
+Room, preferencias, FirebaseApp, WorkManager y Android Keystore derivan nombres distintos del namespace validado. Así pueden coexistir ambas instalaciones sin compartir base de datos, instalación técnica, trabajos pendientes ni claves de reserva.
+
+## Persistencia y sincronización
 
 - Room conserva reserva, borrador e historial por usuario, dispositivo y reserva.
-- Android Keystore cifra el token con AES-GCM; nunca se persiste en texto plano.
+- Android Keystore cifra el token con AES-GCM y nunca lo persiste en texto plano.
 - WorkManager mantiene payload y clave idempotente durante reintentos.
 - `ENVIADA` solo aparece después de confirmación central.
-- `Finalizar y tomar otra línea` cierra la reserva consumida sin borrar el conteo local.
-- Un inicio posterior solo restaura reservas con token cifrado todavía activo.
-- La prueba de dos líneas consecutivas comprueba que la primera queda en historial y la segunda abre un intento independiente.
-- El autor ve sus conteos `DEVUELTA`, su motivo y puede iniciar una reserva de corrección.
-- La versión anterior se usa como referencia editable para un borrador Room nuevo ligado a la nueva reserva.
-- La migración Room 2 a 3 conserva el tipo de reserva, el conteo anterior y la siguiente versión esperada.
-- El usuario reasignado ve la corrección, el asignador y el motivo; puede iniciar el mismo flujo versionado y offline.
-- El autor original conserva el conteo como solo lectura y deja de ver el botón de corrección mientras otra persona sea responsable.
-- Un snapshot de la reserva detecta `LIBERADA`, cancela el trabajo único y conserva el borrador en `ERROR` con un mensaje accionable.
-- La liberación no borra cantidades, observaciones, payload congelado, clave idempotente ni token cifrado; tampoco permite otro envío tardío.
+- una reserva liberada conserva el borrador local y cancela su trabajo único.
+- las correcciones crean una versión nueva sin alterar la autoría ni el historial anterior.
+
+Campo no aprueba, devuelve, reasigna, libera ni modifica inventario. Esas operaciones pertenecen a Maestro y al backend; Campo solo ejecuta las operaciones centrales autorizadas para su rol.
+
+## Compilación segura
+
+Emulador:
 
 ```powershell
 ./gradlew.bat assembleDebug
@@ -27,4 +34,34 @@ Aplicación Android `debug` de la Etapa 9. Auxiliares, supervisores y administra
 ./gradlew.bat lintDebug
 ```
 
-Campo no aprueba, devuelve, reasigna, libera ni modifica inventario. Solo reacciona al estado central de la reserva y el responsable central actual puede iniciar la corrección mediante la Callable.
+Comprobación de código `PRODUCTION` con identificadores ficticios y sin firma:
+
+```powershell
+./gradlew.bat assembleRelease --no-configuration-cache `
+  -PproductionFirebaseProjectId=viverocontrol-3f83f `
+  -PproductionFirebaseApiKey=API_KEY_FICTICIA_SOLO_COMPILACION `
+  -PproductionFirebaseAppId=1:000000000000:android:app-ficticia
+```
+
+La compilación no inicia Firebase ni conecta con el proyecto real. El APK local resultante no está firmado y permanece ignorado por Git; no es un APK definitivo.
+
+## Configuración local posterior
+
+Los valores Web de Firebase pueden proporcionarse en `local.properties` (ignorado) o mediante `-P`:
+
+```properties
+productionFirebaseProjectId=viverocontrol-3f83f
+productionFirebaseApiKey=VALOR_LOCAL
+productionFirebaseAppId=VALOR_LOCAL
+```
+
+La firma futura admite estas propiedades locales:
+
+```properties
+productionKeystorePath=RUTA_LOCAL
+productionKeystorePassword=VALOR_LOCAL
+productionKeyAlias=VALOR_LOCAL
+productionKeyPassword=VALOR_LOCAL
+```
+
+También admite `VIVERO_CAMPO_KEYSTORE_PATH`, `VIVERO_CAMPO_KEYSTORE_PASSWORD`, `VIVERO_CAMPO_KEY_ALIAS` y `VIVERO_CAMPO_KEY_PASSWORD`. Si se proporciona solo una parte, Gradle falla de forma segura. No se genera ni versiona ninguna llave o contraseña.

@@ -145,7 +145,7 @@ export function MigrationValidationSection({repository}: MigrationValidationSect
         packageData, report.packageHash, crypto.randomUUID(),
       );
       setImportResult(result);
-      setOperationMessage("Importación ficticia aplicada íntegramente en el emulador.");
+      setOperationMessage("Importación aplicada íntegramente mediante operación central.");
       await refreshHistory();
     } catch (importFailure) {
       setError(importFailure instanceof Error ? importFailure.message : "No fue posible importar el paquete.");
@@ -201,16 +201,16 @@ export function MigrationValidationSection({repository}: MigrationValidationSect
     <section className="migration-validation" aria-labelledby="migration-validation-title">
       <header className="section-heading">
         <div>
-          <p className="eyebrow">ETAPA 19 · EMULADOR EXCLUSIVO</p>
+          <p className="eyebrow">ETAPA 20 · OPERACIÓN ADMINISTRATIVA</p>
           <h1 id="migration-validation-title">Migración — Validación</h1>
         </div>
       </header>
       <div className="migration-safety-banner">
         <strong>LA VALIDACIÓN NO IMPORTA AUTOMÁTICAMENTE</strong>
-        <span>Una importación exige resultado apto, hash confirmado y una transacción única en Firebase Emulator Suite.</span>
+        <span>Una importación exige resultado apto, hash confirmado y una transacción única mediante la Callable autorizada.</span>
       </div>
       <p className="read-only-note">
-        Selecciona localmente un paquete ficticio v1. El archivo no se guarda ni se persiste automáticamente.
+        Selecciona localmente un paquete v1. El archivo no se guarda ni se persiste automáticamente.
       </p>
       <label className="migration-file-picker">
         Archivo JSON local
@@ -227,7 +227,7 @@ export function MigrationValidationSection({repository}: MigrationValidationSect
           <strong>Estructura local válida: {fileName}</strong>
           <span>{localCounts.locations} ubicaciones · {localCounts.lines} líneas · {localCounts.inventories} inventarios</span>
           <button className="button" type="button" disabled={validating} onClick={() => void validate()}>
-            {validating ? "Validando en emulador…" : "Validar paquete en emulador"}
+            {validating ? "Validando…" : "Validar paquete"}
           </button>
         </div>
       )}
@@ -247,7 +247,7 @@ export function MigrationValidationSection({repository}: MigrationValidationSect
             <span><strong>Hash SHA-256</strong>{report.packageHash}</span>
             <span><strong>Errores</strong>{report.blockingErrors.length}</span>
             <span><strong>Advertencias</strong>{report.warnings.length}</span>
-            <span><strong>Resultado informativo</strong>{report.eligibleToImport ? "Apto para una futura importación" : "Bloqueado"}</span>
+            <span><strong>Resultado informativo</strong>{report.eligibleToImport ? "Apto para importación controlada" : "Bloqueado"}</span>
           </div>
           <p className={report.eligibleToImport ? "notice" : "alert"}>
             Validación terminada. No se realizó ninguna importación ni modificación del catálogo o inventario.
@@ -273,8 +273,8 @@ export function MigrationValidationSection({repository}: MigrationValidationSect
           </div>
           {report.eligibleToImport && (
             <section className="migration-import-confirmation" aria-labelledby="migration-import-title">
-              <p className="eyebrow">IMPORTACIÓN CONTROLADA · NO ES PRODUCCIÓN</p>
-              <h3 id="migration-import-title">Importar en emulador</h3>
+              <p className="eyebrow">IMPORTACIÓN CONTROLADA · CONFIRMACIÓN REQUERIDA</p>
+              <h3 id="migration-import-title">Importar paquete validado</h3>
               <p>
                 Se proyectan <strong>{projectedMigrationWrites(report)} escrituras</strong> en una sola transacción.
                 No se permite dividir el paquete ni mezclarlo con registros existentes.
@@ -295,7 +295,7 @@ export function MigrationValidationSection({repository}: MigrationValidationSect
                   hashConfirmation.trim().toLowerCase() !== report.packageHash.slice(0, 12).toLowerCase()}
                 onClick={() => void importValidatedPackage()}
               >
-                {importing ? "Importando atómicamente…" : "Importar en emulador"}
+                {importing ? "Importando atómicamente…" : "Importar paquete"}
               </button>
             </section>
           )}
@@ -327,7 +327,7 @@ export function MigrationValidationSection({repository}: MigrationValidationSect
           </button>
         </div>
         {historyError && <p className="alert" role="alert">{historyError}</p>}
-        {history.length === 0 ? <p>Sin importaciones ficticias registradas.</p> : history.map((entry) => (
+        {history.length === 0 ? <p>Sin importaciones registradas.</p> : history.map((entry) => (
           <article className="migration-history-item" key={entry.importId}>
             <div>
               <strong>{entry.status} · {entry.importId}</strong>

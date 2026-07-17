@@ -30,6 +30,12 @@ import {
   type CurrentCatalog
 } from "./migrationPreflight.js";
 
+const MIGRATION_INVENTORY_ORIGIN = "MIGRACION_CONTROLADA" as const;
+const COMPATIBLE_MIGRATION_INVENTORY_ORIGINS = new Set([
+  MIGRATION_INVENTORY_ORIGIN,
+  "MIGRACION_CONTROLADA_EMULADOR",
+]);
+
 export const MIGRATION_IMPORT_MAX_WRITES = 450;
 
 interface IdempotencyDocument<Result> {
@@ -243,13 +249,14 @@ function collectReversalBlockers(
   for (const reference of resources.inventories) {
     const snapshot = byPath.get(reference.path);
     const value = snapshot?.data();
-    if (!snapshot?.exists || value?.version !== 1 || value?.origen !== "MIGRACION_CONTROLADA_EMULADOR" ||
+    if (!snapshot?.exists || value?.version !== 1 ||
+        !COMPATIBLE_MIGRATION_INVENTORY_ORIGINS.has(value?.origen) ||
         value?.creadaPorImportacionId !== importId) blockers.add("INVENTARIO_MODIFICADO");
   }
   for (const reference of resources.initialLoads) {
     const snapshot = byPath.get(reference.path);
     const value = snapshot?.data();
-    if (!snapshot?.exists || value?.origen !== "MIGRACION_CONTROLADA_EMULADOR" ||
+    if (!snapshot?.exists || !COMPATIBLE_MIGRATION_INVENTORY_ORIGINS.has(value?.origen) ||
         value?.creadaPorImportacionId !== importId || value?.inmutable !== true) {
       blockers.add("CARGA_INICIAL_MODIFICADA");
     }
@@ -413,13 +420,13 @@ export class ImportMigrationPackageService {
         transaction.create(this.firestore.collection("inventarioOficialLineas").doc(lineId), {
           id: lineId, jornadaId: null, jornadaLineaId: null, lineaId: lineId,
           hembras: inventory.hembras, machos: inventory.machos, patrones: inventory.patrones, total,
-          conteoAprobadoId: null, version: 1, origen: "MIGRACION_CONTROLADA_EMULADOR",
+          conteoAprobadoId: null, version: 1, origen: MIGRATION_INVENTORY_ORIGIN,
           creadaPorImportacionId: importId, actualizadoPorUsuarioId: context.actorId, actualizadoEn: now
         });
         transaction.create(this.firestore.collection("cargasInventarioInicial").doc(lineId), {
           id: lineId, lineaId: lineId, jornadaId: null, jornadaLineaId: null,
           hembras: inventory.hembras, machos: inventory.machos, patrones: inventory.patrones, total,
-          versionInventario: 1, origen: "MIGRACION_CONTROLADA_EMULADOR", conteoAprobadoId: null,
+          versionInventario: 1, origen: MIGRATION_INVENTORY_ORIGIN, conteoAprobadoId: null,
           referenciaFuente: inventory.referenciaFuente, actorUsuarioId: context.actorId,
           actorNombreVisible: actorName, creadaPorImportacionId: importId, registradaEn: now, inmutable: true
         });

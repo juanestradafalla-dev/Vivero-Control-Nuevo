@@ -3,6 +3,7 @@ package com.arles.viverocampo.data.security
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import com.arles.viverocampo.core.LocalRuntimeNames
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -36,13 +37,7 @@ object AesGcmCodec {
 }
 
 class AndroidKeystoreReservationTokenVault(private val namespace: String = "emulator") : ReservationTokenVault {
-    private val keyAlias = (if (namespace == "emulator") {
-        "vivero_campo_reservation_token_v1"
-    } else {
-        "vivero_campo_${namespace}_reservation_token_v1"
-    }).also {
-        require(namespace.matches(Regex("[a-z0-9_-]+"))) { "El namespace del token no es seguro." }
-    }
+    private val keyAlias = LocalRuntimeNames.keystoreAlias(namespace)
 
     override fun encrypt(token: String): EncryptedReservationToken {
         val encrypted = AesGcmCodec.encrypt(key(), token.toByteArray(Charsets.UTF_8))

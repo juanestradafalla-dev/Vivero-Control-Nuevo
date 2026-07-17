@@ -106,7 +106,7 @@
         "INVENTORY_NOT_FOUND",
         "ACTIVE_RESERVATION_EXISTS",
         "IDEMPOTENCY_CONFLICT",
-        "EMULATOR_ONLY",
+        "ENVIRONMENT_NOT_ALLOWED",
         "INTERNAL_ERROR"
       ]
     },

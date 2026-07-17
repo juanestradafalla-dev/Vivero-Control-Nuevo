@@ -1,17 +1,22 @@
-# Autenticación y autorización local
+# Autenticación y autorización
 
 ## Límite del entorno
 
-Authentication, Firestore y Functions se conectan exclusivamente a emuladores.
-La Function además exige `FUNCTIONS_EMULATOR=true` y un proyecto cuyo ID empiece
-por `demo-`. Si alguna condición falla, devuelve `EMULATOR_ONLY` sin ejecutar la
-operación.
+Los clientes se conectan a Firebase Emulator Suite en `EMULATOR` y a los servicios
+oficiales de Firebase en `PRODUCTION`. Cada Callable aplica antes de autenticar la
+frontera central de la ETAPA 20:
+
+- `EMULATOR`: `FUNCTIONS_EMULATOR=true` y Project ID `demo-*`;
+- `PRODUCTION`: sin Functions Emulator, Project ID exacto `viverocontrol-3f83f` y
+  `APP_ENV=production`;
+- cualquier otra combinación devuelve `ENVIRONMENT_NOT_ALLOWED` sin ejecutar la
+  operación.
 
 ## Fuentes de identidad y permisos
 
 | Fuente | Información |
 |---|---|
-| Firebase Auth Emulator | `uid`, correo ficticio, contraseña de prueba, nombre visible y claim `entorno=EMULADOR`. |
+| Firebase Authentication | `uid` y credencial del ambiente autorizado; el Emulator usa únicamente cuentas ficticias del seed. |
 | `usuarios/{uid}` | Estado activo, nombre visible y lista central de roles. |
 | `jornadas/{jornadaId}/autorizaciones/{uid}` | Acceso a la jornada, rol efectivo y permiso `puedeContar`. |
 | Callable context | `request.auth.uid`, construido por Firebase; es el único actor aceptado. |
@@ -23,8 +28,9 @@ en la autorización de la jornada.
 
 ## Inicio de sesión
 
-No existe registro público. Campo y Maestro aceptan únicamente credenciales
-ficticias ya creadas por el script de carga. Después de autenticar:
+No existe registro público. En Emulator, Campo y Maestro aceptan únicamente las
+credenciales ficticias creadas por el seed. Las cuentas reales de Production se
+crearán y aprobarán de forma controlada en la ETAPA 21. Después de autenticar:
 
 1. el cliente lee su propio perfil;
 2. exige `activo == true`;
@@ -36,10 +42,11 @@ cliente nunca envía `usuarioId`, actor, rol, permiso ni hora como autoridad.
 
 ## Dispositivo
 
-Campo genera un UUID por instalación y envía un identificador con prefijo
-`ANDROID-INSTALACION-`. Sirve para trazabilidad en reserva y auditoría, pero no
-concede permisos. No usa IMEI, Android ID ni otro identificador de hardware. La
-aprobación y bloqueo central de dispositivos continúa pendiente.
+Campo genera un UUID por instalación y envía un identificador aislado por ambiente
+con prefijo `ANDROID-EMULATOR-INSTALACION-` o
+`ANDROID-PRODUCTION-INSTALACION-`. Sirve para trazabilidad en reserva y auditoría,
+pero no concede permisos. No usa IMEI, Android ID ni otro identificador de
+hardware. La aprobación y bloqueo central de dispositivos continúa pendiente.
 
 ## Lecturas autorizadas
 
@@ -60,8 +67,9 @@ Admin SDK dentro de Functions.
 ## Fallo seguro
 
 - Android `debug` contiene solo valores `demo-*` y conecta a emuladores.
-- Android `release` deja Firebase vacío y muestra que producción está
-  deshabilitada.
-- Maestro rechaza configuración sin `VITE_USE_FIREBASE_EMULATORS=true` o con un
-  proyecto que no empiece por `demo-`.
+- Android `release` exige el Project ID y applicationId exactos, identificadores
+  Firebase locales completos y ausencia de host de emulador; cualquier fallo deja
+  el repositorio desconectado.
+- Maestro admite solo la combinación Emulator `demo-*` o Production exacta sin
+  emuladores; una configuración incompleta crea un repositorio desconectado.
 - No se incluye `google-services.json`, cuenta de servicio ni secreto real.

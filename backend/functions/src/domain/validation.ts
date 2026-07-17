@@ -247,12 +247,8 @@ export function parseRegisterInitialInventoryRequest(value: unknown): RegisterIn
   const total = (record.hembras as number) + (record.machos as number) + (record.patrones as number);
   if (!Number.isSafeInteger(total)) throw domainErrors.invalidArgument();
   if (total === 0) throw domainErrors.initialInventoryZeroNotAllowed();
-  if (typeof record.referenciaFuente !== "string" || record.referenciaFuente.trim().length === 0 ||
-      record.referenciaFuente.length > 500) {
-    throw domainErrors.initialInventorySourceInvalid();
-  }
-  const normalizedSource = record.referenciaFuente.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
-  if (!/(FICTICI|PRUEBA|EMULADOR|SIMULAD)/.test(normalizedSource)) {
+  if (typeof record.referenciaFuente !== "string" || record.referenciaFuente.trim().length < 3 ||
+      record.referenciaFuente.length > 500 || !/[\p{L}\p{N}]/u.test(record.referenciaFuente)) {
     throw domainErrors.initialInventorySourceInvalid();
   }
   return {

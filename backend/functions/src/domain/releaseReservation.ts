@@ -185,7 +185,7 @@ export class ReleaseReservationService {
         estadoAnterior: "EN_CONTEO",
         estadoRestaurado: targetState,
         actorUsuarioId: context.actorId,
-        actorNombreVisible: actor.nombreVisible ?? "Usuario de prueba",
+        actorNombreVisible: actor.nombreVisible ?? "Usuario",
         rolEfectivoActor: authorization.rolEfectivo,
         motivo: request.motivo,
         liberadaEn: releasedAt,

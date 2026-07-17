@@ -318,23 +318,26 @@ data class FrozenDiscardPayload(
     val deviceTimestamp: String,
     val idempotencyKey: String,
 ) {
-    fun toWireMap(): Map<String, Any> = buildMap {
-        put("lineaId", lineId)
-        put("versionInventarioObservada", inventoryVersion)
-        put("dispositivoId", deviceId)
-        put("hembras", this@FrozenDiscardPayload.values[0])
-        put("machos", this@FrozenDiscardPayload.values[1])
-        put("patrones", this@FrozenDiscardPayload.values[2])
-        put("causas", mapOf(
-            "muertos" to this@FrozenDiscardPayload.values[3],
-            "nematodos" to this@FrozenDiscardPayload.values[4],
-            "cuelloGanso" to this@FrozenDiscardPayload.values[5],
-            "raicesBifurcadas" to this@FrozenDiscardPayload.values[6],
-            "dobleInjertacion" to this@FrozenDiscardPayload.values[7],
-        ))
-        if (observations.isNotEmpty()) put("observaciones", observations)
-        put("timestampDispositivo", deviceTimestamp)
-        put("claveIdempotencia", idempotencyKey)
+    fun toWireMap(): Map<String, Any> {
+        val payloadValues = values
+        return buildMap {
+            put("lineaId", lineId)
+            put("versionInventarioObservada", inventoryVersion)
+            put("dispositivoId", deviceId)
+            put("hembras", payloadValues[0])
+            put("machos", payloadValues[1])
+            put("patrones", payloadValues[2])
+            put("causas", mapOf(
+                "muertos" to payloadValues[3],
+                "nematodos" to payloadValues[4],
+                "cuelloGanso" to payloadValues[5],
+                "raicesBifurcadas" to payloadValues[6],
+                "dobleInjertacion" to payloadValues[7],
+            ))
+            if (observations.isNotEmpty()) put("observaciones", observations)
+            put("timestampDispositivo", deviceTimestamp)
+            put("claveIdempotencia", idempotencyKey)
+        }
     }
 }
 

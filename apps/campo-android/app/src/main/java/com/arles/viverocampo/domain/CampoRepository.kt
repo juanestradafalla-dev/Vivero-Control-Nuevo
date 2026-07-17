@@ -20,7 +20,7 @@ interface CampoRepository {
 
     suspend fun signIn(email: String, password: String): UserProfile
 
-    suspend fun restoreSession(): UserProfile? = null
+    suspend fun restoreSession(): SessionRestoreResult = SessionRestoreResult.NoSession
 
     suspend fun signOut()
 

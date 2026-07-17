@@ -60,6 +60,7 @@ fun CampoRoute(viewModel: CampoViewModel) {
         onPasswordChange = viewModel::updatePassword,
         onSignIn = viewModel::signIn,
         onSignOut = viewModel::signOut,
+        onRetrySessionVerification = viewModel::retrySessionVerification,
         onSelectMode = viewModel::selectMode,
         onSelectJourney = viewModel::selectJourney,
         onReturnToJourneySelection = viewModel::returnToJourneySelection,
@@ -104,6 +105,7 @@ private fun CampoScreen(
     onPasswordChange: (String) -> Unit,
     onSignIn: () -> Unit,
     onSignOut: () -> Unit,
+    onRetrySessionVerification: () -> Unit,
     onSelectMode: (CampoMode) -> Unit,
     onSelectJourney: (String) -> Unit,
     onReturnToJourneySelection: () -> Unit,
@@ -151,8 +153,21 @@ private fun CampoScreen(
                 color = Color.Black,
                 fontWeight = FontWeight.Bold,
             )
+            if (state.sessionStatus == SessionStatus.RESTORED_CACHED) {
+                CachedSessionNotice(onRetrySessionVerification)
+            }
             if (state.user != null) ModeSwitcher(state.mode, onSelectMode)
             when {
+                state.sessionStatus == SessionStatus.RESTORING -> SessionVerificationContent(
+                    pending = false,
+                    onRetry = onRetrySessionVerification,
+                    onSignOut = onSignOut,
+                )
+                state.sessionStatus == SessionStatus.VERIFICATION_PENDING -> SessionVerificationContent(
+                    pending = true,
+                    onRetry = onRetrySessionVerification,
+                    onSignOut = onSignOut,
+                )
                 state.user == null -> LoginContent(state, onEmailChange, onPasswordChange, onSignIn)
                 state.mode == CampoMode.DESCARTES -> DiscardContent(
                     state,
@@ -469,6 +484,41 @@ private fun DiscardContent(
                     ) { Text(if (draft.frozenPayload == null) "Revisar y confirmar" else "Esperando conexión") }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun CachedSessionNotice(onRetry: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().background(TestBanner).padding(12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text("Sesi\u00f3n restaurada desde cach\u00e9; verificaci\u00f3n central pendiente.")
+        OutlinedButton(onClick = onRetry) { Text("Reintentar verificaci\u00f3n") }
+    }
+}
+
+@Composable
+private fun SessionVerificationContent(
+    pending: Boolean,
+    onRetry: () -> Unit,
+    onSignOut: () -> Unit,
+) {
+    Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Text("Vivero Campo", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text(
+            if (pending) {
+                "Verificando sesi\u00f3n; conecta el dispositivo para continuar"
+            } else {
+                "Verificando sesi\u00f3n\u2026"
+            },
+        )
+        if (pending) {
+            Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) {
+                Text("Reintentar verificaci\u00f3n")
+            }
+            OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) { Text("Salir") }
         }
     }
 }

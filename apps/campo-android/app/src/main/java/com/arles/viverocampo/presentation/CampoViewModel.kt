@@ -25,6 +25,8 @@ import com.arles.viverocampo.domain.LocalDiscardDraft
 import com.arles.viverocampo.domain.ReserveLinePayload
 import com.arles.viverocampo.domain.RELEASED_RESERVATION_MESSAGE
 import com.arles.viverocampo.domain.ReturnedCount
+import com.arles.viverocampo.domain.SessionRestoreResult
+import com.arles.viverocampo.domain.SessionRevocationReason
 import com.arles.viverocampo.domain.SyncState
 import com.arles.viverocampo.domain.UserProfile
 import java.text.SimpleDateFormat
@@ -32,6 +34,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,6 +46,15 @@ import kotlinx.coroutines.launch
 
 enum class CampoMode { CONTEOS, DESCARTES }
 
+enum class SessionStatus {
+    RESTORING,
+    NO_SESSION,
+    RESTORED_VERIFIED,
+    RESTORED_CACHED,
+    VERIFICATION_PENDING,
+    REVOKED,
+}
+
 data class CampoUiState(
     val environment: CampoEnvironment,
     val accessEnabled: Boolean,
@@ -50,6 +62,7 @@ data class CampoUiState(
     val email: String = "",
     val password: String = "",
     val signingIn: Boolean = false,
+    val sessionStatus: SessionStatus,
     val user: UserProfile? = null,
     val mode: CampoMode = CampoMode.CONTEOS,
     val activeJourneys: List<ActiveJourney> = emptyList(),
@@ -99,6 +112,7 @@ class CampoViewModel(
             environment = repository.environment,
             accessEnabled = repository.accessEnabled,
             mutableOperationsEnabled = repository.mutableOperationsEnabled,
+            sessionStatus = if (repository.accessEnabled) SessionStatus.RESTORING else SessionStatus.NO_SESSION,
             message = repository.configurationError,
         ),
     )
@@ -113,15 +127,73 @@ class CampoViewModel(
     private var accountStatusJob: Job? = null
     private var discardDraftJob: Job? = null
     private var discardSaveJob: Job? = null
+    private var restorationJob: Job? = null
+    private val scheduledCountWork = mutableSetOf<Pair<String, String>>()
+    private val scheduledDiscardWork = mutableSetOf<Pair<String, String>>()
 
     init {
-        restoreSession()
+        startSessionRestoration()
     }
 
-    private fun restoreSession() {
+    private fun startSessionRestoration() {
         if (!repository.accessEnabled) return
-        viewModelScope.launch {
-            val user = repository.restoreSession() ?: return@launch
+        if (restorationJob?.isActive == true) return
+        restorationJob = viewModelScope.launch {
+            mutableState.value = mutableState.value.copy(
+                sessionStatus = SessionStatus.RESTORING,
+                signingIn = false,
+                password = "",
+                message = "Verificando sesi\u00f3n\u2026",
+            )
+            val result = try {
+                repository.restoreSession()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                null
+            }
+            when (result) {
+                SessionRestoreResult.NoSession -> mutableState.value = CampoUiState(
+                    environment = repository.environment,
+                    accessEnabled = repository.accessEnabled,
+                    mutableOperationsEnabled = repository.mutableOperationsEnabled,
+                    sessionStatus = SessionStatus.NO_SESSION,
+                    message = repository.configurationError,
+                )
+                is SessionRestoreResult.RestoredVerified -> restoreAuthenticatedSession(
+                    result.profile,
+                    SessionStatus.RESTORED_VERIFIED,
+                )
+                is SessionRestoreResult.RestoredCached -> restoreAuthenticatedSession(
+                    result.profile,
+                    SessionStatus.RESTORED_CACHED,
+                )
+                is SessionRestoreResult.VerificationPending, null -> mutableState.value = mutableState.value.copy(
+                    sessionStatus = SessionStatus.VERIFICATION_PENDING,
+                    user = null,
+                    connectionStatus = "SIN CONEXI\u00d3N",
+                    message = "Verificando sesi\u00f3n; conecta el dispositivo para continuar",
+                )
+                is SessionRestoreResult.Revoked -> handleAuthoritativeRevocation(
+                    when (result.reason) {
+                        SessionRevocationReason.PROFILE_NOT_FOUND -> "La cuenta no tiene un perfil operativo."
+                        SessionRevocationReason.PROFILE_INACTIVE -> "Cuenta desactivada"
+                    },
+                )
+            }
+        }
+    }
+
+    fun retrySessionVerification() {
+        if (mutableState.value.sessionStatus !in setOf(
+                SessionStatus.VERIFICATION_PENDING,
+                SessionStatus.RESTORED_CACHED,
+            )
+        ) return
+        startSessionRestoration()
+    }
+
+    private suspend fun restoreAuthenticatedSession(user: UserProfile, status: SessionStatus) {
             val journeys = runCatching { repository.listActiveJourneys() }.getOrDefault(emptyList())
             val reservation = repository.latestActiveReservation(user.id, deviceId)
             val discardLines = runCatching { repository.listDiscardLines() }.getOrDefault(emptyList())
@@ -129,6 +201,7 @@ class CampoViewModel(
             val selectedJourneyId = reservation?.journeyId ?: journeys.singleOrNull()?.id
             mutableState.value = mutableState.value.copy(
                 user = user,
+                sessionStatus = status,
                 activeJourneys = journeys,
                 selectedJourneyId = selectedJourneyId,
                 confirmedReservation = reservation,
@@ -142,6 +215,11 @@ class CampoViewModel(
                     "Sesión restaurada; los datos locales siguen disponibles sin señal."
                 },
             )
+            if (status == SessionStatus.RESTORED_CACHED) {
+                mutableState.value = mutableState.value.copy(
+                    message = "Sesi\u00f3n restaurada desde cach\u00e9; la verificaci\u00f3n central sigue pendiente.",
+                )
+            }
             observeAccountStatus(user)
             if (selectedJourneyId != null) {
                 observeJourney(selectedJourneyId)
@@ -152,14 +230,15 @@ class CampoViewModel(
                 observeDraft(user, reservation)
             }
             if (pendingDiscard != null) observeDiscardDraft(user, pendingDiscard)
-        }
     }
 
     fun updateEmail(value: String) {
+        if (mutableState.value.sessionStatus !in setOf(SessionStatus.NO_SESSION, SessionStatus.REVOKED)) return
         mutableState.value = mutableState.value.copy(email = value, message = null)
     }
 
     fun updatePassword(value: String) {
+        if (mutableState.value.sessionStatus !in setOf(SessionStatus.NO_SESSION, SessionStatus.REVOKED)) return
         mutableState.value = mutableState.value.copy(password = value, message = null)
     }
 
@@ -169,6 +248,7 @@ class CampoViewModel(
             mutableState.value = state.copy(message = repository.configurationError)
             return
         }
+        if (state.sessionStatus !in setOf(SessionStatus.NO_SESSION, SessionStatus.REVOKED)) return
         if (state.signingIn || state.email.isBlank() || state.password.isBlank()) {
             if (state.email.isBlank() || state.password.isBlank()) {
                 mutableState.value = state.copy(message = "Ingresa correo y contraseña.")
@@ -188,6 +268,7 @@ class CampoViewModel(
                     signingIn = false,
                     password = "",
                     user = user,
+                    sessionStatus = SessionStatus.RESTORED_VERIFIED,
                     activeJourneys = journeys,
                     selectedJourneyId = selectedJourneyId,
                     confirmedReservation = reservation,
@@ -224,24 +305,55 @@ class CampoViewModel(
 
     fun signOut() {
         viewModelScope.launch {
+            restorationJob?.cancel()
             repository.signOut()
-            journeyJob?.cancel()
-            returnedCountsJob?.cancel()
-            draftJob?.cancel()
-            reservationStateJob?.cancel()
-            countSaveJob?.cancel()
-            accountStatusJob?.cancel()
-            discardDraftJob?.cancel()
-            discardSaveJob?.cancel()
-            pendingReservationKeys.clear()
-            pendingCorrectionKeys.clear()
+            cancelSessionJobs()
+            clearSessionCoordination()
             mutableState.value = CampoUiState(
                 environment = repository.environment,
                 accessEnabled = repository.accessEnabled,
                 mutableOperationsEnabled = repository.mutableOperationsEnabled,
+                sessionStatus = SessionStatus.NO_SESSION,
                 message = repository.configurationError,
             )
         }
+    }
+
+    private fun cancelSessionJobs() {
+        journeyJob?.cancel()
+        returnedCountsJob?.cancel()
+        draftJob?.cancel()
+        reservationStateJob?.cancel()
+        countSaveJob?.cancel()
+        accountStatusJob?.cancel()
+        discardDraftJob?.cancel()
+        discardSaveJob?.cancel()
+    }
+
+    private fun clearSessionCoordination() {
+        pendingReservationKeys.clear()
+        pendingCorrectionKeys.clear()
+        scheduledCountWork.clear()
+        scheduledDiscardWork.clear()
+    }
+
+    private suspend fun handleAuthoritativeRevocation(message: String) {
+        val current = mutableState.value
+        current.countDraft?.frozenPayload?.let { payload ->
+            syncScheduler.cancel(payload.reservationId, payload.idempotencyKey)
+        }
+        current.discardDraft?.frozenPayload?.let { payload ->
+            discardSyncScheduler.cancel(payload.draftId, payload.idempotencyKey)
+        }
+        cancelSessionJobs()
+        clearSessionCoordination()
+        mutableState.value = CampoUiState(
+            environment = repository.environment,
+            accessEnabled = repository.accessEnabled,
+            mutableOperationsEnabled = repository.mutableOperationsEnabled,
+            sessionStatus = SessionStatus.REVOKED,
+            message = message,
+        )
     }
 
     private fun observeAccountStatus(user: UserProfile) {
@@ -255,29 +367,8 @@ class CampoViewModel(
                 }
                 .collect { active ->
                     if (active) return@collect
-                    val current = mutableState.value
-                    current.countDraft?.frozenPayload?.let { payload ->
-                        syncScheduler.cancel(payload.reservationId, payload.idempotencyKey)
-                    }
-                    current.discardDraft?.frozenPayload?.let { payload ->
-                        discardSyncScheduler.cancel(payload.draftId, payload.idempotencyKey)
-                    }
                     repository.signOut()
-                    journeyJob?.cancel()
-                    returnedCountsJob?.cancel()
-                    draftJob?.cancel()
-                    reservationStateJob?.cancel()
-                    countSaveJob?.cancel()
-                    discardDraftJob?.cancel()
-                    discardSaveJob?.cancel()
-                    pendingReservationKeys.clear()
-                    pendingCorrectionKeys.clear()
-                    mutableState.value = CampoUiState(
-                        environment = repository.environment,
-                        accessEnabled = repository.accessEnabled,
-                        mutableOperationsEnabled = repository.mutableOperationsEnabled,
-                        message = "Cuenta desactivada",
-                    )
+                    handleAuthoritativeRevocation("Cuenta desactivada")
                 }
         }
     }
@@ -352,7 +443,7 @@ class CampoViewModel(
         val draft = state.discardDraft ?: return
         if (draft.syncState in setOf(SyncState.SINCRONIZANDO, SyncState.ENVIADA)) return
         draft.takeIf { it.syncState == SyncState.ERROR }?.frozenPayload?.let {
-            discardSyncScheduler.cancel(draft.draftId, it.idempotencyKey)
+            cancelDiscardSchedule(draft.draftId, it.idempotencyKey)
         }
         val validation = DiscardFormValidator.validate(input)
         mutableState.value = state.copy(
@@ -426,7 +517,7 @@ class CampoViewModel(
                     keyFactory(),
                     timestampFactory(),
                 ).frozenPayload ?: throw CampoRepositoryException("INVALID_ARGUMENT", "No se pudo congelar el descarte.")
-                discardSyncScheduler.schedule(draft.draftId, frozen.idempotencyKey)
+                scheduleDiscardOnce(draft.draftId, frozen.idempotencyKey)
                 mutableState.value = mutableState.value.copy(
                     confirmingDiscard = false,
                     showDiscardSummary = false,
@@ -445,13 +536,13 @@ class CampoViewModel(
     fun retryDiscardSubmission() {
         val draft = mutableState.value.discardDraft ?: return
         val frozen = draft.frozenPayload ?: return
-        discardSyncScheduler.schedule(draft.draftId, frozen.idempotencyKey)
+        scheduleDiscardOnce(draft.draftId, frozen.idempotencyKey)
     }
 
     fun abandonDiscardDraft() {
         val draft = mutableState.value.discardDraft ?: return
         if (draft.syncState in setOf(SyncState.SINCRONIZANDO, SyncState.ENVIADA)) return
-        draft.frozenPayload?.let { discardSyncScheduler.cancel(draft.draftId, it.idempotencyKey) }
+        draft.frozenPayload?.let { cancelDiscardSchedule(draft.draftId, it.idempotencyKey) }
         viewModelScope.launch {
             try {
                 repository.abandonDiscardDraft(draft.draftId, draft.userId, draft.deviceId)
@@ -498,7 +589,9 @@ class CampoViewModel(
             repository.observeDiscardDraft(initial.draftId, user.id, deviceId).collect { draft ->
                 if (draft == null) return@collect
                 if (draft.syncState == SyncState.PENDIENTE && draft.frozenPayload != null) {
-                    discardSyncScheduler.schedule(draft.draftId, draft.frozenPayload.idempotencyKey)
+                    scheduleDiscardOnce(draft.draftId, draft.frozenPayload.idempotencyKey)
+                } else if (draft.syncState == SyncState.ERROR && draft.frozenPayload != null) {
+                    scheduledDiscardWork.remove(draft.draftId to draft.frozenPayload.idempotencyKey)
                 }
                 val validation = DiscardFormValidator.validate(draft.input)
                 mutableState.value = mutableState.value.copy(
@@ -511,6 +604,28 @@ class CampoViewModel(
                 )
             }
         }
+    }
+
+    private fun scheduleCountOnce(reservationId: String, idempotencyKey: String) {
+        if (scheduledCountWork.add(reservationId to idempotencyKey)) {
+            syncScheduler.schedule(reservationId, idempotencyKey)
+        }
+    }
+
+    private fun cancelCountSchedule(reservationId: String, idempotencyKey: String) {
+        scheduledCountWork.remove(reservationId to idempotencyKey)
+        syncScheduler.cancel(reservationId, idempotencyKey)
+    }
+
+    private fun scheduleDiscardOnce(draftId: String, idempotencyKey: String) {
+        if (scheduledDiscardWork.add(draftId to idempotencyKey)) {
+            discardSyncScheduler.schedule(draftId, idempotencyKey)
+        }
+    }
+
+    private fun cancelDiscardSchedule(draftId: String, idempotencyKey: String) {
+        scheduledDiscardWork.remove(draftId to idempotencyKey)
+        discardSyncScheduler.cancel(draftId, idempotencyKey)
     }
 
     fun selectLine(line: JourneyLine) {
@@ -646,7 +761,7 @@ class CampoViewModel(
         if (reservation.state == "LIBERADA") return
         if (state.countDraft?.syncState in setOf(SyncState.SINCRONIZANDO, SyncState.ENVIADA)) return
         state.countDraft?.takeIf { it.syncState == SyncState.ERROR }?.frozenPayload?.let {
-            syncScheduler.cancel(reservation.reservationId, it.idempotencyKey)
+            cancelCountSchedule(reservation.reservationId, it.idempotencyKey)
         }
         val validation = CountFormValidator.validate(input)
         mutableState.value = state.copy(
@@ -712,7 +827,7 @@ class CampoViewModel(
                     timestampFactory(),
                 )
                 val frozen = requireNotNull(draft.frozenPayload)
-                syncScheduler.schedule(reservation.reservationId, frozen.idempotencyKey)
+                scheduleCountOnce(reservation.reservationId, frozen.idempotencyKey)
                 mutableState.value = mutableState.value.copy(
                     confirmingCount = false,
                     showCountSummary = false,
@@ -732,7 +847,7 @@ class CampoViewModel(
         if (blockMutableOperation()) return
         if (mutableState.value.confirmedReservation?.state == "LIBERADA") return
         val frozen = mutableState.value.countDraft?.frozenPayload ?: return
-        syncScheduler.schedule(frozen.reservationId, frozen.idempotencyKey)
+        scheduleCountOnce(frozen.reservationId, frozen.idempotencyKey)
     }
 
     fun finishAndTakeAnotherLine() {
@@ -770,7 +885,9 @@ class CampoViewModel(
                         draft.frozenPayload != null &&
                         mutableState.value.confirmedReservation?.state != "LIBERADA"
                     ) {
-                        syncScheduler.schedule(reservation.reservationId, draft.frozenPayload.idempotencyKey)
+                        scheduleCountOnce(reservation.reservationId, draft.frozenPayload.idempotencyKey)
+                    } else if (draft.syncState == SyncState.ERROR && draft.frozenPayload != null) {
+                        scheduledCountWork.remove(reservation.reservationId to draft.frozenPayload.idempotencyKey)
                     }
                     val validation = CountFormValidator.validate(draft.input)
                     mutableState.value = mutableState.value.copy(
@@ -800,7 +917,7 @@ class CampoViewModel(
                         mutableState.value.confirmedReservation?.state == "LIBERADA"
                     ) return@collect
                     mutableState.value.countDraft?.frozenPayload?.let { frozen ->
-                        syncScheduler.cancel(reservation.reservationId, frozen.idempotencyKey)
+                        cancelCountSchedule(reservation.reservationId, frozen.idempotencyKey)
                     }
                     repository.markReservationReleased(reservation.reservationId)
                     mutableState.value = mutableState.value.copy(

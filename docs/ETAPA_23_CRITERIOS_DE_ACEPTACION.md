@@ -33,4 +33,4 @@
 - [x] Se agregaron contratos Draft 2020-12 para las cuatro operaciones.
 - [x] No se incluyeron datos personales, cantidades reales, secretos ni archivos privados.
 - [x] No se desplegó Firebase, no se importaron datos y no se crearon cuentas.
-- [ ] La matriz completa de CI debe quedar verde antes de fusionar.
+- [x] La matriz completa de CI quedó verde antes de solicitar la fusión.

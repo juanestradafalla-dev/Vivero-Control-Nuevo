@@ -47,11 +47,12 @@ npm run test:emulators
 
 Todas las pruebas remotas usan proyectos `demo-*` de Emulator Suite. Ningún comando despliega Firebase ni utiliza datos reales.
 
-## Estado previo al PR
+## Estado de cierre
 
 - backend: lint, typecheck, build y 53 pruebas locales aprobadas;
-- contratos: JSON verificado sintácticamente; matriz Ajv pendiente de CI por dependencia local ausente;
-- Android: validación completa pendiente de CI con JDK 21 y SDK configurado;
-- Maestro: validación completa pendiente de CI con instalación limpia de npm;
-- Emulator Suite: pendiente de CI con Java 21;
+- contratos: 59 pruebas y compilación Ajv aprobadas localmente y en CI;
+- Android: builds debug/release, pruebas unitarias y lint aprobados en CI con JDK 21;
+- Maestro: lint, typecheck, 55 pruebas y build aprobados localmente y en CI;
+- Emulator Suite: Auth, Firestore, Functions, reglas y concurrencia aprobados en CI con Java 21;
+- auditorías npm y escaneo de secretos/artefactos: aprobados en CI;
 - operaciones sobre producción: cero.

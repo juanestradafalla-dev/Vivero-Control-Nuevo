@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "lint": "eslint src tests tools/firebase-audit/*.mjs",
-    "test": "vitest run tests/reserveLine.unit.test.ts tests/releaseReservation.unit.test.ts tests/reviewCount.unit.test.ts tests/runtimeEnvironment.unit.test.ts tests/firestoreIndexes.unit.test.ts && npm run test:audit",
+    "test": "vitest run tests/reserveLine.unit.test.ts tests/releaseReservation.unit.test.ts tests/reviewCount.unit.test.ts tests/runtimeEnvironment.unit.test.ts tests/firestoreIndexes.unit.test.ts tests/migrationPreflight.unit.test.ts && npm run test:audit",
     "test:audit": "node --test tools/firebase-audit/*.test.mjs",
     "audit:firebase:production": "node tools/firebase-audit/audit.mjs --project viverocontrol-3f83f --output .private/etapa-21/firebase-audit.json",
     "prepare:etapa21:classify": "node tools/firebase-audit/prepare-private.mjs --project viverocontrol-3f83f --output .private/etapa-21/fase-b/clasificacion-recursos.json",

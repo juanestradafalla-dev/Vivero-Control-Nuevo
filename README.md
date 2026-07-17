@@ -2,9 +2,9 @@
 
 Sistema de inventario por línea compuesto por Vivero Campo (Android), Vivero Maestro (Electron/React para Windows) y un backend transaccional en Firebase. Este repositorio es independiente y no reutiliza código del proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 21 — FASE B1 completada manualmente
+## Estado: ETAPA 22 — datos reales preparados localmente
 
-El código quedó preparado en la ETAPA 20 para dos ambientes y un único proyecto Firebase real. La FASE A auditó ese proyecto y la preparación posterior agregó clasificación privada, captura por bloques y validación local de datos reales. El 17 de julio de 2026 el propietario eliminó manualmente las 3 cuentas Authentication y los 41 documentos Firestore clasificados como datos de prueba. Las evidencias visuales muestran Authentication sin usuarios y Firestore sin colecciones visibles. **No se ha importado, desplegado ni creado información real y no se afirma que el sistema esté listo para producción.**
+El código quedó preparado en la ETAPA 20 para dos ambientes y un único proyecto Firebase real. La ETAPA 21 auditó ese proyecto y cerró la eliminación manual autorizada de los datos de prueba. En la ETAPA 22 el propietario completó, dentro del área privada ignorada por Git, los cinco bloques de información real: estructura, inventario inicial, usuarios, históricos y dispositivos/conectividad. La validación local quedó completa y se construyó un paquete privado de catálogo e inventario. **No se ejecutó validación remota, importación, creación de cuentas, despliegue ni puesta en producción.**
 
 | Ambiente | Proyecto | Uso | Datos |
 |---|---|---|---|
@@ -15,7 +15,7 @@ No existe `STAGING` como ambiente funcional. Firestore permanecerá en `nam5` y 
 
 El inventario previo confirmó 3 aplicaciones, 3 cuentas con perfil y referencias operativas, 41 documentos Firestore en 12 grupos —38 superiores y 3 anidados—, 5 principales IAM, 11 de 30 Functions y 2 buckets técnicos. El propietario clasificó y eliminó exclusivamente las 3 cuentas y los 41 documentos como datos de prueba. Las aplicaciones, IAM, Functions y buckets no formaron parte de la limpieza y conservan sus decisiones anteriores.
 
-La clasificación identificable y las plantillas editables viven solo en `.private/`. Los validadores pueden construir un paquete `paquete-migracion-catalogo-v1` únicamente cuando estructura e inventario estén completos y el conjunto no contenga errores; usuarios, históricos y dispositivos permanecen como puertas separadas del corte. No se recibió información real y no se generó paquete. La renuncia al backup se limitó a los datos de prueba eliminados; backups, PITR y restauración continúan pendientes antes de operar información real.
+La clasificación identificable, los datos reales, sus fuentes, responsables, cantidades y el paquete generado viven solo en `.private/`. El repositorio conserva únicamente reglas, validadores, fixtures ficticios y evidencia sanitizada del estado de los bloques. Un inventario inicial total cero solo es compatible con la migración cuando se confirma explícitamente que la línea está vacía; el cero no confirmado sigue bloqueado. La renuncia al backup se limitó a los datos de prueba eliminados; backups, PITR y restauración continúan pendientes antes de operar información real.
 
 ## Frontera del backend
 
@@ -145,6 +145,9 @@ Ese archivo no se crea ni se versiona en esta etapa. Consulte los README de [Viv
 
 ## Documentación vigente
 
+- [Criterios de aceptación de la ETAPA 22](docs/ETAPA_22_CRITERIOS_DE_ACEPTACION.md)
+- [Preparación privada de datos reales de la ETAPA 22](docs/arquitectura/PREPARACION_DATOS_REALES_ETAPA_22.md)
+- [Pruebas de la ETAPA 22](docs/pruebas/PRUEBAS_ETAPA_22.md)
 - [Cierre de la limpieza manual de datos de prueba](docs/ETAPA_21_FASE_B1_LIMPIEZA_MANUAL.md)
 - [Auditoría Firebase sanitizada de la ETAPA 21](docs/arquitectura/AUDITORIA_FIREBASE_ETAPA_21.md)
 - [Clasificación sanitizada de recursos](docs/arquitectura/CLASIFICACION_RECURSOS_ETAPA_21.md)
@@ -164,4 +167,4 @@ Ese archivo no se crea ni se versiona en esta etapa. Consulte los README de [Viv
 
 ## Fuera de alcance
 
-Fuera de la limpieza manual ya registrada, no se despliega Firebase, no se crean cuentas o Apps reales, no se cargan datos, no se generan llaves de firma, APK firmados ni instaladores definitivos, y no se modifica o fusiona directamente `main`. Un eventual paquete privado solo sería preparación local y no autorización de importación. Los datos reales, el despliegue y la operación continúan bloqueados por la información y decisiones pendientes del propietario.
+No se despliega Firebase, no se crean cuentas o Apps reales, no se cargan datos, no se generan llaves de firma, APK firmados ni instaladores definitivos, y no se modifica o fusiona directamente `main`. El paquete privado generado es preparación local y no autoriza importación. La validación remota, el respaldo restaurable, la ventana de corte, los secretos productivos y la autorización expresa de despliegue continúan pendientes.

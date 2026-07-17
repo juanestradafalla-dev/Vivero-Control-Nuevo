@@ -211,6 +211,18 @@ describe("validarPaqueteMigracion mediante emuladores reales", () => {
     expect(codes(await validate(admin.functions, payload))).toContain(expected);
   });
 
+  it("acepta cero únicamente con confirmación explícita de línea vacía", async () => {
+    const admin = await authenticatedClient("administrador@prueba.local", "confirmed-empty");
+    const payload = transportPackage();
+    Object.assign((payload.inventariosIniciales as Array<Record<string, unknown>>)[0]!, {
+      hembras: 0, machos: 0, patrones: 0, lineaVaciaConfirmada: true
+    });
+    const result = await validate(admin.functions, payload);
+    expect(result.aptoParaImportar).toBe(true);
+    expect(result.erroresBloqueantes).toEqual([]);
+    expect(result.advertencias.map((issue) => issue.codigo)).toContain("LINEA_VACIA_CONFIRMADA");
+  });
+
   it("reporta catálogo, inventario y ocupación actuales como conflictos", async () => {
     const admin = await authenticatedClient("administrador@prueba.local", "current-conflicts");
     const payload = transportPackage();

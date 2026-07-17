@@ -347,9 +347,12 @@ function validateInventories(
       return;
     }
     const extra = rejectAdditionalFields(state, candidate, new Set([
-      "lineaClaveExterna", "hembras", "machos", "patrones", "referenciaFuente"
+      "lineaClaveExterna", "hembras", "machos", "patrones", "referenciaFuente",
+      "lineaVaciaConfirmada"
     ]), "INVENTARIO_INICIAL", externalKey);
-    if (!validExternalKey(candidate.lineaClaveExterna) || !requiredText(candidate.referenciaFuente, 500)) {
+    if (!validExternalKey(candidate.lineaClaveExterna) || !requiredText(candidate.referenciaFuente, 500) ||
+        (candidate.lineaVaciaConfirmada !== undefined &&
+          typeof candidate.lineaVaciaConfirmada !== "boolean")) {
       issue(state, "ERROR", "ESTRUCTURA_INVALIDA", "INVENTARIO_INICIAL", externalKey,
         "El inventario inicial tiene campos inválidos.");
       return;
@@ -366,7 +369,8 @@ function validateInventories(
       hembras: candidate.hembras as number,
       machos: candidate.machos as number,
       patrones: candidate.patrones as number,
-      referenciaFuente: normalizeText(candidate.referenciaFuente)
+      referenciaFuente: normalizeText(candidate.referenciaFuente),
+      ...(candidate.lineaVaciaConfirmada === true ? {lineaVaciaConfirmada: true} : {})
     };
     const item: ValidatedItem<MigrationPackageInitialInventory> = {index, value, status: extra ? "BLOQUEADO" : "NUEVO"};
     items.push(item);
@@ -374,10 +378,17 @@ function validateInventories(
       block(item);
       issue(state, "ERROR", "DESBORDAMIENTO_TOTAL", "INVENTARIO_INICIAL", value.lineaClaveExterna,
         "La suma del inventario excede el rango seguro.");
-    } else if (total === 0) {
+    } else if (total === 0 && value.lineaVaciaConfirmada !== true) {
       block(item);
       issue(state, "ERROR", "TOTAL_CERO", "INVENTARIO_INICIAL", value.lineaClaveExterna,
-        "El inventario inicial total cero permanece bloqueado.");
+        "El inventario inicial total cero exige confirmación explícita de línea vacía.");
+    } else if (total === 0) {
+      issue(state, "ADVERTENCIA", "LINEA_VACIA_CONFIRMADA", "INVENTARIO_INICIAL",
+        value.lineaClaveExterna, "La línea se importará con inventario inicial cero confirmado.");
+    } else if (value.lineaVaciaConfirmada === true) {
+      block(item);
+      issue(state, "ERROR", "CONFIRMACION_VACIA_INCOMPATIBLE", "INVENTARIO_INICIAL",
+        value.lineaClaveExterna, "Una línea marcada como vacía no puede contener cantidades positivas.");
     }
     if (!isTraceableReference(value.referenciaFuente)) {
       block(item);

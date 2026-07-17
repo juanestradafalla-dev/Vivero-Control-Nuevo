@@ -29,7 +29,7 @@ No combine una cama y una línea como si fueran la misma entidad. Declare explí
 
 ## Bloque B — Inventario inicial
 
-Una fila por línea. El total debe ser `hembras + machos + patrones`; no lo estime ni lo complete con cero si la fuente no está disponible.
+Una fila por línea. El total debe ser `hembras + machos + patrones`; no lo estime ni lo complete con cero si la fuente no está disponible. Una línea realmente vacía puede usar total cero únicamente con fuente, responsable, observación y la confirmación explícita `lineaVaciaConfirmada: true`.
 
 | línea | hembras | machos | patrones | total calculado | fecha de corte | fuente | responsable | observación |
 |---|---:|---:|---:|---:|---|---|---|---|

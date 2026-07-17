@@ -185,6 +185,28 @@ test("valida datos ficticios completos y construye el formato de migración v1",
   );
 });
 
+test("acepta inventario cero solo para una línea vacía confirmada", () => {
+  const confirmed = validOwnerData();
+  Object.assign(confirmed.inventarioInicial[0], {
+    hembras: 0,
+    machos: 0,
+    patrones: 0,
+    totalCalculado: 0,
+    lineaVaciaConfirmada: true,
+    observacion: "Línea vacía confirmada por el responsable.",
+  });
+  const validation = validateOwnerData(confirmed);
+  assert.deepEqual(validation.errors, []);
+  assert.equal(validation.blocks.inventarioInicial, "COMPLETO");
+  const built = buildPrivateMigrationPackage(confirmed, "2026-07-17T15:00:00.000Z");
+  assert.equal(built.packageValue.inventariosIniciales[0].lineaVaciaConfirmada, true);
+
+  const unconfirmed = structuredClone(confirmed);
+  delete unconfirmed.inventarioInicial[0].lineaVaciaConfirmada;
+  assert.ok(validateOwnerData(unconfirmed).errors.some((entry) =>
+    entry.startsWith("TOTAL_CERO_SIN_CONFIRMACION")));
+});
+
 test("detecta ciclos, relaciones inválidas, duplicados y totales incorrectos", () => {
   const data = validOwnerData();
   data.estructura.ubicaciones[0].ubicacionPadreClaveExterna = "UB-PRUEBA-MODULO";

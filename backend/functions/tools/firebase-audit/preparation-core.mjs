@@ -349,7 +349,19 @@ function validateInventory(inventories, linesByKey, pending, errors) {
       const total = quantities.reduce((sum, field) => sum + inventory[field], 0);
       if (!Number.isSafeInteger(total)) errors.push(`TOTAL_DESBORDADO:${path}.totalCalculado`);
       if (inventory.totalCalculado !== total) errors.push(`TOTAL_INCORRECTO:${path}.totalCalculado`);
-      if (total === 0) errors.push(`TOTAL_CERO_NO_COMPATIBLE:${path}.totalCalculado`);
+      if (inventory.lineaVaciaConfirmada !== undefined &&
+          typeof inventory.lineaVaciaConfirmada !== "boolean") {
+        errors.push(`INVENTARIO_CONFIRMACION_INVALIDA:${path}.lineaVaciaConfirmada`);
+      }
+      if (total === 0 && inventory.lineaVaciaConfirmada !== true) {
+        errors.push(`TOTAL_CERO_SIN_CONFIRMACION:${path}.totalCalculado`);
+      }
+      if (total === 0 && !hasText(inventory.observacion)) {
+        errors.push(`TOTAL_CERO_SIN_OBSERVACION:${path}.observacion`);
+      }
+      if (total > 0 && inventory.lineaVaciaConfirmada === true) {
+        errors.push(`TOTAL_POSITIVO_MARCADO_VACIO:${path}.lineaVaciaConfirmada`);
+      }
     }
     if (!isValidDate(inventory.fechaCorte)) errors.push(`FECHA_INVALIDA:${path}.fechaCorte`);
     for (const field of ["fuente", "responsable"]) {
@@ -691,6 +703,7 @@ export function buildPrivateMigrationPackage(data, createdAt = new Date().toISOS
         `corte ${normalized(inventory.fechaCorte)}`,
         `responsable ${normalized(inventory.responsable)}`,
       ].join("; "),
+      ...(inventory.lineaVaciaConfirmada === true ? {lineaVaciaConfirmada: true} : {}),
     })),
   };
   const packageBytes = Buffer.byteLength(JSON.stringify(packageValue), "utf8");

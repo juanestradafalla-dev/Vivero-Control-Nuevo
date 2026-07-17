@@ -421,6 +421,7 @@ export class ImportMigrationPackageService {
           id: lineId, jornadaId: null, jornadaLineaId: null, lineaId: lineId,
           hembras: inventory.hembras, machos: inventory.machos, patrones: inventory.patrones, total,
           conteoAprobadoId: null, version: 1, origen: MIGRATION_INVENTORY_ORIGIN,
+          lineaVaciaConfirmada: inventory.lineaVaciaConfirmada === true,
           creadaPorImportacionId: importId, actualizadoPorUsuarioId: context.actorId, actualizadoEn: now
         });
         transaction.create(this.firestore.collection("cargasInventarioInicial").doc(lineId), {
@@ -428,6 +429,7 @@ export class ImportMigrationPackageService {
           hembras: inventory.hembras, machos: inventory.machos, patrones: inventory.patrones, total,
           versionInventario: 1, origen: MIGRATION_INVENTORY_ORIGIN, conteoAprobadoId: null,
           referenciaFuente: inventory.referenciaFuente, actorUsuarioId: context.actorId,
+          lineaVaciaConfirmada: inventory.lineaVaciaConfirmada === true,
           actorNombreVisible: actorName, creadaPorImportacionId: importId, registradaEn: now, inmutable: true
         });
       }

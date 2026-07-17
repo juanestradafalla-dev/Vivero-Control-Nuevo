@@ -604,6 +604,7 @@ export interface MigrationPackageInitialInventory {
   readonly machos: number;
   readonly patrones: number;
   readonly referenciaFuente: string;
+  readonly lineaVaciaConfirmada?: boolean;
 }
 
 export interface MigrationCatalogPackageV1 {

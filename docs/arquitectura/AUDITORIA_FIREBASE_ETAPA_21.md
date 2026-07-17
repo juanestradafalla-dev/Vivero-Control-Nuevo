@@ -86,9 +86,9 @@ No se publicaron correos, UID, fechas, hashes ni metadatos de cuenta. Ninguna cu
 
 ### Firestore
 
-Se encontraron 11 colecciones de nivel superior y 38 documentos. Ningún ID cumplió los marcadores `JORNADA-PRUEBA-*` o `LINEA-PRUEBA-*`; como no se leyeron campos de negocio, los 38 documentos quedan protegidos como `REQUIERE_REVISION`.
+Se encontraron 11 colecciones y 38 documentos de nivel superior. Ningún ID cumplió los marcadores `JORNADA-PRUEBA-*` o `LINEA-PRUEBA-*`; como no se leyeron campos de negocio, los 38 documentos quedan protegidos como `REQUIERE_REVISION`. La ejecución original detectó además la subcolección `autorizaciones`, pero no cuantificó sus documentos: el total real es al menos 38 y cualquier documento anidado queda igualmente `REQUIERE_REVISION`.
 
-| Colección | Documentos | Estructura | Datos |
+| Colección | Documentos de nivel superior | Estructura | Datos |
 |---|---:|---|---|
 | `auditoria` | 9 | `CONSERVAR` | 9 `REQUIERE_REVISION` |
 | `bloqueosCodigosCatalogo` | 5 | `CONSERVAR` | 5 `REQUIERE_REVISION` |
@@ -102,7 +102,7 @@ Se encontraron 11 colecciones de nivel superior y 38 documentos. Ningún ID cump
 | `ubicaciones` | 3 | `CONSERVAR` | 3 `REQUIERE_REVISION` |
 | `usuarios` | 3 | `CONSERVAR` | 3 `REQUIERE_REVISION` |
 
-La única subcolección observada fue `autorizaciones` bajo el documento de `jornadas`. El muestreo de subcolecciones cubrió los 38 documentos porque ninguna colección superó el límite de 50.
+La única subcolección observada fue `autorizaciones` bajo el documento de `jornadas`. El muestreo de documentos padre cubrió los 38 registros de nivel superior porque ninguna colección superó el límite de 50. La ejecución original solo identificaba el nombre de la subcolección y no listaba sus documentos, por lo que su volumen no quedó establecido. La herramienta quedó corregida para contar y clasificar esos documentos en futuras ejecuciones de lectura; no se repitió el acceso a producción durante el cierre del PR.
 
 Colecciones requeridas por el contrato pero ausentes:
 
@@ -114,7 +114,7 @@ Se clasifican como `NO_DESPLEGADO`; una colección Firestore puede materializars
 
 No hay índices compuestos remotos. Existe un override para `autorizaciones.usuarioId` con los mismos tres modos versionados en `backend/firestore.indexes.json`; índices locales y remotos coinciden. La regla Firestore activa coincide, tras normalizar finales de línea, con `backend/firestore.rules`.
 
-El volumen comprobable es 38 documentos. No se obtuvo una métrica remota fiable de bytes de Firestore y no se estimó a partir de documentos completos.
+El volumen comprobable de nivel superior es 38 documentos. El total que incluye subcolecciones no quedó cuantificado en la ejecución original. No se obtuvo una métrica remota fiable de bytes de Firestore y no se estimó a partir de documentos completos.
 
 ### Cloud Functions
 
@@ -182,7 +182,7 @@ Ambos buckets y sus objetos se clasifican `CONSERVAR` porque respaldan Functions
 |---|---|
 | `CONSERVAR` | proyecto, Firestore `nam5`, reglas e índices coincidentes, 11 estructuras de colección, Email/Password, 11 Functions activas, 2 buckets técnicos y servicios operativos existentes |
 | `FICTICIO_CONFIRMADO` | registro Android `Vivero Campo Staging` y registro Web `Vivero Maestro Staging`; no hay usuarios o documentos confirmados como ficticios |
-| `REQUIERE_REVISION` | 3 cuentas, 38 documentos, 5 principales administrativos, valor de `APP_ENV`, registro Android heredado para determinar consumidor, Storage Rules, secretos, presupuestos y cuotas no consultables |
+| `REQUIERE_REVISION` | 3 cuentas, 38 documentos de nivel superior, todos los documentos anidados aún no cuantificados, 5 principales administrativos, valor de `APP_ENV`, registro Android heredado para determinar consumidor, Storage Rules, secretos, presupuestos y cuotas no consultables |
 | `INCONSISTENTE` | package Android heredado `com.arles.viverocontrol` frente al contrato `com.arles.viverocampo`; despliegue parcial de 11/30 Functions |
 | `NO_DESPLEGADO` | Android producción, Web Maestro producción, 19 Functions y 10 colecciones contractuales todavía no materializadas |
 
@@ -217,7 +217,7 @@ No existe evidencia suficiente para afirmar que el proyecto tenga un respaldo re
 1. No existe respaldo remoto comprobado ni PITR.
 2. Secret Manager y Billing Budgets no son consultables sin habilitar APIs o ampliar permisos, acciones prohibidas en esta fase.
 3. Cuotas no fueron consultables y falta Google Cloud CLI.
-4. Los tres usuarios y los 38 documentos son ambiguos; ninguno puede borrarse.
+4. Los tres usuarios, los 38 documentos de nivel superior y todos los documentos anidados son ambiguos; ninguno puede borrarse.
 5. Faltan 19 Functions y los registros productivos de Android y Maestro.
 6. El propietario todavía debe suministrar y aprobar la información real solicitada en `docs/INFORMACION_REAL_REQUERIDA_ETAPA_21.md`.
 

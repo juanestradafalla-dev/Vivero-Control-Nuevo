@@ -16,7 +16,7 @@ Solo existen dos ambientes funcionales: `EMULATOR` sobre `demo-*` y `PRODUCTION`
 - Solo 11/30 Functions están activas; todas son Gen 2, Node 22 y `us-central1`.
 - No existe el registro Android `com.arles.viverocampo` ni un registro Web productivo de Maestro.
 - Authentication tiene 3 cuentas ambiguas y solo Email/Password habilitado.
-- Firestore contiene 38 documentos ambiguos en 11 colecciones; 10 colecciones contractuales aún no se materializan.
+- Firestore contiene 38 documentos ambiguos de nivel superior en 11 colecciones; la ejecución original detectó `autorizaciones` sin cuantificar sus documentos y 10 colecciones contractuales aún no se materializan.
 - Storage contiene dos buckets técnicos de Functions, 13 objetos y aproximadamente 5,62 MiB.
 - Hay 5 principales con roles administrativos que requieren revisión de mínimo privilegio.
 - Logging, Monitoring y facturación están habilitados; Secret Manager, Billing Budgets y cuotas no fueron completamente consultables.
@@ -53,7 +53,7 @@ Se ejecutó `npm audit --omit=dev --audit-level=high`:
 |---|---|
 | Contratos | 0 vulnerabilidades |
 | Vivero Maestro | 0 vulnerabilidades |
-| Backend Functions | 9 moderadas de producción; 11 moderadas en el árbol completo; 0 altas y 0 críticas |
+| Backend Functions | 8 moderadas de producción; 12 moderadas en el árbol completo; 0 altas y 0 críticas |
 
 Las nueve alertas de producción del backend corresponden a paquetes de la cadena del advisory `uuid <11.1.1`, a través de dependencias de Firebase/Google (`gaxios`, `google-gax`, Firestore, Storage, `retry-request` y `teeny-request`). La corrección automática completa exige `--force` y propone una regresión mayor de `firebase-admin`; no se aplica sin una actualización compatible y pruebas completas. El código del proyecto usa `node:crypto.randomUUID` y no llama UUID v3, v5 o v6 con búfer, pero esto no elimina la necesidad de actualizar la cadena.
 
@@ -79,7 +79,7 @@ CI falla ante vulnerabilidades altas o críticas y mantiene visibles las moderad
 ### Firebase
 
 - crear y verificar un backup restaurable antes de cualquier limpieza;
-- aprobar el tratamiento de 3 cuentas, 38 documentos, 5 principales administrativos y registros heredados;
+- aprobar el tratamiento de 3 cuentas, 38 documentos de nivel superior, todos los documentos anidados aún no cuantificados, 5 principales administrativos y registros heredados;
 - crear localmente la configuración de Functions con `APP_ENV=production` y verificar su valor mediante un procedimiento autorizado;
 - completar las 19 Functions ausentes y crear los registros productivos de Android/Maestro solo durante el corte aprobado;
 - resolver acceso/herramientas para cuotas, secretos, presupuesto y alertas sin activar servicios fuera del cambio autorizado;

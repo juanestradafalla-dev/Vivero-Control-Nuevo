@@ -13,7 +13,7 @@
 
 - [x] Firestore se verificó en `nam5` y Functions en `us-central1`.
 - [x] Proyecto, apps, Authentication, Firestore, Functions, Storage, reglas, índices, IAM, facturación y observabilidad tienen inventario sanitizado.
-- [x] Las 3 cuentas y los 38 documentos ambiguos permanecen `REQUIERE_REVISION`.
+- [x] Las 3 cuentas, los 38 documentos ambiguos de nivel superior y cualquier documento bajo `autorizaciones` permanecen `REQUIERE_REVISION`; el volumen anidado no se infiere ni se oculta.
 - [x] Ninguna cuenta o documento se clasificó ficticio sin evidencia inequívoca.
 - [x] Los dos registros explícitamente Staging se clasificaron `FICTICIO_CONFIRMADO` sin autorizar su eliminación.
 - [x] La comparación registra 11/30 Functions, ausencia de apps productivas y 10 colecciones todavía no materializadas.

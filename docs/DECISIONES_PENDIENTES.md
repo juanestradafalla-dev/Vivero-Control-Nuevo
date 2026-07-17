@@ -15,7 +15,7 @@ Nada marcado como pendiente debe resolverse inventando datos. Cada cierre poster
 - El proyecto autorizado está activo, Firestore está en `nam5` y las 11 Functions existentes están en `us-central1`.
 - Firebase solo tiene 11 de las 30 Callables; las 19 ausentes no se corrigen en FASE A.
 - No existe registro Android para `com.arles.viverocampo` ni registro Web productivo de Maestro. Los registros explícitamente Staging son candidatos de prueba, no objetivos autorizados de borrado.
-- Las 3 cuentas y los 38 documentos existentes no tienen evidencia inequívoca de ser ficticios; todos permanecen `REQUIERE_REVISION`.
+- Las 3 cuentas y los 38 documentos de nivel superior existentes no tienen evidencia inequívoca de ser ficticios; todos permanecen `REQUIERE_REVISION`. La ejecución original detectó además `autorizaciones` sin cuantificar sus documentos, que también quedan protegidos en esa clasificación.
 - No hay backup programado, backup listado o PITR. Ninguna limpieza puede aprobarse antes de generar y probar un respaldo.
 - Secret Manager, presupuestos y cuotas no pudieron inventariarse completamente sin habilitar APIs, permisos o herramientas adicionales. FASE A no realizó esos cambios.
 - Reglas e índices Firestore coinciden con el repositorio; cualquier cambio futuro debe preservar esa trazabilidad.

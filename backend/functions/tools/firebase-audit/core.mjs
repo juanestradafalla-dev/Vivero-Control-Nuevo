@@ -37,6 +37,8 @@ export const EXPECTED_TOP_LEVEL_COLLECTIONS = Object.freeze([
 
 const SAFE_TECHNICAL_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/u;
 const FIXTURE_ID = /^(?:JORNADA|LINEA)-PRUEBA-/u;
+const FIRESTORE_DOCUMENT_ROOT =
+  `projects/${PRODUCTION_PROJECT_ID}/databases/(default)/documents`;
 const FORBIDDEN_OUTPUT_KEYS = new Set([
   "apiKey",
   "appId",
@@ -96,6 +98,101 @@ export function classifyDocumentMarker({id, source}) {
   return CLASSIFICATION.REVIEW;
 }
 
+export function summarizeFirestoreDocumentNames(documentNames) {
+  let confirmedFixtures = 0;
+  for (const name of documentNames) {
+    const documentId = String(name).split("/").at(-1) ?? "";
+    if (classifyDocumentMarker({id: documentId}) === CLASSIFICATION.CONFIRMED_FIXTURE) {
+      confirmedFixtures += 1;
+    }
+  }
+  return {
+    total: documentNames.length,
+    confirmedFixtures,
+    reviewRequired: documentNames.length - confirmedFixtures,
+  };
+}
+
+export function firestoreNestedCollectionPath(documentName, collectionId) {
+  const prefix = `${FIRESTORE_DOCUMENT_ROOT}/`;
+  const name = String(documentName ?? "");
+  const nestedCollectionId = String(collectionId ?? "");
+  const relativeDocumentPath = name.startsWith(prefix) ? name.slice(prefix.length) : "";
+  const documentSegments = relativeDocumentPath.split("/");
+  if (
+    relativeDocumentPath.length === 0 ||
+    documentSegments.length % 2 !== 0 ||
+    documentSegments.some((segment) => segment.length === 0) ||
+    nestedCollectionId.length === 0 ||
+    nestedCollectionId.includes("/")
+  ) {
+    throw new Error("RUTA_FIRESTORE_NO_PERMITIDA");
+  }
+  return `${relativeDocumentPath}/${nestedCollectionId}`;
+}
+
+export async function inspectFirestoreSubcollections({
+  documentNames,
+  sampleLimit,
+  listCollectionIds,
+  listDocumentNames,
+}) {
+  if (!Number.isInteger(sampleLimit) || sampleLimit < 1) {
+    throw new Error("LIMITE_MUESTRA_NO_VALIDO");
+  }
+  const sampledNames = documentNames.slice(0, sampleLimit);
+  const summaries = {};
+  for (const documentName of sampledNames) {
+    const nestedCollectionIds = await listCollectionIds(documentName);
+    for (const collectionId of nestedCollectionIds) {
+      const collectionPath = firestoreNestedCollectionPath(documentName, collectionId);
+      const nestedDocumentNames = await listDocumentNames(collectionPath);
+      const nestedSummary = summarizeFirestoreDocumentNames(nestedDocumentNames);
+      const outputName = sanitizeTechnicalName(collectionId);
+      const current = summaries[outputName] ?? {
+        name: outputName,
+        total: 0,
+        confirmedFixtures: 0,
+        reviewRequired: 0,
+      };
+      current.total += nestedSummary.total;
+      current.confirmedFixtures += nestedSummary.confirmedFixtures;
+      current.reviewRequired += nestedSummary.reviewRequired;
+      summaries[outputName] = current;
+    }
+  }
+
+  const collections = Object.values(summaries).sort(
+    (left, right) => left.name.localeCompare(right.name),
+  );
+  return {
+    total: collections.reduce((sum, collection) => sum + collection.total, 0),
+    confirmedFixtures: collections.reduce(
+      (sum, collection) => sum + collection.confirmedFixtures,
+      0,
+    ),
+    reviewRequired: collections.reduce(
+      (sum, collection) => sum + collection.reviewRequired,
+      0,
+    ),
+    collections,
+    sampledForSubcollections: sampledNames.length,
+    scan: documentNames.length > sampledNames.length ? "MUESTRA_PARCIAL" : "COMPLETA",
+  };
+}
+
+export function matchesRulesRelease(releaseName, service) {
+  const marker = "/releases/";
+  const name = String(releaseName ?? "");
+  const markerIndex = name.lastIndexOf(marker);
+  if (markerIndex < 0) return false;
+  const deployedService = name.slice(markerIndex + marker.length);
+  if (service === "firebase.storage") {
+    return deployedService === service || deployedService.startsWith(`${service}/`);
+  }
+  return deployedService === service;
+}
+
 export function assertPrivateOutputPath(repoRoot, outputPath) {
   const privateRoot = resolve(repoRoot, ".private");
   const resolvedOutput = resolve(outputPath);
@@ -103,6 +200,25 @@ export function assertPrivateOutputPath(repoRoot, outputPath) {
     throw new Error("SALIDA_PRIVADA_REQUERIDA");
   }
   return resolvedOutput;
+}
+
+function isAllowedFirestoreDocumentList(url) {
+  const prefix =
+    `/v1/projects/${PRODUCTION_PROJECT_ID}/databases/(default)/documents/`;
+  if (url.hostname !== "firestore.googleapis.com" || !url.pathname.startsWith(prefix)) {
+    return false;
+  }
+  const segments = url.pathname.slice(prefix.length).split("/");
+  if (segments.length % 2 === 0) return false;
+  return segments.every((segment) => {
+    if (segment.length === 0) return false;
+    try {
+      const decoded = decodeURIComponent(segment);
+      return decoded.length > 0 && !decoded.includes("/");
+    } catch {
+      return false;
+    }
+  });
 }
 
 export function assertAllowedRemoteRead(urlValue, method = "GET") {
@@ -121,13 +237,13 @@ export function assertAllowedRemoteRead(urlValue, method = "GET") {
     ["cloudbilling.googleapis.com", new RegExp(`^/v1/projects/${escapedProject}/billingInfo$`, "u")],
     ["billingbudgets.googleapis.com", /^\/v1\/billingAccounts\/[^/]+\/budgets$/u],
     ["firebaserules.googleapis.com", new RegExp(`^/v1/projects/${escapedProject}/(?:releases|rulesets/[^/]+)$`, "u")],
-    ["firestore.googleapis.com", new RegExp(`^/v1/projects/${escapedProject}/databases/\\(default\\)/documents(?:/[^/]+)?$`, "u")],
     ["identitytoolkit.googleapis.com", new RegExp(`^/admin/v2/projects/${escapedProject}/(?:config|defaultSupportedIdpConfigs|inboundSamlConfigs|oauthIdpConfigs)$`, "u")],
     ["storage.googleapis.com", /^\/storage\/v1\/b(?:\/[^/]+\/o)?$/u],
   ];
 
-  const isAllowedGet = normalizedMethod === "GET" && getRoutes.some(
-    ([host, path]) => url.hostname === host && path.test(url.pathname),
+  const isAllowedGet = normalizedMethod === "GET" && (
+    getRoutes.some(([host, path]) => url.hostname === host && path.test(url.pathname)) ||
+    isAllowedFirestoreDocumentList(url)
   );
   const isAllowedPolicyQuery = normalizedMethod === "POST" &&
     url.hostname === "cloudresourcemanager.googleapis.com" &&

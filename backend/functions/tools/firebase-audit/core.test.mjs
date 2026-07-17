@@ -13,7 +13,9 @@ import {
   assertSafeReport,
   classifyAccount,
   classifyDocumentMarker,
+  inspectFirestoreSubcollections,
   maskIdentifier,
+  matchesRulesRelease,
   parseAuditArguments,
 } from "./core.mjs";
 
@@ -68,6 +70,12 @@ test("clasifica solo marcadores inequívocos y protege lo desconocido", () => {
 test("el transporte rechaza hosts, proyectos y verbos no incluidos en la lista blanca", () => {
   assert.equal(
     assertAllowedRemoteRead(
+      `https://firestore.googleapis.com/v1/projects/${PRODUCTION_PROJECT_ID}/databases/(default)/documents/jornadas/J-1/autorizaciones?mask.fieldPaths=campo_inexistente`,
+    ),
+    true,
+  );
+  assert.equal(
+    assertAllowedRemoteRead(
       `https://cloudresourcemanager.googleapis.com/v1/projects/${PRODUCTION_PROJECT_ID}`,
     ),
     true,
@@ -89,6 +97,56 @@ test("el transporte rechaza hosts, proyectos y verbos no incluidos en la lista b
       "PATCH",
     ),
     /LECTURA_REMOTA_NO_PERMITIDA/u,
+  );
+});
+
+test("cuenta y clasifica documentos dentro de subcolecciones Firestore", async () => {
+  const root = `projects/${PRODUCTION_PROJECT_ID}/databases/(default)/documents`;
+  const parentNames = [`${root}/jornadas/J-1`, `${root}/jornadas/J-2`];
+  const requestedCollectionPaths = [];
+  const result = await inspectFirestoreSubcollections({
+    documentNames: parentNames,
+    sampleLimit: 50,
+    listCollectionIds: async (documentName) => (
+      documentName.endsWith("/J-1") ? ["autorizaciones"] : []
+    ),
+    listDocumentNames: async (collectionPath) => {
+      requestedCollectionPaths.push(collectionPath);
+      return [
+        `${root}/${collectionPath}/usuario-sintetico-1`,
+        `${root}/${collectionPath}/usuario-sintetico-2`,
+      ];
+    },
+  });
+
+  assert.deepEqual(requestedCollectionPaths, ["jornadas/J-1/autorizaciones"]);
+  assert.equal(result.total, 2);
+  assert.equal(result.reviewRequired, 2);
+  assert.equal(result.confirmedFixtures, 0);
+  assert.equal(result.scan, "COMPLETA");
+  assert.deepEqual(result.collections, [{
+    name: "autorizaciones",
+    total: 2,
+    confirmedFixtures: 0,
+    reviewRequired: 2,
+  }]);
+});
+
+test("reconoce releases de Storage con alcance de bucket", () => {
+  assert.equal(
+    matchesRulesRelease(
+      "projects/proyecto-sintetico/releases/firebase.storage/bucket-sintetico",
+      "firebase.storage",
+    ),
+    true,
+  );
+  assert.equal(
+    matchesRulesRelease("projects/proyecto-sintetico/releases/cloud.firestore", "cloud.firestore"),
+    true,
+  );
+  assert.equal(
+    matchesRulesRelease("projects/proyecto-sintetico/releases/firebase.storagex", "firebase.storage"),
+    false,
   );
 });
 

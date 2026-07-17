@@ -16,10 +16,13 @@ import {
   assertPrivateOutputPath,
   assertSafeReport,
   classifyAccount,
+  inspectFirestoreSubcollections,
   maskIdentifier,
+  matchesRulesRelease,
   parseAuditArguments,
   sanitizeTechnicalName,
   stableHash,
+  summarizeFirestoreDocumentNames,
 } from "./core.mjs";
 
 const toolDirectory = fileURLToPath(new URL(".", import.meta.url));
@@ -142,8 +145,12 @@ async function listDocumentNames(accessToken, collectionName) {
   const documentNames = [];
   let pageToken = "";
   do {
+    const encodedCollectionPath = collectionName
+      .split("/")
+      .map((segment) => encodeURIComponent(segment))
+      .join("/");
     const url = withQuery(
-      `https://firestore.googleapis.com/v1/projects/${PRODUCTION_PROJECT_ID}/databases/(default)/documents/${encodeURIComponent(collectionName)}`,
+      `https://firestore.googleapis.com/v1/projects/${PRODUCTION_PROJECT_ID}/databases/(default)/documents/${encodedCollectionPath}`,
       [
         ["pageSize", "1000"],
         ["pageToken", pageToken],
@@ -162,40 +169,57 @@ async function auditFirestore(accessToken) {
   const collectionIds = await listCollectionIds(accessToken, rootResource);
   const collections = [];
   let totalDocuments = 0;
+  let topLevelDocuments = 0;
+  let documentCountStatus = "COMPLETO";
 
   for (const collectionId of collectionIds.sort((left, right) => left.localeCompare(right))) {
     const documentNames = await listDocumentNames(accessToken, collectionId);
-    const total = documentNames.length;
-    const confirmedFixtures = documentNames.filter((name) => {
-      const documentId = name.split("/").at(-1) ?? "";
-      return /^(?:JORNADA|LINEA)-PRUEBA-/u.test(documentId);
-    }).length;
-    const subcollections = new Set();
-    const sampledNames = documentNames.slice(0, MAX_SUBCOLLECTION_SAMPLE);
-    const sampledForSubcollections = sampledNames.length;
-    let subcollectionScan = "COMPLETA_PARA_MUESTRA";
+    const topLevelSummary = summarizeFirestoreDocumentNames(documentNames);
+    let subcollectionSummary = {
+      total: 0,
+      confirmedFixtures: 0,
+      reviewRequired: 0,
+      collections: [],
+      sampledForSubcollections: 0,
+      scan: "NO_CONSULTABLE",
+    };
     try {
-      for (const documentName of sampledNames) {
-        const nested = await listCollectionIds(accessToken, documentName);
-        for (const nestedCollection of nested) subcollections.add(sanitizeTechnicalName(nestedCollection));
-      }
-      if (total > sampledForSubcollections) subcollectionScan = "MUESTRA_PARCIAL";
+      subcollectionSummary = await inspectFirestoreSubcollections({
+        documentNames,
+        sampleLimit: MAX_SUBCOLLECTION_SAMPLE,
+        listCollectionIds: (documentName) => listCollectionIds(accessToken, documentName),
+        listDocumentNames: (collectionPath) => listDocumentNames(accessToken, collectionPath),
+      });
     } catch {
-      subcollectionScan = "NO_CONSULTABLE";
+      documentCountStatus = "MINIMO_NO_CONSULTABLE";
     }
 
+    if (
+      subcollectionSummary.scan === "MUESTRA_PARCIAL" &&
+      documentCountStatus === "COMPLETO"
+    ) {
+      documentCountStatus = "MINIMO_PARCIAL";
+    }
+    const total = topLevelSummary.total + subcollectionSummary.total;
+    const confirmedFixtures =
+      topLevelSummary.confirmedFixtures + subcollectionSummary.confirmedFixtures;
+    const reviewRequired = topLevelSummary.reviewRequired + subcollectionSummary.reviewRequired;
+    topLevelDocuments += topLevelSummary.total;
     totalDocuments += total;
     collections.push({
       name: sanitizeTechnicalName(collectionId),
+      topLevelTotal: topLevelSummary.total,
+      subcollectionTotal: subcollectionSummary.total,
       total,
       structureClassification: EXPECTED_TOP_LEVEL_COLLECTIONS.includes(collectionId)
         ? CLASSIFICATION.KEEP
         : CLASSIFICATION.REVIEW,
       confirmedFixtures,
-      reviewRequired: Math.max(0, total - confirmedFixtures),
-      subcollections: [...subcollections].sort(),
-      subcollectionScan,
-      sampledForSubcollections,
+      reviewRequired,
+      subcollections: subcollectionSummary.collections.map((collection) => collection.name),
+      subcollectionCounts: subcollectionSummary.collections,
+      subcollectionScan: subcollectionSummary.scan,
+      sampledForSubcollections: subcollectionSummary.sampledForSubcollections,
     });
   }
 
@@ -206,6 +230,8 @@ async function auditFirestore(accessToken) {
 
   return {
     status: "CONSULTADO",
+    documentCountStatus,
+    topLevelDocuments,
     totalDocuments,
     byteVolume: "NO_CONSULTABLE_SIN_METRICA",
     collections,
@@ -261,7 +287,7 @@ async function auditRules(accessToken) {
 
   const results = [];
   for (const service of ["cloud.firestore", "firebase.storage"]) {
-    const release = releases.find((candidate) => String(candidate.name ?? "").endsWith(`/releases/${service}`));
+    const release = releases.find((candidate) => matchesRulesRelease(candidate.name, service));
     if (!release?.rulesetName) {
       results.push({
         service,
@@ -537,7 +563,7 @@ async function main() {
   const projectNumber = projectAndServices.projectNumber ?? "";
   const enabledServiceNames = projectAndServices.enabledServiceNames ?? [];
   const report = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     generatedAt: new Date().toISOString(),
     safety: {
       mode: "READ_ONLY",

@@ -56,7 +56,7 @@ El inventario actual solo confirma como recursos de prueba dos registros de apli
 
 1. **Clientes y accesos de prueba.** Revocar distribución y credenciales de clientes aprobados; verificar que no queden sesiones operativas. Pausa y conciliación.
 2. **Authentication.** Procesar solo UID exactos aprobados. Los tres usuarios actuales quedan fuera mientras sean `REQUIERE_REVISION`. Pausa y conciliación de totales.
-3. **Firestore.** Procesar documentos exactos y sus subcolecciones explícitas. Los 38 documentos actuales quedan fuera. Nunca usar borrado recursivo amplio. Pausa por colección.
+3. **Firestore.** Procesar documentos exactos y sus subcolecciones explícitas. Los 38 documentos de nivel superior actuales y todos los documentos anidados aún no cuantificados quedan fuera. Nunca usar borrado recursivo amplio. Pausa por colección.
 4. **Storage.** Procesar nombres y generaciones exactas. Los dos buckets técnicos de Functions se conservan. Nunca eliminar buckets completos por patrón. Pausa por bucket.
 5. **Functions.** Retirar únicamente Functions remotas extra y aprobadas; la auditoría encontró cero extras. Las 11 existentes se conservan y las 19 ausentes no son objetivos de limpieza.
 6. **Apps registradas.** Tratar por separado Android staging, Web staging y el Android heredado. Ninguno se elimina sin confirmar consumidores, respaldo de configuración y aprobación.

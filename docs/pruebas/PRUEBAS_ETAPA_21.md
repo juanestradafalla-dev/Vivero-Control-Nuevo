@@ -36,10 +36,12 @@ Casos cubiertos:
 4. clasificación conservadora y desconocidos como `REQUIERE_REVISION`;
 5. lista blanca de host, ruta y método para lecturas remotas;
 6. rechazo de secretos, correos, App IDs, tokens y contenido documental en la salida;
-7. ausencia estática de `.set`, `.update`, `.create`, `.delete`, `recursiveDelete`, importaciones de usuarios y comandos de despliegue;
-8. presencia de guardia que prohíbe Firebase real bajo `CI`.
+7. conteo y clasificación conservadora de documentos dentro de subcolecciones Firestore mediante dobles locales;
+8. reconocimiento de releases de Storage con alcance `firebase.storage/<bucket>`;
+9. ausencia estática de `.set`, `.update`, `.create`, `.delete`, `recursiveDelete`, importaciones de usuarios y comandos de despliegue;
+10. presencia de guardia que prohíbe Firebase real bajo `CI`.
 
-Resultado final: 7/7 pruebas aprobadas; los ocho controles enumerados se agrupan en siete casos, porque la última prueba estática valida conjuntamente ausencia de mutaciones y guardia de CI.
+Resultado final: 9/9 pruebas aprobadas; los diez controles enumerados se agrupan en nueve casos, porque la última prueba estática valida conjuntamente ausencia de mutaciones y guardia de CI.
 
 ## Auditoría real de solo lectura
 
@@ -133,15 +135,15 @@ La verificación final debe confirmar:
 
 | Bloque | Resultado |
 |---|---|
-| Herramienta de auditoría | 7/7 pruebas aprobadas; guardias de proyecto, salida, PII, transporte, CI y ausencia de mutaciones aprobadas |
+| Herramienta de auditoría | 9/9 pruebas aprobadas; guardias de proyecto, salida, PII, transporte, subcolecciones, releases por bucket, CI y ausencia de mutaciones aprobadas |
 | Contratos | validación aprobada: 94 schemas, 1 common y 5 enums; 57/57 pruebas aprobadas |
 | Android assemble debug/release | ambas compilaciones aprobadas; `release` no firmado y con identificadores ficticios |
 | Android unit tests/lint | 35/35 pruebas aprobadas; lint: 0 problemas |
 | Maestro lint/typecheck/tests/build | todo aprobado; 5 archivos y 54/54 pruebas |
-| Backend lint/typecheck/unit/build | todo aprobado; 5 archivos y 24/24 pruebas, más 7/7 de la auditoría |
+| Backend lint/typecheck/unit/build | todo aprobado; 5 archivos y 24/24 pruebas, más 9/9 de la auditoría |
 | Emulator Suite + integración + reglas | 17 archivos y 179/179 pruebas de integración; 22/22 pruebas de Rules |
 | npm audit Maestro | 0 vulnerabilidades de producción |
-| npm audit Backend | 9 moderadas de producción; 0 altas y 0 críticas; el árbol completo reporta 11 moderadas |
+| npm audit Backend | 8 moderadas de producción; 0 altas y 0 críticas; el árbol completo reporta 12 moderadas |
 | secretos, artefactos y métodos de escritura | aprobado: 0 secretos/artefactos prohibidos versionados y 0 métodos remotos de mutación en la herramienta |
 
 ## Incidencias observadas y resolución
@@ -153,6 +155,8 @@ La verificación final debe confirmar:
 - Dos pruebas unitarias deterministas confirman que la recuperación devuelve `RESERVATION_NOT_ACTIVE` cuando otra operación ya consumió la reserva y conserva la excepción original si la reserva todavía está activa.
 - La prueba de integración afectada aprobó después 6/6 con `testTimeout=30000`. La suite completa se repitió sin reducir archivos ni aumentar el timeout y aprobó 179/179 integración y 22/22 Rules.
 - Emulator Suite advirtió que el host usa Node 24.15.0 frente a Node 22 solicitado y que existe una versión posterior de `firebase-functions`. La matriz conserva Node 22 como runtime objetivo y no actualiza dependencias fuera del alcance.
-- El audit de producción del backend pasó el umbral `high`, pero conserva 9 vulnerabilidades moderadas transitivas asociadas al advisory de `uuid`; la corrección automática propuesta es disruptiva y no se aplicó sin una actualización compatible.
+- El audit de producción del backend pasó el umbral `high`, pero conserva 8 vulnerabilidades moderadas transitivas asociadas al advisory de `uuid`; el árbol completo reporta 12 al incluir desarrollo y el advisory de OpenTelemetry. Las correcciones automáticas propuestas requieren cambios incompatibles y no se aplicaron sin una actualización controlada.
+- La revisión del PR detectó que la ejecución original solo enumeraba nombres de subcolecciones y no contaba sus documentos. La herramienta ahora lista, agrega y clasifica esos documentos con rutas REST anidadas permitidas; el esquema privado sube a versión 2 para distinguir conteo de nivel superior y total. La documentación conserva 38 como conteo de nivel superior y declara el volumen anidado como no cuantificado, sin repetir la lectura de producción.
+- La misma revisión detectó que un release de Storage puede usar el alcance `firebase.storage/<bucket>`. La detección ahora admite ese formato y lo cubre con una prueba local determinista. Las dos correcciones quedaron incluidas en 9/9 pruebas y en el lint oficial de la herramienta.
 
 No se ampliarán timeouts ni se reducirán suites para obtener un resultado verde.

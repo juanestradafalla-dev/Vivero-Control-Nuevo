@@ -13,7 +13,7 @@ El código quedó preparado en la ETAPA 20 para dos ambientes y un único proyec
 
 No existe `STAGING` como ambiente funcional. Firestore permanecerá en `nam5` y Functions en `us-central1`.
 
-La auditoría remota confirmó Firestore en `nam5`, 11 de 30 Functions activas en `us-central1`, reglas e índices iguales a los versionados, Email/Password habilitado, 3 cuentas ambiguas y 38 documentos ambiguos. No hay backup programado, backup listado o PITR; faltan los registros productivos de Android y Maestro. Los recursos ambiguos permanecen protegidos y FASE B está bloqueada.
+La auditoría remota confirmó Firestore en `nam5`, 11 de 30 Functions activas en `us-central1`, reglas e índices iguales a los versionados, Email/Password habilitado, 3 cuentas ambiguas y 38 documentos ambiguos de nivel superior. También detectó la subcolección `autorizaciones`, pero esa ejecución no cuantificó sus documentos; todos los recursos anidados permanecen igualmente `REQUIERE_REVISION`. No hay backup programado, backup listado o PITR; faltan los registros productivos de Android y Maestro. Los recursos ambiguos permanecen protegidos y FASE B está bloqueada.
 
 La ETAPA 21 FASE A agrega auditoría, herramienta de lectura y documentación. La matriz local también detectó y corrigió una asimetría defensiva al resolver la carrera entre liberar y enviar una reserva: ahora ambos lados recuperan el estado final y usan los errores de dominio existentes, sin introducir estados, escrituras o alcance funcional. Todavía no se han limpiado datos, creado cuentas reales, cargado inventario real, desplegado Firebase, firmado un APK ni generado el instalador definitivo de Windows.
 

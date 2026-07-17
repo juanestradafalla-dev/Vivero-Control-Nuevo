@@ -2,9 +2,9 @@
 
 Sistema de inventario por línea compuesto por Vivero Campo (Android), Vivero Maestro (Electron/React para Windows) y un backend transaccional en Firebase. Este repositorio es independiente y no reutiliza código del proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 20
+## Estado: ETAPA 21 — FASE A
 
-El código quedó preparado para dos ambientes y un único proyecto Firebase real. **No se ha desplegado ni se afirma que el sistema esté en producción.**
+El código quedó preparado en la ETAPA 20 para dos ambientes y un único proyecto Firebase real. La FASE A de la ETAPA 21 auditó ese proyecto de forma exclusivamente de lectura y diseñó respaldo, limpieza, corte y rollback. **No se ha limpiado ni desplegado y no se afirma que el sistema esté listo para producción.**
 
 | Ambiente | Proyecto | Uso | Datos |
 |---|---|---|---|
@@ -13,7 +13,9 @@ El código quedó preparado para dos ambientes y un único proyecto Firebase rea
 
 No existe `STAGING` como ambiente funcional. Firestore permanecerá en `nam5` y Functions en `us-central1`.
 
-La ETAPA 20 modifica y prueba código. Todavía no se han limpiado datos, creado cuentas reales, cargado inventario real, desplegado Firebase, firmado un APK ni generado el instalador definitivo de Windows.
+La auditoría remota confirmó Firestore en `nam5`, 11 de 30 Functions activas en `us-central1`, reglas e índices iguales a los versionados, Email/Password habilitado, 3 cuentas ambiguas y 38 documentos ambiguos. No hay backup programado, backup listado o PITR; faltan los registros productivos de Android y Maestro. Los recursos ambiguos permanecen protegidos y FASE B está bloqueada.
+
+La ETAPA 21 FASE A agrega auditoría, herramienta de lectura y documentación. La matriz local también detectó y corrigió una asimetría defensiva al resolver la carrera entre liberar y enviar una reserva: ahora ambos lados recuperan el estado final y usan los errores de dominio existentes, sin introducir estados, escrituras o alcance funcional. Todavía no se han limpiado datos, creado cuentas reales, cargado inventario real, desplegado Firebase, firmado un APK ni generado el instalador definitivo de Windows.
 
 ## Frontera del backend
 
@@ -128,6 +130,11 @@ Ese archivo no se crea ni se versiona en esta etapa. Consulte los README de [Viv
 
 ## Documentación vigente
 
+- [Auditoría Firebase sanitizada de la ETAPA 21](docs/arquitectura/AUDITORIA_FIREBASE_ETAPA_21.md)
+- [Plan de respaldo, limpieza, corte y rollback](docs/arquitectura/PLAN_CORTE_Y_ROLLBACK_ETAPA_21.md)
+- [Pruebas de la ETAPA 21](docs/pruebas/PRUEBAS_ETAPA_21.md)
+- [Criterios de aceptación de la ETAPA 21](docs/ETAPA_21_CRITERIOS_DE_ACEPTACION.md)
+- [Información real requerida al propietario](docs/INFORMACION_REAL_REQUERIDA_ETAPA_21.md)
 - [Arquitectura de producción de la ETAPA 20](docs/arquitectura/PRODUCCION_ETAPA_20.md)
 - [Matriz de pruebas de la ETAPA 20](docs/pruebas/PRUEBAS_ETAPA_20.md)
 - [Criterios de aceptación](docs/ETAPA_20_CRITERIOS_DE_ACEPTACION.md)
@@ -138,4 +145,4 @@ Ese archivo no se crea ni se versiona en esta etapa. Consulte los README de [Viv
 
 ## Fuera de alcance
 
-No se despliega Firebase, no se eliminan datos o usuarios, no se crean cuentas reales, no se cargan datos reales, no se crean paquetes reales de migración, no se generan llaves de firma, APK firmados ni instaladores definitivos, y no se modifica o fusiona directamente `main`.
+No se despliega Firebase, no se eliminan datos o usuarios, no se crean cuentas reales, no se cargan datos reales, no se crean paquetes reales de migración, no se generan llaves de firma, APK firmados ni instaladores definitivos, y no se modifica o fusiona directamente `main`. Tampoco se inicia FASE B mientras no exista backup restaurable y aprobación explícita del propietario.

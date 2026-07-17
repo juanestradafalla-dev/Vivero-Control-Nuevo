@@ -1,8 +1,12 @@
 # Jornadas activas dinámicas — ETAPA 9
 
+> Documento histórico de implementación. Desde la ETAPA 20, la misma Callable
+> también está disponible en `PRODUCTION` mediante la frontera central y conserva
+> las validaciones descritas aquí.
+
 ## Consulta central
 
-`listarJornadasActivas` es una Callable de solo lectura y exclusiva del emulador. Acepta únicamente una solicitud vacía: la identidad procede de `request.auth.uid`.
+`listarJornadasActivas` es una Callable de solo lectura. Acepta únicamente una solicitud vacía: la identidad procede de `request.auth.uid`.
 
 La operación valida el perfil activo, consulta las autorizaciones centrales del usuario autenticado, descarta autorizaciones inactivas y jornadas que no estén `ACTIVA`, y devuelve:
 

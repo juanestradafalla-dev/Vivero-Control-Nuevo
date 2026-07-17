@@ -15,7 +15,6 @@ interface DraftParticipantsEditorProps {
   readonly journey: ManageableDraftJourney;
   readonly catalogLines: readonly DraftCatalogLine[];
   readonly lineSelectionDirty: boolean;
-  readonly staging: boolean;
   readonly onActivated: (result: DraftActivationResult) => void | Promise<void>;
   readonly onCancelled: () => void | Promise<void>;
 }
@@ -38,7 +37,6 @@ export function DraftParticipantsEditor({
   journey,
   catalogLines,
   lineSelectionDirty,
-  staging,
   onActivated,
   onCancelled,
 }: DraftParticipantsEditorProps) {
@@ -228,16 +226,14 @@ export function DraftParticipantsEditor({
           <p>{selection.length} participantes seleccionados</p>
         </div>
         <div className="draft-heading-actions">
-          {!staging && (
-            <button
-              className="button button--danger"
-              type="button"
-              disabled={!cancellationReady || activating || cancelling}
-              onClick={() => setShowCancelSummary(true)}
-            >
-              Cancelar borrador
-            </button>
-          )}
+          <button
+            className="button button--danger"
+            type="button"
+            disabled={!cancellationReady || activating || cancelling}
+            onClick={() => setShowCancelSummary(true)}
+          >
+            Cancelar borrador
+          </button>
           <button className="button button--secondary" type="button" disabled={loading || saving || activating} onClick={() => setShowSummary(true)}>
             Revisar participantes
           </button>
@@ -377,7 +373,7 @@ export function DraftParticipantsEditor({
         </div>
       )}
 
-      {!staging && showCancelSummary && data && (
+      {showCancelSummary && data && (
         <div className="dialog-backdrop" role="presentation">
           <section className="review-dialog" role="dialog" aria-modal="true" aria-labelledby="cancel-draft-title">
             <p className="eyebrow">CANCELACIÓN TRANSACCIONAL</p>

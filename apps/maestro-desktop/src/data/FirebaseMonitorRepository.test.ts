@@ -42,7 +42,7 @@ vi.mock("firebase/firestore", () => ({
 
 import {FirebaseMonitorRepository} from "./FirebaseMonitorRepository";
 
-const config = (environment: "EMULATOR" | "STAGING"): FirebaseRuntimeConfig => ({
+const config = (environment: "EMULATOR" | "PRODUCTION"): FirebaseRuntimeConfig => ({
   environment,
   projectId: environment === "EMULATOR" ? "demo-vivero-control-etapa3" : "viverocontrol-3f83f",
   apiKey: "valor-ficticio",
@@ -70,10 +70,10 @@ describe("conexión Firebase de Maestro", () => {
     expect(firebase.connectFunctionsEmulator).toHaveBeenCalledOnce();
   });
 
-  it("no conecta ningún emulador en staging y conserva us-central1", () => {
-    const repository = FirebaseMonitorRepository.create(config("STAGING"));
+  it("no conecta ningún emulador en production y conserva us-central1", () => {
+    const repository = FirebaseMonitorRepository.create(config("PRODUCTION"));
 
-    expect(repository.environment).toBe("STAGING");
+    expect(repository.environment).toBe("PRODUCTION");
     expect(firebase.connectAuthEmulator).not.toHaveBeenCalled();
     expect(firebase.connectFirestoreEmulator).not.toHaveBeenCalled();
     expect(firebase.connectFunctionsEmulator).not.toHaveBeenCalled();

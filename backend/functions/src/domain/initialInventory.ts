@@ -9,6 +9,8 @@ import type {
 } from "./contracts.js";
 import {domainErrors} from "./errors.js";
 
+const ADMINISTRATIVE_INITIAL_INVENTORY_ORIGIN = "CARGA_INICIAL_ADMINISTRATIVA" as const;
+
 interface IdempotencyDocument {
   readonly payloadHash?: string;
   readonly resultado?: RegisterInitialInventoryResult;
@@ -118,7 +120,7 @@ export class RegisterInitialInventoryService {
 
       const now = Timestamp.now();
       const total = request.hembras + request.machos + request.patrones;
-      const actorName = typeof actor.nombreVisible === "string" ? actor.nombreVisible : "Administrador de prueba";
+      const actorName = typeof actor.nombreVisible === "string" ? actor.nombreVisible : "Administrador";
       const result: RegisterInitialInventoryResult = {
         lineaId: request.lineaId,
         cargaInventarioInicialId: request.lineaId,
@@ -129,7 +131,7 @@ export class RegisterInitialInventoryService {
         patrones: request.patrones,
         total,
         versionInventario: 1,
-        origen: "CARGA_INICIAL_ADMINISTRATIVA_EMULADOR",
+        origen: ADMINISTRATIVE_INITIAL_INVENTORY_ORIGIN,
         conteoAprobadoId: null,
         referenciaFuente: request.referenciaFuente,
         registradaPorUsuarioId: context.actorId,
@@ -140,13 +142,13 @@ export class RegisterInitialInventoryService {
       transaction.create(inventoryRef, {
         id: request.lineaId, jornadaId, jornadaLineaId, lineaId: request.lineaId,
         hembras: request.hembras, machos: request.machos, patrones: request.patrones, total,
-        conteoAprobadoId: null, version: 1, origen: "CARGA_INICIAL_ADMINISTRATIVA_EMULADOR",
+        conteoAprobadoId: null, version: 1, origen: ADMINISTRATIVE_INITIAL_INVENTORY_ORIGIN,
         actualizadoPorUsuarioId: context.actorId, actualizadoEn: now
       });
       transaction.create(initialLoadRef, {
         id: request.lineaId, lineaId: request.lineaId, jornadaId, jornadaLineaId,
         hembras: request.hembras, machos: request.machos, patrones: request.patrones, total,
-        versionInventario: 1, origen: "CARGA_INICIAL_ADMINISTRATIVA_EMULADOR", conteoAprobadoId: null,
+        versionInventario: 1, origen: ADMINISTRATIVE_INITIAL_INVENTORY_ORIGIN, conteoAprobadoId: null,
         referenciaFuente: request.referenciaFuente, actorUsuarioId: context.actorId,
         actorNombreVisible: actorName, registradaEn: now, inmutable: true
       });

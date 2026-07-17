@@ -538,7 +538,7 @@ class CampoViewModel(
     private fun blockMutableOperation(): Boolean {
         if (repository.mutableOperationsEnabled) return false
         mutableState.value = mutableState.value.copy(
-            message = "STAGING es de solo lectura: las operaciones de conteo continúan bloqueadas.",
+            message = "Las operaciones no están disponibles con la configuración actual.",
         )
         return true
     }

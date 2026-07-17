@@ -106,8 +106,8 @@ private fun CampoScreen(
             Text(
                 text = when (state.environment) {
                     CampoEnvironment.EMULATOR -> "MODO DE PRUEBA — EMULADOR"
-                    CampoEnvironment.STAGING -> "STAGING — DATOS DE PRUEBA"
-                    CampoEnvironment.DISABLED -> "FIREBASE DESHABILITADO — SIN PRODUCCIÓN"
+                    CampoEnvironment.PRODUCTION -> "PRODUCCIÓN"
+                    CampoEnvironment.DISABLED -> "CONFIGURACIÓN DE FIREBASE NO VÁLIDA"
                 },
                 modifier = Modifier.fillMaxWidth().background(TestBanner).padding(12.dp),
                 color = Color.Black,
@@ -198,16 +198,16 @@ private fun LoginContent(
     Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Vivero Campo", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text(
-            if (state.environment == CampoEnvironment.STAGING) {
-                "Inicio de sesión con cuentas de Firebase Authentication del proyecto staging autorizado."
+            if (state.environment == CampoEnvironment.PRODUCTION) {
+                "Inicio de sesión para cuentas autorizadas de Vivero Campo."
             } else {
-                "Inicio de sesión exclusivo para cuentas ficticias del Auth Emulator."
+                "Inicio de sesión con cuentas cargadas en Auth Emulator."
             },
         )
         OutlinedTextField(
             value = state.email,
             onValueChange = onEmailChange,
-            label = { Text(if (state.environment == CampoEnvironment.STAGING) "Correo" else "Correo de prueba") },
+            label = { Text(if (state.environment == CampoEnvironment.PRODUCTION) "Correo" else "Correo de prueba") },
             singleLine = true,
             enabled = state.accessEnabled && !state.signingIn,
             modifier = Modifier.fillMaxWidth(),
@@ -216,7 +216,7 @@ private fun LoginContent(
         OutlinedTextField(
             value = state.password,
             onValueChange = onPasswordChange,
-            label = { Text(if (state.environment == CampoEnvironment.STAGING) "Contraseña" else "Contraseña de prueba") },
+            label = { Text(if (state.environment == CampoEnvironment.PRODUCTION) "Contraseña" else "Contraseña de prueba") },
             singleLine = true,
             enabled = state.accessEnabled && !state.signingIn,
             modifier = Modifier.fillMaxWidth(),
@@ -404,18 +404,9 @@ private fun JourneyContent(
             }
         }
         state.message?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
-        if (!state.mutableOperationsEnabled) {
-            item {
-                Text(
-                    "Primera fase staging: consulta de jornadas habilitada; reservas, conteos y correcciones bloqueados.",
-                    color = MaterialTheme.colorScheme.secondary,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-        }
         item {
             Text(
-                state.journey?.displayName ?: "Cargando jornada ficticia…",
+                state.journey?.displayName ?: "Cargando jornada…",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
             )
@@ -441,7 +432,7 @@ private fun JourneyContent(
                         Text("Autor original: ${returned.originalAuthorName}")
                         Text("Responsable actual: ${returned.correctionResponsibleName}", fontWeight = FontWeight.Bold)
                         if (returned.isReassigned) {
-                            Text("Reasignada por: ${returned.reassignedByName ?: "Supervisor de prueba"}")
+                            Text("Reasignada por: ${returned.reassignedByName ?: "Supervisor"}")
                             Text("Motivo de reasignacion: ${returned.reassignmentReason.orEmpty()}")
                         }
                         Text(
@@ -484,7 +475,7 @@ private fun JourneyContent(
                     ) {
                         Text(
                             when {
-                                !state.mutableOperationsEnabled -> "Solo lectura en staging"
+                                !state.mutableOperationsEnabled -> "Operación no disponible"
                                 line.state == "DISPONIBLE" -> "Tomar línea"
                                 else -> "No disponible"
                             },

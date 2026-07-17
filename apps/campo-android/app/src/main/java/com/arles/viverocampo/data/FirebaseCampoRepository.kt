@@ -59,11 +59,11 @@ class FirebaseCampoRepository(
             }
             val role = (profile.get("roles") as? List<*>)?.firstOrNull() as? String
                 ?: throw CampoRepositoryException("PERMISSION_DENIED", "La cuenta no tiene un rol operativo.")
-            return UserProfile(user.uid, profile.getString("nombreVisible") ?: "Usuario de prueba", role)
+            return UserProfile(user.uid, profile.getString("nombreVisible") ?: "Usuario", role)
         } catch (error: CampoRepositoryException) {
             throw error
         } catch (error: Exception) {
-            throw CampoRepositoryException("UNAUTHENTICATED", "Correo o contraseña de prueba incorrectos.", error)
+            throw CampoRepositoryException("UNAUTHENTICATED", "Correo o contraseña incorrectos.", error)
         }
     }
 
@@ -128,7 +128,7 @@ class FirebaseCampoRepository(
         val journeyRegistration = services.firestore.collection("jornadas").document(journeyId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(CampoRepositoryException("NETWORK_ERROR", "No fue posible leer la jornada de prueba.", error))
+                    close(CampoRepositoryException("NETWORK_ERROR", "No fue posible leer la jornada.", error))
                 } else if (snapshot?.exists() == true) {
                     if (snapshot.getString("estadoAdministrativo") != "ACTIVA") {
                         close(CampoRepositoryException(
@@ -145,7 +145,7 @@ class FirebaseCampoRepository(
             .whereEqualTo("jornadaId", journeyId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(CampoRepositoryException("NETWORK_ERROR", "No fue posible leer las líneas de prueba.", error))
+                    close(CampoRepositoryException("NETWORK_ERROR", "No fue posible leer las líneas.", error))
                 } else if (snapshot != null) {
                     lines = snapshot.documents.filter { document ->
                         document.getBoolean("activa") == true
@@ -236,7 +236,7 @@ class FirebaseCampoRepository(
                         val rootstocks = document.getLong("patrones") ?: return@mapNotNull null
                         val version = document.getLong("versionNumero")?.toInt() ?: return@mapNotNull null
                         val authorId = document.getString("autorUsuarioId") ?: return@mapNotNull null
-                        val authorName = document.getString("autorNombreVisible") ?: "Usuario de prueba"
+                        val authorName = document.getString("autorNombreVisible") ?: "Usuario"
                         document.id to ReturnedCount(
                             countId = document.id,
                             journeyLineId = journeyLineId,
@@ -287,9 +287,9 @@ class FirebaseCampoRepository(
                             ),
                             location = location,
                             originalAuthorUserId = originalAuthorId,
-                            originalAuthorName = document.getString("autorOriginalNombreVisible") ?: "Usuario de prueba",
+                            originalAuthorName = document.getString("autorOriginalNombreVisible") ?: "Usuario",
                             correctionResponsibleUserId = userId,
-                            correctionResponsibleName = document.getString("nuevoUsuarioNombreVisible") ?: "Usuario de prueba",
+                            correctionResponsibleName = document.getString("nuevoUsuarioNombreVisible") ?: "Usuario",
                             reassignedByName = document.getString("actorNombreVisible"),
                             reassignmentReason = document.getString("motivo"),
                             isReassigned = true,
@@ -582,8 +582,8 @@ class FirebaseCampoRepository(
     private fun assertMutableOperationsEnabled() {
         if (!mutableOperationsEnabled) {
             throw CampoRepositoryException(
-                "STAGING_READ_ONLY",
-                "STAGING permite iniciar sesión y consultar jornadas; las operaciones de escritura continúan bloqueadas.",
+                "OPERATIONS_DISABLED",
+                "Las operaciones están deshabilitadas por una configuración de ambiente no válida.",
             )
         }
     }

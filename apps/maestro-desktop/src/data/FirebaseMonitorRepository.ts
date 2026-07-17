@@ -484,7 +484,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
     private readonly auth: ReturnType<typeof getAuth>,
     private readonly firestore: Firestore,
     private readonly functions: Functions,
-    readonly environment: "EMULATOR" | "STAGING",
+    readonly environment: "EMULATOR" | "PRODUCTION",
   ) {
     this.emulatorEnabled = environment === "EMULATOR";
   }
@@ -522,7 +522,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
         id: credential.user.uid,
         displayName: typeof profile.data().nombreVisible === "string"
           ? profile.data().nombreVisible
-          : "Usuario de prueba",
+          : "Usuario",
         role,
         canViewReservationDetails: role === "SUPERVISOR" || role === "ADMINISTRADOR",
         canReview: role === "SUPERVISOR" || role === "ADMINISTRADOR",
@@ -1165,7 +1165,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
         doc(this.firestore, "jornadas", journeyId),
         (snapshot) => {
           if (!snapshot.exists()) {
-            onError("La jornada ficticia no existe.");
+            onError("La jornada no existe.");
             return;
           }
           journeyDisplayName = typeof snapshot.data().nombreVisible === "string"
@@ -1173,7 +1173,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
             : journeyId;
           publish();
         },
-        () => onError("No fue posible leer la jornada de prueba."),
+        () => onError("No fue posible leer la jornada."),
       ),
       onSnapshot(
         query(collection(this.firestore, "jornadaLineas"), where("jornadaId", "==", journeyId)),
@@ -1203,7 +1203,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
           });
           publish();
         },
-        () => onError("No fue posible leer las líneas de prueba."),
+        () => onError("No fue posible leer las líneas."),
       ),
     ];
 
@@ -1398,7 +1398,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
             );
             publish();
           },
-          () => onError("No fue posible leer el inventario oficial ficticio."),
+          () => onError("No fue posible leer el inventario oficial."),
         ),
       );
     }
@@ -1424,111 +1424,111 @@ export class DisabledMonitorRepository implements MonitorRepository {
   }
 
   async listActiveJourneys(): Promise<readonly MonitorJourney[]> {
-    throw new Error("Firebase de producción permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async listManageableJourneys(): Promise<ManageableJourneysData> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async listManageableUsers(): Promise<readonly ManageableUser[]> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async listManageableCatalog(): Promise<ManageableCatalogData> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async createCatalogLocation(): Promise<ManageableCatalogLocation> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async updateCatalogLocation(): Promise<ManageableCatalogLocation> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async createCatalogLine(): Promise<ManageableCatalogLine> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async updateCatalogLine(): Promise<ManageableCatalogLine> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async registerInitialInventory(): Promise<void> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async validateMigrationPackage(): Promise<MigrationValidationReport> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async importMigrationPackage(): Promise<MigrationImportResult> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async listMigrationImports(): Promise<readonly MigrationImportSummary[]> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async revertMigrationImport(): Promise<MigrationReversalResult> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async updateUserStatus(): Promise<ManageableUser> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async updateUserRole(): Promise<ManageableUser> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async createDraftJourney(): Promise<ManageableDraftJourney> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async updateDraftJourneyLines(): Promise<void> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async listDraftJourneyParticipants(): Promise<DraftParticipantsData> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async updateDraftJourneyParticipants(): Promise<void> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async activateDraftJourney(): Promise<DraftActivationResult> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async cancelDraftJourney(): Promise<void> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async reopenCancelledJourney(): Promise<void> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async closeJourney(): Promise<void> {
-    throw new Error("Firebase de produccion permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async approveCount(): Promise<void> {
-    throw new Error("Firebase de producción permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async returnCount(): Promise<void> {
-    throw new Error("Firebase de producción permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async reassignCountCorrection(): Promise<void> {
-    throw new Error("Firebase de producción permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   async releaseReservation(): Promise<void> {
-    throw new Error("Firebase de producción permanece deshabilitado.");
+    throw new Error(this.configurationError);
   }
 
   observeMonitor(): MonitorUnsubscribe {

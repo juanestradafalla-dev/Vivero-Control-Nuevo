@@ -51,7 +51,7 @@ function validPackage(): MigrationCatalogPackageV1 {
     metadatos: {
       nombrePaquete: "PRUEBA - paquete ficticio integrado",
       creadoEn: "2026-07-16T12:00:00.000Z",
-      referenciaFuente: "PRUEBA FICTICIA - integración ETAPA 18"
+      referenciaFuente: "Acta general de migración ETAPA 20"
     },
     ubicaciones: [
       {
@@ -71,7 +71,7 @@ function validPackage(): MigrationCatalogPackageV1 {
     }],
     inventariosIniciales: [{
       lineaClaveExterna: "LINEA-MIG-PRUEBA-1", hembras: 12, machos: 7, patrones: 3,
-      referenciaFuente: "PRUEBA FICTICIA - planilla simulada"
+      referenciaFuente: "Planilla controlada de inventario ETAPA 20"
     }]
   };
 }
@@ -225,7 +225,7 @@ describe("validarPaqueteMigracion mediante emuladores reales", () => {
     }];
     payload.inventariosIniciales = [{
       lineaClaveExterna: "EXT-LINEA-1", hembras: 1, machos: 1, patrones: 1,
-      referenciaFuente: "PRUEBA FICTICIA conflicto actual"
+      referenciaFuente: "Acta de conflicto actual"
     }];
     const result = await validate(admin.functions, payload);
     expect(codes(result)).toEqual(expect.arrayContaining(["INVENTARIO_EXISTENTE", "CONFLICTO_OPERATIVO"]));
@@ -270,7 +270,7 @@ describe("validarPaqueteMigracion mediante emuladores reales", () => {
 
     const admin = await authenticatedClient("administrador@prueba.local", "private-data");
     const payload = transportPackage();
-    (payload.metadatos as Record<string, unknown>).referenciaFuente = "PRUEBA con contacto persona@empresa.test";
+    (payload.metadatos as Record<string, unknown>).referenciaFuente = "Acta con contacto persona@empresa.test";
     (payload.lineas as Array<Record<string, unknown>>)[0]!.claveExterna = "TOKEN-SECRETO-PROHIBIDO";
     const result = await validate(admin.functions, payload);
     expect(codes(result)).toContain("SECRETO_O_DATO_PRIVADO");

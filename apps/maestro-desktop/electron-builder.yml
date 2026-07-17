@@ -1,5 +1,5 @@
-appId: com.arles.viveromaestro.staging
-productName: Vivero Maestro Staging
+appId: com.arles.viveromaestro
+productName: Vivero Maestro
 asar: true
 npmRebuild: false
 directories:
@@ -23,8 +23,8 @@ win:
     - target: nsis
       arch:
         - x64
-  artifactName: Vivero-Maestro-Staging-Setup-${version}.${ext}
-  executableName: Vivero Maestro Staging
+  artifactName: Vivero-Maestro-Setup-${version}.${ext}
+  executableName: Vivero Maestro
   requestedExecutionLevel: asInvoker
   signAndEditExecutable: false
 nsis:
@@ -34,5 +34,5 @@ nsis:
   allowToChangeInstallationDirectory: false
   createDesktopShortcut: always
   createStartMenuShortcut: true
-  shortcutName: Vivero Maestro Staging
+  shortcutName: Vivero Maestro
   packElevateHelper: false

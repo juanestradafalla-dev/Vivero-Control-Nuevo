@@ -23,18 +23,15 @@ class AppContainer private constructor(
         fun create(context: Context): AppContainer {
             val initialization = FirebaseServicesInitializer.initialize(context)
             val config = initialization.config
-            val namespace = config.localStorageNamespace.takeIf { it.matches(Regex("[a-z0-9_-]+")) } ?: "disabled"
-            val preferences = context.getSharedPreferences("technical_$namespace", Context.MODE_PRIVATE)
+            val namespace = runCatching {
+                LocalRuntimeNames.validateNamespace(config.localStorageNamespace)
+            }.getOrDefault("disabled")
+            val preferences = context.getSharedPreferences(LocalRuntimeNames.preferences(namespace), Context.MODE_PRIVATE)
             val installationId = preferences.getString("installation_id", null)
                 ?: UUID.randomUUID().toString().also {
                     preferences.edit { putString("installation_id", it) }
                 }
-            val emulatorMode = config.environment == CampoEnvironment.EMULATOR
-            val deviceId = if (emulatorMode) {
-                "ANDROID-INSTALACION-$installationId"
-            } else {
-                "ANDROID-${namespace.uppercase()}-INSTALACION-$installationId"
-            }
+            val deviceId = "ANDROID-${namespace.uppercase()}-INSTALACION-$installationId"
             val services = initialization.services
             val repository = if (services == null) {
                 DisabledCampoRepository(config.environment, requireNotNull(initialization.errorMessage))
@@ -42,7 +39,7 @@ class AppContainer private constructor(
                 val database = Room.databaseBuilder(
                     context.applicationContext,
                     ViveroCampoDatabase::class.java,
-                    if (emulatorMode) "vivero-campo-emulador.db" else "vivero-campo-$namespace.db",
+                    LocalRuntimeNames.database(namespace),
                 ).addMigrations(
                     ViveroCampoDatabase.MIGRATION_1_2,
                     ViveroCampoDatabase.MIGRATION_2_3,

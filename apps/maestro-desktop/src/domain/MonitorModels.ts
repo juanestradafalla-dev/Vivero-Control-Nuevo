@@ -344,7 +344,7 @@ export interface MigrationReversalResult {
 export type MonitorUnsubscribe = () => void;
 
 export interface MonitorRepository {
-  readonly environment: "EMULATOR" | "STAGING" | "DISABLED";
+  readonly environment: "EMULATOR" | "PRODUCTION" | "DISABLED";
   readonly emulatorEnabled: boolean;
   signIn(email: string, password: string): Promise<MonitorUser>;
   signOut(): Promise<void>;

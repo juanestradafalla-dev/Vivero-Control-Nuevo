@@ -18,7 +18,7 @@ No acepta identidad, rol, jornada, línea, estado ni tiempo del cliente. El lím
 
 ## Validaciones
 
-Comparte con la aprobación el bloqueo emulator-only, perfil activo, jornada activa, autorización vigente, rol revisor central, conteo inmutable y correspondencia entre conteo, línea y `conteoVigenteId`. El motivo se recorta y debe conservar contenido.
+Comparte con la aprobación la frontera central `EMULATOR` / `PRODUCTION`, perfil activo, jornada activa, autorización vigente, rol revisor central, conteo inmutable y correspondencia entre conteo, línea y `conteoVigenteId`. El motivo se recorta y debe conservar contenido.
 
 ## Transacción atómica
 

@@ -15,12 +15,34 @@ val localProperties = Properties().apply {
 fun localOrProjectProperty(name: String, defaultValue: String = ""): String =
     providers.gradleProperty(name).orNull ?: localProperties.getProperty(name, defaultValue)
 
+fun localProjectOrEnvironment(propertyName: String, environmentName: String): String =
+    localOrProjectProperty(propertyName).ifBlank {
+        providers.environmentVariable(environmentName).orNull.orEmpty()
+    }
+
 fun buildConfigString(value: String): String =
     "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
 
-val stagingProjectId = localOrProjectProperty("stagingFirebaseProjectId", "viverocontrol-3f83f")
-val stagingApiKey = localOrProjectProperty("stagingFirebaseApiKey")
-val stagingAppId = localOrProjectProperty("stagingFirebaseAppId")
+val productionProjectId = localOrProjectProperty("productionFirebaseProjectId", "viverocontrol-3f83f")
+val productionApiKey = localOrProjectProperty("productionFirebaseApiKey")
+val productionAppId = localOrProjectProperty("productionFirebaseAppId")
+val productionKeystorePath = localProjectOrEnvironment("productionKeystorePath", "VIVERO_CAMPO_KEYSTORE_PATH")
+val productionKeystorePassword = localProjectOrEnvironment(
+    "productionKeystorePassword",
+    "VIVERO_CAMPO_KEYSTORE_PASSWORD",
+)
+val productionKeyAlias = localProjectOrEnvironment("productionKeyAlias", "VIVERO_CAMPO_KEY_ALIAS")
+val productionKeyPassword = localProjectOrEnvironment("productionKeyPassword", "VIVERO_CAMPO_KEY_PASSWORD")
+val productionSigningValues = listOf(
+    productionKeystorePath,
+    productionKeystorePassword,
+    productionKeyAlias,
+    productionKeyPassword,
+)
+val hasProductionSigning = productionSigningValues.all(String::isNotBlank)
+if (productionSigningValues.any(String::isNotBlank) && !hasProductionSigning) {
+    throw GradleException("La firma de producción está incompleta; proporciona las cuatro propiedades locales o variables de entorno.")
+}
 
 android {
     namespace = "com.arles.viverocampo"
@@ -48,8 +70,20 @@ android {
         buildConfigField("String", "LOCAL_STORAGE_NAMESPACE", "\"disabled\"")
     }
 
+    signingConfigs {
+        if (hasProductionSigning) {
+            create("production") {
+                storeFile = file(productionKeystorePath)
+                storePassword = productionKeystorePassword
+                keyAlias = productionKeyAlias
+                keyPassword = productionKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         getByName("debug") {
+            applicationIdSuffix = ".emulator"
             buildConfigField("String", "FIREBASE_ENVIRONMENT", "\"EMULATOR\"")
             buildConfigField("String", "FIREBASE_PROJECT_ID", "\"demo-vivero-control-etapa3\"")
             buildConfigField("String", "FIREBASE_API_KEY", "\"demo-api-key\"")
@@ -57,20 +91,15 @@ android {
             buildConfigField("String", "EMULATOR_HOST", "\"${emulatorHost.get()}\"")
             buildConfigField("String", "LOCAL_STORAGE_NAMESPACE", "\"emulator\"")
         }
-        create("staging") {
-            isDebuggable = true
-            signingConfig = signingConfigs.getByName("debug")
-            applicationIdSuffix = ".staging"
-            matchingFallbacks += listOf("debug")
-            buildConfigField("String", "FIREBASE_ENVIRONMENT", "\"STAGING\"")
-            buildConfigField("String", "FIREBASE_PROJECT_ID", buildConfigString(stagingProjectId))
-            buildConfigField("String", "FIREBASE_API_KEY", buildConfigString(stagingApiKey))
-            buildConfigField("String", "FIREBASE_APP_ID", buildConfigString(stagingAppId))
-            buildConfigField("String", "EMULATOR_HOST", "\"\"")
-            buildConfigField("String", "LOCAL_STORAGE_NAMESPACE", "\"staging\"")
-        }
         release {
             isMinifyEnabled = false
+            buildConfigField("String", "FIREBASE_ENVIRONMENT", "\"PRODUCTION\"")
+            buildConfigField("String", "FIREBASE_PROJECT_ID", buildConfigString(productionProjectId))
+            buildConfigField("String", "FIREBASE_API_KEY", buildConfigString(productionApiKey))
+            buildConfigField("String", "FIREBASE_APP_ID", buildConfigString(productionAppId))
+            buildConfigField("String", "EMULATOR_HOST", "\"\"")
+            buildConfigField("String", "LOCAL_STORAGE_NAMESPACE", "\"production\"")
+            if (hasProductionSigning) signingConfig = signingConfigs.getByName("production")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

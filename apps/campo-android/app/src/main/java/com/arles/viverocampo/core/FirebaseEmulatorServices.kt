@@ -30,7 +30,7 @@ object FirebaseServicesInitializer {
         val configurationError = config.validationError()
         if (configurationError != null) return FirebaseServicesInitialization(config, null, configurationError)
         cachedServices?.let { return FirebaseServicesInitialization(config, it, null) }
-        val appName = "vivero-control-${config.localStorageNamespace}"
+        val appName = LocalRuntimeNames.firebaseApp(config.localStorageNamespace)
         val app = FirebaseApp.getApps(context).firstOrNull { it.name == appName }
             ?: FirebaseApp.initializeApp(
                 context,

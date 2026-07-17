@@ -90,7 +90,7 @@ const journeyOne: MonitorJourney = {
 };
 
 class FakeMonitorRepository implements MonitorRepository {
-  readonly environment: "EMULATOR" | "STAGING" | "DISABLED" = "EMULATOR";
+  readonly environment: "EMULATOR" | "PRODUCTION" | "DISABLED" = "EMULATOR";
   readonly emulatorEnabled = true;
   private onSnapshot?: (snapshot: MonitorSnapshot) => void;
   private onAccountActiveChanged?: (active: boolean) => void;
@@ -389,7 +389,7 @@ class FakeMonitorRepository implements MonitorRepository {
       ...line,
       inventory: {
         females, males, rootstocks, total: females + males + rootstocks,
-        version: 1, origin: "CARGA_INICIAL_ADMINISTRATIVA_EMULADOR",
+        version: 1, origin: "CARGA_INICIAL_ADMINISTRATIVA",
         actorUserId: "uid-administrador", actorDisplayName: "Administrador Pruebas",
         updatedAt: "2026-07-15T12:00:00.000Z", initialSourceReference: source,
       },
@@ -661,20 +661,20 @@ async function signIn(repository: FakeMonitorRepository): Promise<void> {
 }
 
 describe("bandeja de revisión de Vivero Maestro", () => {
-  it("identifica staging y mantiene habilitado el acceso", () => {
+  it("identifica production y mantiene habilitado el acceso", () => {
     const repository = new FakeMonitorRepository();
-    Object.defineProperty(repository, "environment", {value: "STAGING"});
+    Object.defineProperty(repository, "environment", {value: "PRODUCTION"});
 
     render(<App repository={repository} />);
 
-    expect(screen.getByText("STAGING")).toBeInTheDocument();
+    expect(screen.getByText("PRODUCCIÓN")).toBeInTheDocument();
     expect(screen.getByRole("button", {name: "Iniciar sesión"})).toBeEnabled();
-    expect(screen.getByText(/cuenta administradora de pruebas/)).toBeInTheDocument();
+    expect(screen.getByText(/cuenta autorizada/)).toBeInTheDocument();
   });
 
-  it("limita en staging usuarios, catalogo, jornadas y monitor a las operaciones habilitadas", async () => {
+  it("habilita en production las operaciones completas del rol administrador", async () => {
     const repository = new FakeMonitorRepository();
-    Object.defineProperty(repository, "environment", {value: "STAGING"});
+    Object.defineProperty(repository, "environment", {value: "PRODUCTION"});
     repository.user = {
       ...supervisor,
       id: "uid-administrador",
@@ -698,10 +698,10 @@ describe("bandeja de revisión de Vivero Maestro", () => {
           state: "EN_CONTEO",
           location: {...pendingLine.location, displayName: "Línea en conteo"},
           reservation: {
-            id: "RESERVA-STAGING-1",
+            id: "RESERVA-PRODUCTION-1",
             userDisplayName: "Auxiliar Conteo",
             type: "INICIAL",
-            deviceId: "DISPOSITIVO-STAGING",
+            deviceId: "DISPOSITIVO-PRODUCTION",
             reservedAt: "2026-07-15T14:00:00.000Z",
           },
         },
@@ -717,29 +717,29 @@ describe("bandeja de revisión de Vivero Maestro", () => {
     };
 
     await signIn(repository);
-    expect(screen.getByText("Estas operaciones todavía no están habilitadas en staging")).toBeInTheDocument();
     for (const action of ["Cerrar jornada", "Aprobar", "Devolver"]) {
-      expect(screen.queryByRole("button", {name: action})).not.toBeInTheDocument();
+      expect(screen.getByRole("button", {name: action})).toBeInTheDocument();
     }
     fireEvent.change(screen.getByLabelText("Estado"), {target: {value: "EN_CONTEO"}});
-    expect(screen.queryByRole("button", {name: "Liberar reserva"})).not.toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Liberar reserva"})).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Estado"), {target: {value: "DEVUELTA"}});
-    expect(screen.queryByRole("button", {name: /Reasignar|Corregir/i})).not.toBeInTheDocument();
+    expect(screen.getByRole("button", {name: /Reasignar|Corregir/i})).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", {name: "Usuarios"}));
     await screen.findByRole("heading", {name: "Usuarios"});
     expect(screen.getByText("Auxiliar Uno")).toBeInTheDocument();
-    for (const action of ["Desactivar", "Reactivar", "Cambiar rol"]) {
-      expect(screen.queryByRole("button", {name: action})).not.toBeInTheDocument();
-    }
+    expect(screen.getAllByRole("button", {name: "Cambiar rol"}).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", {name: /Desactivar|Reactivar/}).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole("button", {name: /Catálogo/}));
     await screen.findByRole("heading", {name: /Catálogo/});
     expect(screen.getByRole("button", {name: /Nueva ubicación raíz/})).toBeInTheDocument();
     expect(screen.getAllByRole("button", {name: /Nueva línea/}).length).toBeGreaterThan(0);
     for (const action of [/Editar ubicación/i, /Editar línea/i, /Registrar inventario inicial/i]) {
-      expect(screen.queryByRole("button", {name: action})).not.toBeInTheDocument();
+      expect(screen.getAllByRole("button", {name: action}).length).toBeGreaterThan(0);
     }
+
+    expect(screen.getByRole("button", {name: /Migración/})).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", {name: "Jornadas"}));
     await screen.findByRole("heading", {name: "Jornadas"});
@@ -748,12 +748,12 @@ describe("bandeja de revisión de Vivero Maestro", () => {
     expect(screen.getByRole("button", {name: "Revisar selección"})).toBeInTheDocument();
     expect(screen.getByRole("button", {name: "Revisar participantes"})).toBeInTheDocument();
     expect(screen.getByRole("button", {name: "Activar jornada"})).toBeInTheDocument();
-    expect(screen.queryByRole("button", {name: "Cancelar borrador"})).not.toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Cancelar borrador"})).toBeInTheDocument();
   });
 
-  it("oculta la reapertura de borradores cancelados en staging", async () => {
+  it("permite reabrir borradores cancelados en production", async () => {
     const repository = new FakeMonitorRepository();
-    Object.defineProperty(repository, "environment", {value: "STAGING"});
+    Object.defineProperty(repository, "environment", {value: "PRODUCTION"});
     repository.user = {
       ...supervisor,
       id: "uid-administrador",
@@ -766,19 +766,19 @@ describe("bandeja de revisión de Vivero Maestro", () => {
       "JORNADA-BORRADOR-1",
       1,
       "Cancelación previa de prueba",
-      "cancelacion-staging-prueba-0001",
+      "cancelacion-production-prueba-0001",
     );
 
     await signIn(repository);
     fireEvent.click(screen.getByRole("button", {name: "Jornadas"}));
     fireEvent.click(await screen.findByRole("button", {name: /Borrador semanal/}));
     expect(screen.getByText(/BORRADOR CANCELADO/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", {name: "Reabrir borrador"})).not.toBeInTheDocument();
+    expect(screen.getByRole("button", {name: "Reabrir borrador"})).toBeInTheDocument();
   });
 
-  it("conserva en staging el recorrido permitido de preparacion y activacion", async () => {
+  it("conserva en production el recorrido de preparación y activación", async () => {
     const repository = new FakeMonitorRepository();
-    Object.defineProperty(repository, "environment", {value: "STAGING"});
+    Object.defineProperty(repository, "environment", {value: "PRODUCTION"});
     repository.user = {
       ...supervisor,
       id: "uid-administrador",
@@ -799,24 +799,24 @@ describe("bandeja de revisión de Vivero Maestro", () => {
     fireEvent.click(screen.getByRole("button", {name: /Catálogo/}));
     await screen.findByRole("heading", {name: /Catálogo/});
     fireEvent.click(screen.getByRole("button", {name: /Nueva ubicación raíz/}));
-    fireEvent.change(screen.getByLabelText("Código"), {target: {value: "STAGING-PRUEBA"}});
+    fireEvent.change(screen.getByLabelText("Código"), {target: {value: "PRODUCTION-PRUEBA"}});
     fireEvent.change(screen.getByLabelText("Tipo técnico"), {target: {value: "FIXTURE"}});
-    fireEvent.change(screen.getByLabelText("Nombre visible"), {target: {value: "Ubicación staging prueba"}});
+    fireEvent.change(screen.getByLabelText("Nombre visible"), {target: {value: "Ubicación production prueba"}});
     fireEvent.click(screen.getByRole("button", {name: "Crear"}));
     await screen.findByText("Ubicación creada mediante operación central.");
-    const createdLocation = screen.getByText("Ubicación staging prueba").closest("details");
+    const createdLocation = screen.getByText("Ubicación production prueba").closest("details");
     expect(createdLocation).not.toBeNull();
     fireEvent.click(within(createdLocation!).getByRole("button", {name: /Nueva línea/}));
-    fireEvent.change(screen.getByLabelText("Código"), {target: {value: "LINEA-STAGING"}});
-    fireEvent.change(screen.getByLabelText("Nombre visible"), {target: {value: "Línea staging prueba"}});
+    fireEvent.change(screen.getByLabelText("Código"), {target: {value: "LINEA-PRODUCTION"}});
+    fireEvent.change(screen.getByLabelText("Nombre visible"), {target: {value: "Línea production prueba"}});
     fireEvent.click(screen.getByRole("button", {name: "Crear"}));
     await screen.findByText("Línea creada mediante operación central.");
-    expect(screen.getByText("Línea staging prueba")).toBeInTheDocument();
+    expect(screen.getByText("Línea production prueba")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", {name: "Jornadas"}));
     await screen.findByRole("heading", {name: "Jornadas"});
     fireEvent.change(screen.getByLabelText("Nombre de la nueva jornada"), {
-      target: {value: "Borrador permitido staging"},
+      target: {value: "Borrador production"},
     });
     fireEvent.click(screen.getByRole("button", {name: "Crear borrador"}));
     await waitFor(() => expect(repository.createdDrafts).toHaveLength(1));
@@ -1588,16 +1588,16 @@ describe("jornadas en borrador de Vivero Maestro", () => {
     fireEvent.change(screen.getByLabelText("Machos iniciales"), {target: {value: "5"}});
     fireEvent.change(screen.getByLabelText("Patrones iniciales"), {target: {value: "2"}});
     expect(screen.getByText("17")).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Referencia de fuente ficticia"), {
-      target: {value: "Planilla ficticia de prueba Maestro"},
+    fireEvent.change(screen.getByLabelText("Referencia de fuente"), {
+      target: {value: "Acta de inventario inicial Maestro"},
     });
-    fireEvent.click(screen.getByLabelText(/Confirmo que son datos ficticios/));
+    fireEvent.click(screen.getByLabelText(/Confirmo que revisé las cifras/));
     fireEvent.click(within(inventoryDialog).getByRole("button", {name: "Registrar inventario inicial"}));
-    await screen.findByText("Inventario inicial ficticio registrado de forma inmutable.");
+    await screen.findByText("Inventario inicial registrado de forma inmutable.");
     expect(repository.inventoryRegistrations).toHaveLength(1);
     expect(repository.inventoryRegistrations[0]).toMatchObject({females: 10, males: 5, rootstocks: 2});
     expect(screen.getByText(/H 10/)).toBeInTheDocument();
-    expect(screen.getByText(/CARGA_INICIAL_ADMINISTRATIVA_EMULADOR/)).toBeInTheDocument();
+    expect(screen.getByText(/CARGA_INICIAL_ADMINISTRATIVA/)).toBeInTheDocument();
     expect(repository.catalogListCalls).toBeGreaterThan(1);
   });
 
@@ -1619,7 +1619,7 @@ describe("jornadas en borrador de Vivero Maestro", () => {
     Object.defineProperty(file, "text", {value: async () => JSON.stringify(payload)});
     fireEvent.change(screen.getByLabelText("Archivo JSON de migración"), {target: {files: [file]}});
     await screen.findByText(/Estructura local v.lida/);
-    fireEvent.click(screen.getByRole("button", {name: "Validar paquete en emulador"}));
+    fireEvent.click(screen.getByRole("button", {name: "Validar paquete"}));
 
     await screen.findByRole("heading", {name: "Resultado de validación"});
     expect(repository.migrationValidationCalls).toHaveLength(1);
@@ -1667,11 +1667,11 @@ describe("jornadas en borrador de Vivero Maestro", () => {
     Object.defineProperty(file, "text", {value: async () => JSON.stringify(payload)});
     fireEvent.change(screen.getByLabelText("Archivo JSON de migración"), {target: {files: [file]}});
     await screen.findByText(/Estructura local v.lida/);
-    fireEvent.click(screen.getByRole("button", {name: "Validar paquete en emulador"}));
+    fireEvent.click(screen.getByRole("button", {name: "Validar paquete"}));
 
-    await screen.findByRole("heading", {name: "Importar en emulador"});
+    await screen.findByRole("heading", {name: "Importar paquete validado"});
     expect(screen.getByText(/12 escrituras/)).toBeInTheDocument();
-    const importButton = screen.getByRole("button", {name: "Importar en emulador"});
+    const importButton = screen.getByRole("button", {name: "Importar paquete"});
     expect(importButton).toBeDisabled();
     fireEvent.change(screen.getByLabelText("Confirmar fragmento del hash"), {target: {value: "aaaaaaaaaaaa"}});
     fireEvent.click(importButton);

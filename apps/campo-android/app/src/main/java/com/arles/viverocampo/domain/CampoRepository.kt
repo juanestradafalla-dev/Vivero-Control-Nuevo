@@ -4,7 +4,7 @@ import kotlinx.coroutines.flow.Flow
 
 enum class CampoEnvironment {
     EMULATOR,
-    STAGING,
+    PRODUCTION,
     DISABLED,
 }
 
@@ -15,7 +15,7 @@ interface CampoRepository {
     val accessEnabled: Boolean
         get() = environment != CampoEnvironment.DISABLED && configurationError == null
     val mutableOperationsEnabled: Boolean
-        get() = environment == CampoEnvironment.EMULATOR
+        get() = environment in setOf(CampoEnvironment.EMULATOR, CampoEnvironment.PRODUCTION) && configurationError == null
 
     suspend fun signIn(email: String, password: String): UserProfile
 

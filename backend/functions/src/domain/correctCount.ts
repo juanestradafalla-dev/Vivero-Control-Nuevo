@@ -208,7 +208,7 @@ export class InitiateCountCorrectionService {
         jornadaId: count.jornadaId,
         jornadaLineaId: count.jornadaLineaId,
         usuarioId: context.actorId,
-        usuarioNombreVisible: user.nombreVisible ?? "Usuario de prueba",
+        usuarioNombreVisible: user.nombreVisible ?? "Usuario",
         rolEfectivo: authorization.rolEfectivo,
         dispositivoId: request.dispositivoId,
         claveIdempotencia: request.claveIdempotencia,

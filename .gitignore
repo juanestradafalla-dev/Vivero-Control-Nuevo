@@ -58,6 +58,7 @@ yarn-error.log*
 *.tmp
 *.temp
 *.log
+.private/
 
 # Paquetes reales o privados de migración (solo se versionan plantillas .example.json)
 data/migration-packages/

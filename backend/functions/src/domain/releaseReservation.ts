@@ -8,7 +8,7 @@ import type {
   TrustedOperationContext,
   UserRole
 } from "./contracts.js";
-import {domainErrors} from "./errors.js";
+import {DomainError, domainErrors} from "./errors.js";
 
 interface UserDocument {
   readonly activo?: boolean;
@@ -79,7 +79,8 @@ export class ReleaseReservationService {
     const releaseId = randomUUID();
     const auditId = randomUUID();
 
-    return this.firestore.runTransaction(async (transaction) => {
+    try {
+      return await this.firestore.runTransaction(async (transaction) => {
       const actorRef = this.firestore.collection("usuarios").doc(context.actorId);
       const reservationRef = this.firestore.collection("reservas").doc(request.reservaId);
       const idempotencyRef = this.firestore.collection("idempotencia").doc(idempotencyId);
@@ -243,6 +244,15 @@ export class ReleaseReservationService {
         creadoEn: releasedAt
       });
       return result;
-    });
+      });
+    } catch (error) {
+      if (error instanceof DomainError) throw error;
+      const currentReservation = await this.firestore.collection("reservas").doc(request.reservaId).get();
+      if (currentReservation.exists) {
+        const currentState = (currentReservation.data() as ReservationDocument).estadoReserva;
+        if (currentState !== "ACTIVA") throw domainErrors.reservationNotActive();
+      }
+      throw error;
+    }
   }
 }

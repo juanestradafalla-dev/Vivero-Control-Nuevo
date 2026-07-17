@@ -1,4 +1,4 @@
-# Decisiones vigentes — actualización ETAPA 20
+# Decisiones vigentes — actualización ETAPA 21 FASE A
 
 ## 1. Control de decisiones
 
@@ -10,7 +10,19 @@ Este registro conserva los identificadores de las 50 decisiones originales para 
 
 Nada marcado como pendiente debe resolverse inventando datos. Cada cierre posterior debe registrar responsable, fecha y efecto sobre requisitos, datos, seguridad y pruebas.
 
-## 2. Decisiones resueltas
+## 2. Evidencia de la auditoría que condiciona decisiones
+
+- El proyecto autorizado está activo, Firestore está en `nam5` y las 11 Functions existentes están en `us-central1`.
+- Firebase solo tiene 11 de las 30 Callables; las 19 ausentes no se corrigen en FASE A.
+- No existe registro Android para `com.arles.viverocampo` ni registro Web productivo de Maestro. Los registros explícitamente Staging son candidatos de prueba, no objetivos autorizados de borrado.
+- Las 3 cuentas y los 38 documentos de nivel superior existentes no tienen evidencia inequívoca de ser ficticios; todos permanecen `REQUIERE_REVISION`. La ejecución original detectó además `autorizaciones` sin cuantificar sus documentos, que también quedan protegidos en esa clasificación.
+- No hay backup programado, backup listado o PITR. Ninguna limpieza puede aprobarse antes de generar y probar un respaldo.
+- Secret Manager, presupuestos y cuotas no pudieron inventariarse completamente sin habilitar APIs, permisos o herramientas adicionales. FASE A no realizó esos cambios.
+- Reglas e índices Firestore coinciden con el repositorio; cualquier cambio futuro debe preservar esa trazabilidad.
+
+Estas evidencias no resuelven datos faltantes del propietario. Sí fijan una decisión operativa: FASE B queda bloqueada hasta cerrar respaldo, recursos ambiguos, apps productivas, despliegue completo, responsables y umbrales.
+
+## 3. Decisiones resueltas
 
 | ID | Estado | Decisión adoptada |
 |---:|---|---|
@@ -31,9 +43,9 @@ Nada marcado como pendiente debe resolverse inventando datos. Cada cierre poster
 | 39 | RESUELTA PARA EL MVP | El contrato de paquete, preflight, importación atómica y reversión condicionada están implementados para datos ficticios; fuentes y datos reales siguen pendientes. |
 | 41 | RESUELTA | Desarrollo usa Emulator Suite con proyectos `demo-*`; producción usará únicamente `viverocontrol-3f83f`, Firestore `nam5` y Functions `us-central1`. No existe un tercer ambiente funcional. |
 
-## 3. Información real prioritaria para cerrar
+## 4. Información real prioritaria para cerrar
 
-Antes del corte controlado de la ETAPA 21 se necesita recibir:
+Antes de preparar FASE B se necesita recibir:
 
 1. **Jerarquía exacta del vivero:** estructura y relaciones entre ubicaciones.
 2. **Cantidad de módulos, camas y líneas:** sin inventar nombres ni volúmenes.
@@ -44,7 +56,7 @@ Antes del corte controlado de la ETAPA 21 se necesita recibir:
 
 Estos datos corresponden principalmente a las decisiones 6, 13, 24, 37 y 39. La jerarquía y las cantidades se solicitan por separado aunque pertenecen al mismo bloque de estructura.
 
-## 4. Decisiones que continúan pendientes
+## 5. Decisiones que continúan pendientes
 
 ### Producto e implementación
 
@@ -102,7 +114,7 @@ Estos datos corresponden principalmente a las decisiones 6, 13, 24, 37 y 39. La 
 49. **Monitoreo y alertas:** definir responsables y canales para fallos de sincronización, líneas bloqueadas y errores de aprobación.
 50. **Política de versiones:** establecer versiones mínimas admitidas y cómo se obliga a actualizar clientes incompatibles.
 
-## 5. Puntos que ya no constituyen ambigüedad
+## 6. Puntos que ya no constituyen ambigüedad
 
 - `ENVIADA` y `PENDIENTE_REVISION` pertenecen a ámbitos distintos: dispositivo local y estado central, respectivamente.
 - La verificación adicional no forma parte del MVP.
@@ -114,4 +126,4 @@ Estos datos corresponden principalmente a las decisiones 6, 13, 24, 37 y 39. La 
 - Los estados de jornada implementados no autorizan cierre forzado, cancelación de activas ni reapertura histórica.
 - La ETAPA 20 prepara código de producción, pero no constituye un despliegue ni una puesta en operación.
 
-No se identifican contradicciones nuevas entre estas decisiones y el flujo revisado.
+La auditoría sí identificó diferencias operativas entre el contrato y Firebase: despliegue parcial de Functions, registros productivos ausentes y datos sin clasificación. Son bloqueos de preparación, no autorización para alterar alcance funcional o eliminar recursos.

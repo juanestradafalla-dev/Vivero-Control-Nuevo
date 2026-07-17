@@ -1,12 +1,27 @@
-# Dependencias y riesgos — ETAPA 20
+# Dependencias y riesgos — ETAPA 21 FASE A
 
 ## Estado vigente
 
-Este documento sustituye las conclusiones operativas de etapas anteriores. Los documentos numerados de ETAPA 1 a 19 explican la evolución histórica, pero la arquitectura vigente es la descrita en `PRODUCCION_ETAPA_20.md`.
+Este documento sustituye las conclusiones operativas de etapas anteriores. La arquitectura de código sigue descrita en `PRODUCCION_ETAPA_20.md`; el estado remoto comprobado está en `AUDITORIA_FIREBASE_ETAPA_21.md`.
 
 Vivero Maestro ya usa Electron, React y TypeScript. Los estados de jornada, inventario inicial, validación, importación y reversión controlada ya están implementados. La ETAPA 20 habilita su código en `PRODUCTION` sin desplegarlo ni usar datos reales.
 
-Solo existen dos ambientes funcionales: `EMULATOR` sobre `demo-*` y `PRODUCTION` sobre `viverocontrol-3f83f`. No existe staging funcional.
+Solo existen dos ambientes funcionales: `EMULATOR` sobre `demo-*` y `PRODUCTION` sobre `viverocontrol-3f83f`. No existe staging funcional, aunque Firebase conserva dos registros de aplicación llamados Staging que deben revisarse antes de una limpieza.
+
+## Evidencia remota de FASE A
+
+- Firestore `(default)` está en `nam5`; PITR y protección de borrado están deshabilitados.
+- No se listaron schedules o backups Firestore.
+- Reglas e índices coinciden con el repositorio.
+- Solo 11/30 Functions están activas; todas son Gen 2, Node 22 y `us-central1`.
+- No existe el registro Android `com.arles.viverocampo` ni un registro Web productivo de Maestro.
+- Authentication tiene 3 cuentas ambiguas y solo Email/Password habilitado.
+- Firestore contiene 38 documentos ambiguos de nivel superior en 11 colecciones; la ejecución original detectó `autorizaciones` sin cuantificar sus documentos y 10 colecciones contractuales aún no se materializan.
+- Storage contiene dos buckets técnicos de Functions, 13 objetos y aproximadamente 5,62 MiB.
+- Hay 5 principales con roles administrativos que requieren revisión de mínimo privilegio.
+- Logging, Monitoring y facturación están habilitados; Secret Manager, Billing Budgets y cuotas no fueron completamente consultables.
+
+No se ejecutaron escrituras ni se infiere que un recurso ambiguo sea eliminable.
 
 ## Dependencias principales
 
@@ -30,7 +45,7 @@ Solo existen dos ambientes funcionales: `EMULATOR` sobre `demo-*` y `PRODUCTION`
 - Firebase Emulator Suite mediante Firebase Tools 15.23.0.
 - Firestore Rules Unit Testing y Vitest.
 
-## Auditorías npm del 16 de julio de 2026
+## Auditorías npm del 17 de julio de 2026
 
 Se ejecutó `npm audit --omit=dev --audit-level=high`:
 
@@ -38,13 +53,13 @@ Se ejecutó `npm audit --omit=dev --audit-level=high`:
 |---|---|
 | Contratos | 0 vulnerabilidades |
 | Vivero Maestro | 0 vulnerabilidades |
-| Backend Functions | 8 moderadas; 0 altas y 0 críticas |
+| Backend Functions | CI con Node 22: 9 moderadas de producción y 11 en el árbol instalado; revalidación local con Node 24: 8 de producción y 12 en el árbol completo; 0 altas y 0 críticas en ambos entornos |
 
-Las ocho alertas del backend provienen de `uuid <11.1.1` a través de dependencias transitivas de Firebase/Google (`gaxios`, `google-gax`, Firestore, Storage, `retry-request` y `teeny-request`). La corrección automática disponible exige `--force` y propone una regresión mayor de `firebase-admin`; no se aplica sin una actualización compatible y pruebas completas. El código del proyecto usa `node:crypto.randomUUID` y no llama UUID v3, v5 o v6 con búfer, pero esto no elimina la necesidad de actualizar la cadena.
+Las alertas de producción del backend corresponden a paquetes de la cadena del advisory `uuid <11.1.1`, a través de dependencias de Firebase/Google (`gaxios`, `google-gax`, Firestore, Storage, `retry-request` y `teeny-request`); CI las contó como 9 y el host local como 8. El árbol local completo añadió el advisory de OpenTelemetry. La corrección automática completa exige `--force` y propone cambios mayores de dependencias; no se aplica sin una actualización compatible y pruebas completas. El código del proyecto usa `node:crypto.randomUUID` y no llama UUID v3, v5 o v6 con búfer, pero esto no elimina la necesidad de actualizar la cadena.
 
 CI falla ante vulnerabilidades altas o críticas y mantiene visibles las moderadas. Este criterio no autoriza un despliegue.
 
-## Riesgos pendientes para ETAPA 21
+## Riesgos que bloquean FASE B
 
 ### Corte y datos
 
@@ -63,9 +78,12 @@ CI falla ante vulnerabilidades altas o críticas y mantiene visibles las moderad
 
 ### Firebase
 
-- crear localmente la configuración de Functions con `APP_ENV=production`;
-- revisar reglas, índices, regiones, límites, cuotas, presupuesto y alertas antes del despliegue;
-- desplegar en orden controlado y verificar `nam5` / `us-central1`;
+- crear y verificar un backup restaurable antes de cualquier limpieza;
+- aprobar el tratamiento de 3 cuentas, 38 documentos de nivel superior, todos los documentos anidados aún no cuantificados, 5 principales administrativos y registros heredados;
+- crear localmente la configuración de Functions con `APP_ENV=production` y verificar su valor mediante un procedimiento autorizado;
+- completar las 19 Functions ausentes y crear los registros productivos de Android/Maestro solo durante el corte aprobado;
+- resolver acceso/herramientas para cuotas, secretos, presupuesto y alertas sin activar servicios fuera del cambio autorizado;
+- desplegar en orden controlado y conservar `nam5` / `us-central1`;
 - ejecutar pruebas de humo con cuentas y datos específicamente aprobados, nunca desde CI;
 - definir rollback de código y datos para cada paso.
 

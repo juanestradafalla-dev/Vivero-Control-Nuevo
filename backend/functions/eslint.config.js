@@ -23,6 +23,14 @@ module.exports = tseslint.config(
     }
   },
   {
+    files: ["tools/firebase-audit/*.mjs"],
+    languageOptions: {
+      globals: {
+        ...globals.node
+      }
+    }
+  },
+  {
     ignores: ["lib/**", "node_modules/**"]
   }
 );

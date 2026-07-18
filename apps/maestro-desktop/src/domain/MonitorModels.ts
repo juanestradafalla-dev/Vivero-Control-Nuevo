@@ -408,6 +408,13 @@ export interface MonitorRepository {
   ): Promise<void>;
   reopenCancelledJourney(journeyId: string, expectedVersion: number, idempotencyKey: string): Promise<void>;
   listManageableUsers(): Promise<readonly ManageableUser[]>;
+  createManageableUser(
+    displayName: string,
+    email: string,
+    password: string,
+    role: MonitorRole,
+    idempotencyKey: string,
+  ): Promise<ManageableUser>;
   updateUserStatus(
     userId: string,
     expectedVersion: number,

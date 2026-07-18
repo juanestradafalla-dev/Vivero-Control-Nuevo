@@ -690,6 +690,49 @@ export class FirebaseMonitorRepository implements MonitorRepository {
     }
   }
 
+  async createManageableUser(
+    displayName: string,
+    email: string,
+    password: string,
+    role: MonitorRole,
+    idempotencyKey: string,
+  ): Promise<ManageableUser> {
+    const callable = httpsCallable(this.functions, "crearUsuarioAdministrable");
+    try {
+      const response = await callable({
+        nombreVisible: displayName,
+        correo: email,
+        password,
+        rol: role,
+        claveIdempotencia: idempotencyKey,
+      });
+      if (
+        typeof response.data !== "object" ||
+        response.data === null ||
+        (response.data as Record<string, unknown>).operacion !== "USUARIO_CREADO"
+      ) {
+        throw new Error("La respuesta de creacion de usuario no es valida.");
+      }
+      return parseManageableUser(response.data);
+    } catch (error) {
+      const firebaseError = error as {code?: unknown; message?: unknown; details?: unknown};
+      const serializedDetails = typeof firebaseError.details === "string"
+        ? firebaseError.details
+        : JSON.stringify(firebaseError.details ?? "");
+      const errorFingerprint = `${String(firebaseError.code ?? "")} ${String(firebaseError.message ?? "")} ${serializedDetails}`;
+      if (errorFingerprint.includes("USER_EMAIL_ALREADY_EXISTS") || errorFingerprint.includes("email-already-exists")) {
+        throw new Error("El correo ya está registrado.", {cause: error});
+      }
+      if (errorFingerprint.includes("USER_EMAIL_INVALID") || errorFingerprint.includes("invalid-email")) {
+        throw new Error("El correo electrónico no es válido.", {cause: error});
+      }
+      if (errorFingerprint.includes("USER_PASSWORD_WEAK") || errorFingerprint.includes("weak-password")) {
+        throw new Error("La contraseña no cumple los requisitos de seguridad.", {cause: error});
+      }
+      throw new Error(error instanceof Error ? error.message : "No fue posible crear el usuario.", {cause: error});
+    }
+  }
+
   async updateUserStatus(
     userId: string,
     expectedVersion: number,
@@ -1529,6 +1572,10 @@ export class DisabledMonitorRepository implements MonitorRepository {
   }
 
   async listManageableUsers(): Promise<readonly ManageableUser[]> {
+    throw new Error(this.configurationError);
+  }
+
+  async createManageableUser(): Promise<ManageableUser> {
     throw new Error(this.configurationError);
   }
 

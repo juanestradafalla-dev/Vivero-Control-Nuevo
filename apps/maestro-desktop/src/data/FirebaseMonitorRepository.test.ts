@@ -15,6 +15,7 @@ const firebase = vi.hoisted(() => ({
   connectAuthEmulator: vi.fn(),
   connectFirestoreEmulator: vi.fn(),
   connectFunctionsEmulator: vi.fn(),
+  httpsCallable: vi.fn(),
 }));
 
 vi.mock("firebase/app", () => ({getApps: firebase.getApps, initializeApp: firebase.initializeApp}));
@@ -26,7 +27,7 @@ vi.mock("firebase/auth", () => ({
 vi.mock("firebase/functions", () => ({
   connectFunctionsEmulator: firebase.connectFunctionsEmulator,
   getFunctions: firebase.getFunctions,
-  httpsCallable: vi.fn(),
+  httpsCallable: firebase.httpsCallable,
 }));
 vi.mock("firebase/firestore", () => ({
   Timestamp: class Timestamp {},
@@ -78,5 +79,73 @@ describe("conexión Firebase de Maestro", () => {
     expect(firebase.connectFirestoreEmulator).not.toHaveBeenCalled();
     expect(firebase.connectFunctionsEmulator).not.toHaveBeenCalled();
     expect(firebase.getFunctions).toHaveBeenCalledWith(firebase.app, "us-central1");
+  });
+
+  it("crea un usuario mediante la Callable administrativa y convierte el resultado", async () => {
+    const invoke = vi.fn().mockResolvedValue({
+      data: {
+        operacion: "USUARIO_CREADO",
+        usuarioId: "uid-nuevo",
+        nombreVisible: "Usuario Nuevo",
+        rol: "SUPERVISOR",
+        activo: true,
+        version: 1,
+        puedeCambiarRol: true,
+        resumenTrabajoActivo: {
+          jornadasActivas: 0,
+          reservasActivas: 0,
+          correccionesPendientes: 0,
+          tieneTrabajoActivo: false,
+          bloqueosCambioRol: [],
+        },
+        creadoEn: "2026-07-18T12:00:00.000Z",
+      },
+    });
+    firebase.httpsCallable.mockReturnValue(invoke);
+    const repository = FirebaseMonitorRepository.create(config("EMULATOR"));
+
+    await expect(repository.createManageableUser(
+      "Usuario Nuevo",
+      "nuevo@example.test",
+      "clave-ficticia-8",
+      "SUPERVISOR",
+      "idempotencia-usuario-0001",
+    )).resolves.toMatchObject({
+      id: "uid-nuevo",
+      displayName: "Usuario Nuevo",
+      role: "SUPERVISOR",
+      active: true,
+      version: 1,
+    });
+    expect(firebase.httpsCallable).toHaveBeenCalledWith(firebase.functions, "crearUsuarioAdministrable");
+    expect(invoke).toHaveBeenCalledWith({
+      nombreVisible: "Usuario Nuevo",
+      correo: "nuevo@example.test",
+      password: "clave-ficticia-8",
+      rol: "SUPERVISOR",
+      claveIdempotencia: "idempotencia-usuario-0001",
+    });
+  });
+
+  it("presenta mensajes controlados para correo duplicado y contraseña débil", async () => {
+    const invoke = vi.fn()
+      .mockRejectedValueOnce({
+        code: "functions/already-exists",
+        message: "No fue posible crear la cuenta.",
+        details: {code: "USER_EMAIL_ALREADY_EXISTS"},
+      })
+      .mockRejectedValueOnce({
+        code: "functions/invalid-argument",
+        message: "No fue posible crear la cuenta.",
+        details: {code: "USER_PASSWORD_WEAK"},
+      });
+    firebase.httpsCallable.mockReturnValue(invoke);
+    const repository = FirebaseMonitorRepository.create(config("EMULATOR"));
+    const create = () => repository.createManageableUser(
+      "Usuario Nuevo", "nuevo@example.test", "clave-ficticia-8", "AUXILIAR", "idempotencia-usuario-0001",
+    );
+
+    await expect(create()).rejects.toThrow("El correo ya está registrado.");
+    await expect(create()).rejects.toThrow("La contraseña no cumple los requisitos de seguridad.");
   });
 });

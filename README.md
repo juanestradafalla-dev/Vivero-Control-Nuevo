@@ -2,9 +2,9 @@
 
 Sistema de inventario por línea compuesto por Vivero Campo (Android), Vivero Maestro (Electron/React para Windows) y un backend transaccional en Firebase. Este repositorio es independiente y no reutiliza código del proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 23 — descartes transaccionales y captura sin señal
+## Estado: ETAPA 24 — cierre técnico y restauración robusta de sesión
 
-La ETAPA 22 dejó preparados localmente los datos reales sin importarlos. La ETAPA 23 incorpora el flujo A de descartes: Campo registra incluso sin señal, Maestro revisa y solo una aprobación central descuenta el inventario. Las causas pueden superponerse, pero el total único se calcula por hembras, machos y patrones. **No se ejecutó validación remota contra producción, importación, creación de cuentas, despliegue ni puesta en producción.**
+La ETAPA 24 congela el alcance funcional existente y corrige el arranque de Vivero Campo para distinguir ausencia de sesión, perfil verificado, perfil en caché, verificación pendiente y revocación autoritativa. La aplicación conserva Firebase Auth y el trabajo local ante falta de red, restaura reservas y borradores aislados por cuenta y dispositivo, y permite reintentar la verificación sin reiniciar. **No se ejecutó conexión a Firebase real, importación, creación de cuentas, despliegue ni puesta en producción.**
 
 | Ambiente | Proyecto | Uso | Datos |
 |---|---|---|---|
@@ -13,7 +13,7 @@ La ETAPA 22 dejó preparados localmente los datos reales sin importarlos. La ETA
 
 No existe `STAGING` como ambiente funcional. Firestore permanecerá en `nam5` y Functions en `us-central1`.
 
-El inventario previo confirmó 3 aplicaciones, 3 cuentas con perfil y referencias operativas, 41 documentos Firestore en 12 grupos —38 superiores y 3 anidados—, 5 principales IAM, 11 de 30 Functions y 2 buckets técnicos. El propietario clasificó y eliminó exclusivamente las 3 cuentas y los 41 documentos como datos de prueba. Las aplicaciones, IAM, Functions y buckets no formaron parte de la limpieza y conservan sus decisiones anteriores.
+La última auditoría remota de la ETAPA 21 encontró 11 de las 30 Callables que existían en ese momento. El inventario previo también confirmó 3 aplicaciones, 3 cuentas con perfil y referencias operativas, 41 documentos Firestore en 12 grupos —38 superiores y 3 anidados—, 5 principales IAM y 2 buckets técnicos. El propietario clasificó y eliminó exclusivamente las 3 cuentas y los 41 documentos como datos de prueba. Las aplicaciones, IAM, Functions y buckets no formaron parte de la limpieza y conservan sus decisiones anteriores. El código actual contiene 34 Callables; esta cifra no reescribe la evidencia histórica de aquella auditoría.
 
 La clasificación identificable, los datos reales, sus fuentes, responsables, cantidades y el paquete generado viven solo en `.private/`. El repositorio conserva únicamente reglas, validadores, fixtures ficticios y evidencia sanitizada del estado de los bloques. Un inventario inicial total cero solo es compatible con la migración cuando se confirma explícitamente que la línea está vacía; el cero no confirmado sigue bloqueado. La renuncia al backup se limitó a los datos de prueba eliminados; backups, PITR y restauración continúan pendientes antes de operar información real.
 
@@ -57,7 +57,9 @@ Importación, reversión, inventario inicial, catálogo y usuarios continúan re
 - `debug` instala `com.arles.viverocampo.emulator`, usa `demo-*` y llama `useEmulator`.
 - `release` conserva `com.arles.viverocampo`, exige `viverocontrol-3f83f` y nunca configura emuladores.
 - Room, preferencias, FirebaseApp, WorkManager y el alias de Android Keystore usan namespaces `emulator` o `production` distintos.
-- autenticación, restauración de sesión, selección de jornada, reserva, conteo y descarte offline, sincronización, corrección e historial local están disponibles según permisos.
+- autenticación y restauración robusta verifican primero el servidor y usan el perfil Firestore en caché solo ante fallos transitorios, sin cerrar Auth por falta de red;
+- la reserva, los borradores Room de conteo y descarte, los observadores y los trabajos idempotentes se restauran exclusivamente para la misma cuenta y dispositivo;
+- selección de jornada, reserva, conteo y descarte offline, sincronización, corrección e historial local están disponibles según permisos.
 - la firma real solo puede proporcionarse mediante propiedades locales o variables de entorno; no se versiona ninguna llave.
 
 ### Vivero Maestro
@@ -147,6 +149,8 @@ Ese archivo no se crea ni se versiona en esta etapa. Consulte los README de [Viv
 
 ## Documentación vigente
 
+- [Criterios de aceptación de la ETAPA 24](docs/ETAPA_24_CRITERIOS_DE_ACEPTACION.md)
+- [Pruebas de la ETAPA 24](docs/pruebas/PRUEBAS_ETAPA_24.md)
 - [Criterios de aceptación de la ETAPA 23](docs/ETAPA_23_CRITERIOS_DE_ACEPTACION.md)
 - [Arquitectura de descartes transaccionales](docs/arquitectura/DESCARTES_TRANSACCIONALES_ETAPA_23.md)
 - [Pruebas de la ETAPA 23](docs/pruebas/PRUEBAS_ETAPA_23.md)

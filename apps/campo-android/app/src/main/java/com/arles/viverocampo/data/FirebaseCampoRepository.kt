@@ -33,10 +33,17 @@ import com.arles.viverocampo.domain.InventoryValues
 import com.arles.viverocampo.domain.ReserveLinePayload
 import com.arles.viverocampo.domain.RELEASED_RESERVATION_MESSAGE
 import com.arles.viverocampo.domain.ReturnedCount
+import com.arles.viverocampo.domain.SessionProfileRecord
+import com.arles.viverocampo.domain.SessionRestorationPolicy
+import com.arles.viverocampo.domain.SessionRestoreResult
 import com.arles.viverocampo.domain.SyncState
 import com.arles.viverocampo.domain.UserProfile
 import com.arles.viverocampo.domain.VisibleLocation
 import com.google.firebase.functions.FirebaseFunctionsException
+import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.Source
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -78,21 +85,36 @@ class FirebaseCampoRepository(
         }
     }
 
-    override suspend fun restoreSession(): UserProfile? {
-        val user = services.auth.currentUser ?: return null
-        return try {
-            val profile = services.firestore.collection("usuarios").document(user.uid).get().await()
-            if (!profile.exists() || profile.getBoolean("activo") != true) {
-                services.auth.signOut()
-                null
-            } else {
-                val role = (profile.get("roles") as? List<*>)?.firstOrNull() as? String
-                    ?: return null
-                UserProfile(user.uid, profile.getString("nombreVisible") ?: "Usuario", role)
+    override suspend fun restoreSession(): SessionRestoreResult {
+        val user = services.auth.currentUser ?: return SessionRestoreResult.NoSession
+        val profileReference = services.firestore.collection("usuarios").document(user.uid)
+        val authoritative = try {
+            SessionRestorationPolicy.authoritative(
+                user.uid,
+                profileReference.get(Source.SERVER).await().toSessionProfileRecord(),
+            )
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: FirebaseFirestoreException) {
+            if (!error.isTransientProfileReadFailure()) {
+                return SessionRestoreResult.VerificationPending(user.uid)
             }
+            null
+        } catch (_: Exception) {
+            return SessionRestoreResult.VerificationPending(user.uid)
+        }
+        if (authoritative != null) {
+            if (authoritative is SessionRestoreResult.Revoked) services.auth.signOut()
+            return authoritative
+        }
+        val cached = try {
+            profileReference.get(Source.CACHE).await().toSessionProfileRecord()
+        } catch (error: CancellationException) {
+            throw error
         } catch (_: Exception) {
             null
         }
+        return SessionRestorationPolicy.cached(user.uid, cached)
     }
 
     override suspend fun signOut() {
@@ -106,13 +128,34 @@ class FirebaseCampoRepository(
                     close(CampoRepositoryException("PROFILE_MONITOR_ERROR", "No fue posible comprobar el estado de la cuenta.", error))
                     return@addSnapshotListener
                 }
-                if (snapshot == null || !snapshot.exists()) {
-                    trySend(false)
+                if (snapshot == null) return@addSnapshotListener
+                if (!snapshot.exists()) {
+                    if (!snapshot.metadata.isFromCache) trySend(false)
                     return@addSnapshotListener
                 }
-                trySend(snapshot.getBoolean("activo") == true)
+                val active = snapshot.getBoolean("activo") == true
+                if (active || !snapshot.metadata.isFromCache) trySend(active)
             }
         awaitClose { registration.remove() }
+    }
+
+    private fun DocumentSnapshot.toSessionProfileRecord() = SessionProfileRecord(
+        exists = exists(),
+        active = getBoolean("activo"),
+        displayName = getString("nombreVisible"),
+        role = (get("roles") as? List<*>)?.firstOrNull() as? String,
+    )
+
+    private fun FirebaseFirestoreException.isTransientProfileReadFailure(): Boolean = when (code) {
+        FirebaseFirestoreException.Code.ABORTED,
+        FirebaseFirestoreException.Code.CANCELLED,
+        FirebaseFirestoreException.Code.DEADLINE_EXCEEDED,
+        FirebaseFirestoreException.Code.INTERNAL,
+        FirebaseFirestoreException.Code.RESOURCE_EXHAUSTED,
+        FirebaseFirestoreException.Code.UNAVAILABLE,
+        FirebaseFirestoreException.Code.UNKNOWN,
+        -> true
+        else -> false
     }
 
     override suspend fun listActiveJourneys(): List<ActiveJourney> {

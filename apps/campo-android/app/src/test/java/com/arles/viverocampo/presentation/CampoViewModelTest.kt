@@ -372,6 +372,7 @@ class CampoViewModelTest {
     }
 
     private suspend fun kotlinx.coroutines.test.TestScope.login() {
+        advanceUntilIdle()
         viewModel.updateEmail("auxiliar1@prueba.local")
         viewModel.updatePassword("SoloEmulador-Etapa3!")
         viewModel.signIn()

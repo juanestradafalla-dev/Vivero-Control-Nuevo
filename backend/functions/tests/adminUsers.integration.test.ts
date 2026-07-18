@@ -7,6 +7,8 @@ import {getFirestore} from "firebase-admin/firestore";
 import {afterEach, beforeEach, describe, expect, it} from "vitest";
 
 import type {
+  CreateManageableUserRequest,
+  CreateManageableUserResult,
   ListManageableUsersResult,
   ReleaseReservationRequest,
   ReleaseReservationResult,
@@ -67,6 +69,24 @@ async function listUsers(client: Client): Promise<ListManageableUsersResult> {
     "listarUsuariosAdministrables"
   );
   return (await callable({})).data;
+}
+
+async function createUser(
+  client: Client,
+  overrides: Partial<CreateManageableUserRequest> = {}
+): Promise<CreateManageableUserResult> {
+  const callable = httpsCallable<CreateManageableUserRequest, CreateManageableUserResult>(
+    client.functions,
+    "crearUsuarioAdministrable"
+  );
+  return (await callable({
+    nombreVisible: "Usuario nuevo ficticio",
+    correo: `nuevo-${crypto.randomUUID()}@prueba.local`,
+    password: "Solo-Prueba-Etapa25!",
+    rol: "AUXILIAR",
+    claveIdempotencia: `crear-usuario-${crypto.randomUUID()}`,
+    ...overrides
+  })).data;
 }
 
 async function updateStatus(
@@ -135,6 +155,130 @@ afterEach(async () => {
 });
 
 describe("administracion central de perfiles y acceso", () => {
+  it("crea una cuenta Auth y un perfil Firestore exacto solo como administrador activo", async () => {
+    const admin = await authenticatedClient("administrador@prueba.local", "create-user-success");
+    const result = await createUser(admin, {
+      nombreVisible: "Supervisora ficticia nueva",
+      correo: "  NUEVA.SUPERVISORA@PRUEBA.LOCAL ",
+      rol: "SUPERVISOR",
+      claveIdempotencia: "crear-supervisora-etapa-25"
+    });
+    const authUser = await getAdminAuth(adminApp()).getUser(result.usuarioId);
+    expect(authUser).toMatchObject({
+      email: "nueva.supervisora@prueba.local",
+      displayName: "Supervisora ficticia nueva",
+      disabled: false,
+      emailVerified: false
+    });
+    const profile = (await database().collection("usuarios").doc(result.usuarioId).get()).data();
+    expect(Object.keys(profile ?? {}).sort()).toEqual([
+      "activo", "actualizadoEn", "creadoEn", "id", "nombreVisible", "roles", "version"
+    ]);
+    expect(profile).toMatchObject({
+      id: result.usuarioId,
+      nombreVisible: "Supervisora ficticia nueva",
+      roles: ["SUPERVISOR"],
+      activo: true,
+      version: 1
+    });
+    expect(result).toMatchObject({
+      usuarioId: result.usuarioId,
+      nombreVisible: "Supervisora ficticia nueva",
+      rol: "SUPERVISOR",
+      activo: true,
+      version: 1,
+      puedeCambiarRol: true,
+      resumenTrabajoActivo: {tieneTrabajoActivo: false},
+      operacion: "USUARIO_CREADO"
+    });
+    expect((await database().collection("auditoria")
+      .where("recursoId", "==", result.usuarioId).get()).docs[0]?.data()).toMatchObject({tipo: "CREAR_USUARIO"});
+  });
+
+  it("rechaza alta sin autenticacion, por auxiliar, supervisor o administrador inactivo", async () => {
+    const anonymous = createClient("create-anonymous");
+    const auxiliary = await authenticatedClient("auxiliar1@prueba.local", "create-auxiliary");
+    const supervisor = await authenticatedClient("supervisor@prueba.local", "create-supervisor");
+    const admin = await authenticatedClient("administrador@prueba.local", "create-inactive-admin");
+    await expectRejectCode(createUser(anonymous), "UNAUTHENTICATED");
+    await expectRejectCode(createUser(auxiliary), "PERMISSION_DENIED");
+    await expectRejectCode(createUser(supervisor), "PERMISSION_DENIED");
+    await database().collection("usuarios").doc("uid-administrador").update({activo: false});
+    await expectRejectCode(createUser(admin), "USER_INACTIVE");
+  });
+
+  it("mapea correo duplicado y valida correo, contrasena, rol y campos adicionales", async () => {
+    const admin = await authenticatedClient("administrador@prueba.local", "create-validation");
+    await expectRejectCode(createUser(admin, {correo: "auxiliar1@prueba.local"}), "USER_EMAIL_ALREADY_EXISTS");
+    await expectRejectCode(createUser(admin, {correo: "correo-invalido"}), "USER_EMAIL_INVALID");
+    await expectRejectCode(createUser(admin, {password: "corta"}), "USER_PASSWORD_WEAK");
+    const callable = httpsCallable<Record<string, unknown>, CreateManageableUserResult>(
+      admin.functions,
+      "crearUsuarioAdministrable"
+    );
+    await expectRejectCode(callable({
+      nombreVisible: "Usuario invalido",
+      correo: "invalido-extra@prueba.local",
+      password: "Solo-Prueba-Etapa25!",
+      rol: "OPERADOR",
+      claveIdempotencia: "crear-invalido-etapa-25",
+      campoAdicional: true
+    }), "INVALID_ARGUMENT");
+  });
+
+  it("recupera el resultado idempotente sin duplicar Auth, perfil ni auditoria", async () => {
+    const admin = await authenticatedClient("administrador@prueba.local", "create-idempotency");
+    const input = {
+      nombreVisible: "Usuario idempotente ficticio",
+      correo: "usuario.idempotente@prueba.local",
+      password: "Solo-Prueba-Etapa25!",
+      rol: "AUXILIAR" as const,
+      claveIdempotencia: "crear-idempotente-etapa-25"
+    };
+    const [first, concurrent] = await Promise.all([
+      createUser(admin, input),
+      createUser(admin, input)
+    ]);
+    expect(concurrent).toEqual(first);
+    expect(await createUser(admin, input)).toEqual(first);
+    await expectRejectCode(createUser(admin, {...input, rol: "SUPERVISOR"}), "IDEMPOTENCY_CONFLICT");
+    expect((await getAdminAuth(adminApp()).getUsers([{email: input.correo}])).users).toHaveLength(1);
+    expect((await database().collection("usuarios").where("id", "==", first.usuarioId).get()).size).toBe(1);
+    expect((await database().collection("auditoria").where("recursoId", "==", first.usuarioId).get()).size).toBe(1);
+    expect((await database().collection("idempotencia")
+      .where("operacion", "==", "CREAR_USUARIO").get()).size).toBe(1);
+    expect((await database().collection("bloqueosCreacionUsuarios").get()).size).toBe(0);
+  });
+
+  it("no guarda ni devuelve la contrasena o su hash", async () => {
+    const admin = await authenticatedClient("administrador@prueba.local", "create-secret-safety");
+    const password = "Sentinela-Password-Etapa25!";
+    const result = await createUser(admin, {
+      correo: "sin-secretos@prueba.local",
+      password,
+      claveIdempotencia: "crear-sin-secretos-etapa-25"
+    });
+    const [profile, audits, idempotency, creationClaims] = await Promise.all([
+      database().collection("usuarios").doc(result.usuarioId).get(),
+      database().collection("auditoria").where("recursoId", "==", result.usuarioId).get(),
+      database().collection("idempotencia").where("operacion", "==", "CREAR_USUARIO").get(),
+      database().collection("bloqueosCreacionUsuarios").get()
+    ]);
+    const serialized = JSON.stringify({
+      result,
+      profile: profile.data(),
+      audits: audits.docs.map((item) => item.data()),
+      idempotency: idempotency.docs.map((item) => item.data()),
+      creationClaims: creationClaims.docs.map((item) => item.data())
+    });
+    const passwordHash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(password));
+    const passwordHashHex = Array.from(new Uint8Array(passwordHash), (byte) => byte.toString(16).padStart(2, "0")).join("");
+    expect(serialized).not.toContain(password);
+    expect(serialized).not.toContain(passwordHashHex);
+    expect(serialized).not.toMatch(/"password"\s*:/iu);
+    expect(creationClaims.size).toBe(0);
+  });
+
   it("lista solo datos administrativos necesarios con advertencias de trabajo activo", async () => {
     const admin = await authenticatedClient("administrador@prueba.local", "list");
     const result = await listUsers(admin);

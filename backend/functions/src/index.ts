@@ -4,6 +4,7 @@ import {HttpsError, onCall} from "firebase-functions/v2/https";
 import type {ControlledErrorCode} from "./domain/contracts.js";
 import {ActivateJourneyService} from "./domain/activateJourney.js";
 import {
+  CreateManageableUserService,
   ListManageableUsersService,
   UpdateUserRoleService,
   UpdateUserStatusService
@@ -59,6 +60,7 @@ import {
   parseCreateCatalogLineRequest,
   parseCreateCatalogLocationRequest,
   parseCreateDraftJourneyRequest,
+  parseCreateManageableUserRequest,
   parseInitiateCountCorrectionRequest,
   parseImportMigrationPackageRequest,
   parseListActiveJourneysRequest,
@@ -85,13 +87,15 @@ import {
   parseUpdateUserRoleRequest,
   parseUpdateUserStatusRequest
 } from "./domain/validation.js";
-import {firestore} from "./firebase.js";
+import {adminAuth, firestore} from "./firebase.js";
 import {assertRuntimeEnvironment} from "./runtimeEnvironment.js";
 
 function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof HttpsError>[0] {
   if (code === "UNAUTHENTICATED") return "unauthenticated";
   if ([
     "INVALID_ARGUMENT",
+    "USER_EMAIL_INVALID",
+    "USER_PASSWORD_WEAK",
     "DISCARD_TOTAL_REQUIRED",
     "DISCARD_CAUSE_REQUIRED",
     "DISCARD_CAUSE_EXCEEDS_TOTAL"
@@ -179,7 +183,7 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
   ].includes(code)) {
     return "failed-precondition";
   }
-  if (code === "IDEMPOTENCY_CONFLICT") return "already-exists";
+  if (["IDEMPOTENCY_CONFLICT", "USER_EMAIL_ALREADY_EXISTS"].includes(code)) return "already-exists";
   if (code === "ENVIRONMENT_NOT_ALLOWED") return "failed-precondition";
   if (code === "INTERNAL_ERROR") return "internal";
   if ([
@@ -224,6 +228,7 @@ const closeJourneyService = new CloseJourneyService(firestore);
 const cancelDraftJourneyService = new CancelDraftJourneyService(firestore);
 const reopenCancelledJourneyService = new ReopenCancelledJourneyService(firestore);
 const listManageableUsersService = new ListManageableUsersService(firestore);
+const createManageableUserService = new CreateManageableUserService(firestore, adminAuth);
 const updateUserStatusService = new UpdateUserStatusService(firestore);
 const updateUserRoleService = new UpdateUserRoleService(firestore);
 const listManageableCatalogService = new ListManageableCatalogService(firestore);
@@ -392,6 +397,21 @@ export const listarUsuariosAdministrables = onCall({region: "us-central1"}, asyn
   } catch (error) {
     if (error instanceof DomainError) throw toHttpsError(error);
     logger.error("Fallo interno en listarUsuariosAdministrables", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const crearUsuarioAdministrable = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertRuntimeEnvironment();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    const payload = parseCreateManageableUserRequest(request.data);
+    return await createManageableUserService.execute(payload, {actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en crearUsuarioAdministrable", {
       errorName: error instanceof Error ? error.name : "UnknownError"
     });
     throw toHttpsError(domainErrors.internal());

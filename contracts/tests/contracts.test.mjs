@@ -24,9 +24,67 @@ async function assertInvalid(schemaFilename, exampleFilename) {
 }
 
 test("compila todos los esquemas Draft 2020-12 y resuelve sus referencias", () => {
-  assert.equal(registry.entityCount, 102);
-  assert.equal(registry.schemaCount, 103);
+  assert.equal(registry.entityCount, 104);
+  assert.equal(registry.schemaCount, 105);
   assert.equal(registry.enumCount, 5);
+});
+
+test("acepta crear un usuario administrable sin exponer credenciales en el resultado", async () => {
+  await assertValid(
+    "create-manageable-user-request.schema.json",
+    "etapa-25/create-manageable-user-request.json"
+  );
+  const payload = await example("etapa-25/create-manageable-user-result.json");
+  const result = validateContract(registry, "create-manageable-user-result.schema.json", payload);
+  assert.equal(result.valid, true, JSON.stringify(result, null, 2));
+  assert.equal(Object.hasOwn(payload, "password"), false);
+  assert.equal(Object.hasOwn(payload, "correo"), false);
+});
+
+test("rechaza campos adicionales, correo invalido y password menor de ocho caracteres", async () => {
+  await assertInvalid(
+    "create-manageable-user-request.schema.json",
+    "etapa-25/create-manageable-user-request-extra-field.json"
+  );
+  await assertInvalid(
+    "create-manageable-user-request.schema.json",
+    "etapa-25/create-manageable-user-request-invalid-email.json"
+  );
+  await assertInvalid(
+    "create-manageable-user-request.schema.json",
+    "etapa-25/create-manageable-user-request-short-password.json"
+  );
+});
+
+test("rechaza cualquier password agregado al resultado de crear usuario", async () => {
+  await assertInvalid(
+    "create-manageable-user-result.schema.json",
+    "etapa-25/create-manageable-user-result-with-password.json"
+  );
+});
+
+test("acepta el resultado idempotente de CREAR_USUARIO sin secretos", async () => {
+  const payload = await example("etapa-25/idempotent-create-manageable-user-result.json");
+  const result = validateContract(registry, "resultado-idempotente.schema.json", payload);
+  assert.equal(result.valid, true, JSON.stringify(result, null, 2));
+  const serialized = JSON.stringify(payload);
+  assert.equal(serialized.includes("password"), false);
+  assert.equal(serialized.includes("correo"), false);
+});
+
+test("mantiene sincronizados los errores controlados de crear usuario", async () => {
+  await assertValid(
+    "error-controlado.schema.json",
+    "etapa-25/create-manageable-user-error-duplicate-email.json"
+  );
+  await assertValid(
+    "error-controlado.schema.json",
+    "etapa-25/create-manageable-user-error-invalid-email.json"
+  );
+  await assertValid(
+    "error-controlado.schema.json",
+    "etapa-25/create-manageable-user-error-weak-password.json"
+  );
 });
 
 test("acepta los cuatro contratos de descartes de la Etapa 23", async () => {

@@ -1,0 +1,4 @@
+{
+  "code": "USER_EMAIL_INVALID",
+  "message": "El correo electronico no tiene un formato valido."
+}

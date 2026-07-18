@@ -2,9 +2,9 @@
 
 Sistema de inventario por línea compuesto por Vivero Campo (Android), Vivero Maestro (Electron/React para Windows) y un backend transaccional en Firebase. Este repositorio es independiente y no reutiliza código del proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 24 — cierre técnico y restauración robusta de sesión
+## Estado: ETAPA 25 — creación simple de usuarios desde Vivero Maestro
 
-La ETAPA 24 congela el alcance funcional existente y corrige el arranque de Vivero Campo para distinguir ausencia de sesión, perfil verificado, perfil en caché, verificación pendiente y revocación autoritativa. La aplicación conserva Firebase Auth y el trabajo local ante falta de red, restaura reservas y borradores aislados por cuenta y dispositivo, y permite reintentar la verificación sin reiniciar. **No se ejecutó conexión a Firebase real, importación, creación de cuentas, despliegue ni puesta en producción.**
+La ETAPA 25 permite que un administrador cree desde Vivero Maestro una cuenta Firebase Auth y su perfil central, sin reemplazar la sesión administrativa. La contraseña solo viaja a Firebase Admin Auth y queda excluida de Firestore, auditoría, idempotencia, logs y respuestas. **La etapa se valida exclusivamente con Firebase Emulator Suite; no despliega Firebase ni usa cuentas reales.**
 
 | Ambiente | Proyecto | Uso | Datos |
 |---|---|---|---|
@@ -13,7 +13,7 @@ La ETAPA 24 congela el alcance funcional existente y corrige el arranque de Vive
 
 No existe `STAGING` como ambiente funcional. Firestore permanecerá en `nam5` y Functions en `us-central1`.
 
-La última auditoría remota de la ETAPA 21 encontró 11 de las 30 Callables que existían en ese momento. El inventario previo también confirmó 3 aplicaciones, 3 cuentas con perfil y referencias operativas, 41 documentos Firestore en 12 grupos —38 superiores y 3 anidados—, 5 principales IAM y 2 buckets técnicos. El propietario clasificó y eliminó exclusivamente las 3 cuentas y los 41 documentos como datos de prueba. Las aplicaciones, IAM, Functions y buckets no formaron parte de la limpieza y conservan sus decisiones anteriores. El código actual contiene 34 Callables; esta cifra no reescribe la evidencia histórica de aquella auditoría.
+La última auditoría remota de la ETAPA 21 encontró 11 de las 30 Callables que existían en ese momento. El inventario previo también confirmó 3 aplicaciones, 3 cuentas con perfil y referencias operativas, 41 documentos Firestore en 12 grupos —38 superiores y 3 anidados—, 5 principales IAM y 2 buckets técnicos. El propietario clasificó y eliminó exclusivamente las 3 cuentas y los 41 documentos como datos de prueba. Las aplicaciones, IAM, Functions y buckets no formaron parte de la limpieza y conservan sus decisiones anteriores. El código actual contiene 35 Callables; esta cifra no reescribe la evidencia histórica de aquella auditoría.
 
 La clasificación identificable, los datos reales, sus fuentes, responsables, cantidades y el paquete generado viven solo en `.private/`. El repositorio conserva únicamente reglas, validadores, fixtures ficticios y evidencia sanitizada del estado de los bloques. Un inventario inicial total cero solo es compatible con la migración cuando se confirma explícitamente que la línea está vacía; el cero no confirmado sigue bloqueado. La renuncia al backup se limitó a los datos de prueba eliminados; backups, PITR y restauración continúan pendientes antes de operar información real.
 
@@ -25,7 +25,7 @@ Cada Callable ejecuta la misma frontera antes de autenticar o procesar la solici
 - `PRODUCTION`: `FUNCTIONS_EMULATOR` distinto de `true`, Project ID exacto `viverocontrol-3f83f` y `APP_ENV=production`.
 - cualquier otra combinación se rechaza con `ENVIRONMENT_NOT_ALLOWED`.
 
-Las 34 Callables conservan autenticación, perfil activo, roles, autorización, validación, versión observada, idempotencia, concurrencia, transacciones y auditoría:
+Las 35 Callables conservan autenticación, perfil activo, roles, autorización, validación, versión observada, idempotencia, concurrencia, transacciones y auditoría:
 
 ```text
 importarPaqueteMigracion             listarImportacionesMigracion
@@ -33,11 +33,11 @@ revertirImportacionMigracion         validarPaqueteMigracion
 registrarInventarioInicial           listarCatalogoAdministrable
 crearUbicacion                       actualizarUbicacion
 crearLinea                           actualizarLinea
-listarUsuariosAdministrables        actualizarEstadoUsuario
-actualizarRolUsuario                 cancelarJornadaBorrador
-reabrirJornadaCancelada              cerrarJornada
-activarJornada                       listarParticipantesJornadaBorrador
-actualizarParticipantesJornadaBorrador
+listarUsuariosAdministrables        crearUsuarioAdministrable
+actualizarEstadoUsuario             actualizarRolUsuario
+cancelarJornadaBorrador             reabrirJornadaCancelada
+cerrarJornada                       activarJornada
+listarParticipantesJornadaBorrador  actualizarParticipantesJornadaBorrador
 crearJornadaBorrador                 actualizarLineasJornadaBorrador
 listarJornadasAdministrables         listarJornadasActivas
 reservarLinea                        enviarConteo

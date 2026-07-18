@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/create-manageable-user-request.schema.json",
+  "title": "Solicitud crearUsuarioAdministrable",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["nombreVisible", "correo", "password", "rol", "claveIdempotencia"],
+  "properties": {
+    "nombreVisible": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": ".*\\S.*"
+    },
+    "correo": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 254,
+      "format": "email"
+    },
+    "password": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128
+    },
+    "rol": {"$ref": "../enums/roles.json"},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}
+  }
+}

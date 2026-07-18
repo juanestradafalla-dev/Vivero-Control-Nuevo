@@ -1,5 +1,7 @@
 # Contratos compartidos
 
+La Etapa 25 agrega contratos estrictos para `crearUsuarioAdministrable`. La solicitud acepta exclusivamente nombre visible, correo, password, rol y clave idempotente. El resultado permite incorporar el perfil al listado administrativo sin recargar, pero nunca devuelve correo, password ni material derivado de la credencial. Los ejemplos son completamente ficticios y estan en `examples/etapa-25/`.
+
 Los JSON Schema Draft 2020-12 son el lenguaje común de Campo, Maestro y backend.
 
 La Etapa 23 agrega contratos estrictos para listar líneas disponibles, registrar, aprobar y devolver descartes. El total único se calcula exclusivamente por categorías de planta; las causas pueden superponerse, pero cada causa individual queda limitada por ese total. Solo la aprobación central descuenta inventario y una devolución nunca lo modifica. Los ejemplos ficticios están en `examples/etapa-23/`.

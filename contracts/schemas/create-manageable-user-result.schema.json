@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/create-manageable-user-result.schema.json",
+  "title": "Resultado crearUsuarioAdministrable",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "operacion",
+    "usuarioId",
+    "nombreVisible",
+    "rol",
+    "activo",
+    "version",
+    "puedeCambiarRol",
+    "resumenTrabajoActivo",
+    "creadoEn"
+  ],
+  "properties": {
+    "operacion": {"const": "USUARIO_CREADO"},
+    "usuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "nombreVisible": {"type": "string", "minLength": 1, "maxLength": 160},
+    "rol": {"$ref": "../enums/roles.json"},
+    "activo": {"const": true},
+    "version": {"const": 1},
+    "puedeCambiarRol": {"type": "boolean"},
+    "resumenTrabajoActivo": {"$ref": "user-active-work-summary.schema.json"},
+    "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

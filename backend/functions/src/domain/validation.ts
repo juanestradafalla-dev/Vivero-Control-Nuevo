@@ -7,6 +7,7 @@ import type {
   CloseJourneyRequest,
   CreateCatalogLineRequest,
   CreateCatalogLocationRequest,
+  CreateManageableUserRequest,
   InitiateCountCorrectionRequest,
   ImportMigrationPackageRequest,
   ListDraftJourneyParticipantsRequest,
@@ -80,6 +81,9 @@ const updateUserStatusFields = new Set([
 const updateUserRoleFields = new Set([
   "usuarioId", "versionEsperada", "nuevoRol", "motivo", "claveIdempotencia"
 ]);
+const createManageableUserFields = new Set([
+  "nombreVisible", "correo", "password", "rol", "claveIdempotencia"
+]);
 const createCatalogLocationFields = new Set([
   "codigo", "tipo", "ubicacionPadreId", "nombreVisible", "orden", "claveIdempotencia"
 ]);
@@ -112,6 +116,38 @@ export function parseListActiveJourneysRequest(value: unknown): void {
 
 export const parseListManageableJourneysRequest = parseListActiveJourneysRequest;
 export const parseListManageableUsersRequest = parseListActiveJourneysRequest;
+
+export function parseCreateManageableUserRequest(value: unknown): CreateManageableUserRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw domainErrors.invalidArgument();
+  }
+  const record = value as Record<string, unknown>;
+  if (
+    Object.keys(record).some((field) => !createManageableUserFields.has(field)) ||
+    typeof record.nombreVisible !== "string" ||
+    record.nombreVisible.trim().length === 0 ||
+    record.nombreVisible.trim().length > 160 ||
+    typeof record.correo !== "string" ||
+    record.correo.trim().length === 0 ||
+    record.correo.trim().length > 254 ||
+    typeof record.password !== "string" ||
+    typeof record.claveIdempotencia !== "string" ||
+    !idempotencyPattern.test(record.claveIdempotencia) ||
+    !["AUXILIAR", "SUPERVISOR", "ADMINISTRADOR"].includes(record.rol as string)
+  ) {
+    throw domainErrors.invalidArgument();
+  }
+  const correo = record.correo.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(correo)) throw domainErrors.userEmailInvalid();
+  if (record.password.length < 8 || record.password.length > 128) throw domainErrors.userPasswordWeak();
+  return {
+    nombreVisible: record.nombreVisible.trim(),
+    correo,
+    password: record.password,
+    rol: record.rol as CreateManageableUserRequest["rol"],
+    claveIdempotencia: record.claveIdempotencia
+  };
+}
 export const parseListManageableCatalogRequest = parseListActiveJourneysRequest;
 export const parseListMigrationImportsRequest = parseListActiveJourneysRequest;
 export const parseListDiscardLinesRequest = parseListActiveJourneysRequest;

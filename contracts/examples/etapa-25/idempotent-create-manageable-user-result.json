@@ -1,0 +1,25 @@
+{
+  "id": "4f4d72982c74f93ae77ee8dab6a4f61a808cf98e865ee1903fd34cc0efee2471",
+  "actorUsuarioId": "uid-administrador-ficticio-etapa-25",
+  "operacion": "CREAR_USUARIO",
+  "claveHash": "4f4d72982c74f93ae77ee8dab6a4f61a808cf98e865ee1903fd34cc0efee2471",
+  "payloadHash": "5a7d82bc38ef4d9a457c33c8cb4cc23f9216c27281422444358fb491348052e5",
+  "resultado": {
+    "operacion": "USUARIO_CREADO",
+    "usuarioId": "uid-usuario-ficticio-etapa-25",
+    "nombreVisible": "Usuario ficticio de prueba",
+    "rol": "AUXILIAR",
+    "activo": true,
+    "version": 1,
+    "puedeCambiarRol": true,
+    "resumenTrabajoActivo": {
+      "jornadasActivas": 0,
+      "reservasActivas": 0,
+      "correccionesPendientes": 0,
+      "tieneTrabajoActivo": false,
+      "bloqueosCambioRol": []
+    },
+    "creadoEn": "2026-07-18T15:00:00.000Z"
+  },
+  "creadoEn": "2026-07-18T15:00:00.000Z"
+}

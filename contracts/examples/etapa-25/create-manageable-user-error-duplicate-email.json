@@ -1,0 +1,4 @@
+{
+  "code": "USER_EMAIL_ALREADY_EXISTS",
+  "message": "Ya existe una cuenta con este correo electronico."
+}

@@ -164,6 +164,18 @@ export const domainErrors = {
     "USER_PROFILE_NO_CHANGE",
     "Selecciona un estado o rol diferente del actual."
   ),
+  userEmailAlreadyExists: () => new DomainError(
+    "USER_EMAIL_ALREADY_EXISTS",
+    "Ya existe una cuenta con este correo electronico."
+  ),
+  userEmailInvalid: () => new DomainError(
+    "USER_EMAIL_INVALID",
+    "El correo electronico no tiene un formato valido."
+  ),
+  userPasswordWeak: () => new DomainError(
+    "USER_PASSWORD_WEAK",
+    "La contrasena debe tener al menos 8 caracteres."
+  ),
   catalogLocationNotFound: () => new DomainError(
     "CATALOG_LOCATION_NOT_FOUND",
     "La ubicación del catálogo no existe."

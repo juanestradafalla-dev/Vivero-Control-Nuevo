@@ -59,6 +59,9 @@ export type ControlledErrorCode =
   | "LAST_ACTIVE_ADMIN_REQUIRED"
   | "USER_ROLE_CHANGE_BLOCKED_ACTIVE_WORK"
   | "USER_PROFILE_NO_CHANGE"
+  | "USER_EMAIL_ALREADY_EXISTS"
+  | "USER_EMAIL_INVALID"
+  | "USER_PASSWORD_WEAK"
   | "CATALOG_LOCATION_NOT_FOUND"
   | "CATALOG_LOCATION_INACTIVE"
   | "CATALOG_LINE_NOT_FOUND"
@@ -440,6 +443,19 @@ export interface ManageableUserSummary {
 
 export interface ListManageableUsersResult {
   readonly usuarios: readonly ManageableUserSummary[];
+}
+
+export interface CreateManageableUserRequest {
+  readonly nombreVisible: string;
+  readonly correo: string;
+  readonly password: string;
+  readonly rol: UserRole;
+  readonly claveIdempotencia: string;
+}
+
+export interface CreateManageableUserResult extends ManageableUserSummary {
+  readonly operacion: "USUARIO_CREADO";
+  readonly creadoEn: string;
 }
 
 export interface UpdateUserStatusRequest {

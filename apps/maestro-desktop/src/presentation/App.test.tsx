@@ -149,6 +149,9 @@ class FakeMonitorRepository implements MonitorRepository {
   activationErrors: string[] = [];
   statusUpdates: Array<{userId: string; version: number; active: boolean; reason: string; key: string}> = [];
   roleUpdates: Array<{userId: string; version: number; role: string; reason: string; key: string}> = [];
+  createdUsers: Array<{displayName: string; email: string; password: string; role: string; key: string}> = [];
+  createUserError?: Error;
+  createUserResultPromise?: Promise<ManageableUser>;
   catalogListCalls = 0;
   catalogChanged = 0;
   inventoryRegistrations: Array<{
@@ -337,6 +340,37 @@ class FakeMonitorRepository implements MonitorRepository {
   }
   async listManageableUsers(): Promise<readonly ManageableUser[]> {
     return this.manageableUsers;
+  }
+  async createManageableUser(
+    displayName: string,
+    email: string,
+    password: string,
+    role: MonitorUser["role"],
+    key: string,
+  ): Promise<ManageableUser> {
+    this.createdUsers.push({displayName, email, password, role, key});
+    if (this.createUserError) throw this.createUserError;
+    const created = this.createUserResultPromise
+      ? await this.createUserResultPromise
+      : {
+          id: `uid-creado-${this.createdUsers.length}`,
+          displayName,
+          role,
+          active: true,
+          version: 1,
+          canChangeRole: true,
+          activeWork: {
+            activeJourneys: 0,
+            activeReservations: 0,
+            pendingCorrections: 0,
+            hasActiveWork: false,
+            roleChangeBlockers: [],
+          },
+        };
+    this.manageableUsers = this.manageableUsers.some((user) => user.id === created.id)
+      ? this.manageableUsers.map((user) => user.id === created.id ? created : user)
+      : [...this.manageableUsers, created];
+    return created;
   }
   async listManageableCatalog(): Promise<ManageableCatalogData> {
     this.catalogListCalls += 1;
@@ -1484,6 +1518,125 @@ describe("jornadas en borrador de Vivero Maestro", () => {
     fireEvent.change(screen.getByLabelText("Estado"), {target: {value: "INACTIVO"}});
     expect(screen.getByText("Usuario Inactivo")).toBeInTheDocument();
     expect(screen.queryByText("Auxiliar Uno")).not.toBeInTheDocument();
+  });
+
+  it("valida todos los campos del dialogo de alta y limpia las contraseñas al cerrarlo", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.user = {
+      ...supervisor,
+      id: "uid-administrador",
+      displayName: "Administrador Pruebas",
+      role: "ADMINISTRADOR",
+      canManageUsers: true,
+    };
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Usuarios"}));
+    fireEvent.click(await screen.findByRole("button", {name: "Crear usuario"}));
+    const dialog = screen.getByRole("dialog", {name: "Crear usuario"});
+    fireEvent.click(within(dialog).getByRole("button", {name: "Crear usuario"}));
+    expect(screen.getByRole("alert")).toHaveTextContent("Completa todos los campos");
+
+    fireEvent.change(screen.getByLabelText("Nombre visible"), {target: {value: "Usuario Nuevo"}});
+    fireEvent.change(screen.getByLabelText("Correo electrónico"), {target: {value: "correo-invalido"}});
+    fireEvent.change(screen.getByLabelText("Contraseña"), {target: {value: "12345678"}});
+    fireEvent.change(screen.getByLabelText("Confirmar contraseña"), {target: {value: "12345678"}});
+    fireEvent.click(within(dialog).getByRole("button", {name: "Crear usuario"}));
+    expect(screen.getByRole("alert")).toHaveTextContent("correo electrónico válido");
+
+    fireEvent.change(screen.getByLabelText("Correo electrónico"), {target: {value: "nuevo@example.test"}});
+    fireEvent.change(screen.getByLabelText("Contraseña"), {target: {value: "1234567"}});
+    fireEvent.change(screen.getByLabelText("Confirmar contraseña"), {target: {value: "1234567"}});
+    fireEvent.click(within(dialog).getByRole("button", {name: "Crear usuario"}));
+    expect(screen.getByRole("alert")).toHaveTextContent("al menos 8 caracteres");
+
+    fireEvent.change(screen.getByLabelText("Contraseña"), {target: {value: "12345678"}});
+    fireEvent.change(screen.getByLabelText("Confirmar contraseña"), {target: {value: "87654321"}});
+    fireEvent.click(within(dialog).getByRole("button", {name: "Crear usuario"}));
+    expect(screen.getByRole("alert")).toHaveTextContent("no coinciden");
+    expect(repository.createdUsers).toHaveLength(0);
+
+    fireEvent.click(within(dialog).getByRole("button", {name: "Cancelar"}));
+    fireEvent.click(screen.getByRole("button", {name: "Crear usuario"}));
+    expect(screen.getByLabelText("Contraseña")).toHaveValue("");
+    expect(screen.getByLabelText("Confirmar contraseña")).toHaveValue("");
+  });
+
+  it("crea un usuario una sola vez, lo agrega al listado y limpia el secreto", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.user = {
+      ...supervisor,
+      id: "uid-administrador",
+      displayName: "Administrador Pruebas",
+      role: "ADMINISTRADOR",
+      canManageUsers: true,
+    };
+    let resolveCreation!: (user: ManageableUser) => void;
+    repository.createUserResultPromise = new Promise((resolve) => { resolveCreation = resolve; });
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Usuarios"}));
+    fireEvent.click(await screen.findByRole("button", {name: "Crear usuario"}));
+    const dialog = screen.getByRole("dialog", {name: "Crear usuario"});
+    fireEvent.change(within(dialog).getByLabelText("Nombre visible"), {target: {value: "Usuario Creado"}});
+    fireEvent.change(within(dialog).getByLabelText("Correo electrónico"), {target: {value: "creado@example.test"}});
+    fireEvent.change(within(dialog).getByLabelText("Contraseña"), {target: {value: "clave-ficticia-8"}});
+    fireEvent.change(within(dialog).getByLabelText("Confirmar contraseña"), {target: {value: "clave-ficticia-8"}});
+    fireEvent.change(within(dialog).getByLabelText("Rol"), {target: {value: "SUPERVISOR"}});
+    fireEvent.click(within(dialog).getByRole("button", {name: "Crear usuario"}));
+    const savingButton = screen.getByRole("button", {name: "Creando…"});
+    expect(savingButton).toBeDisabled();
+    fireEvent.click(savingButton);
+    expect(repository.createdUsers).toHaveLength(1);
+
+    resolveCreation({
+      id: "uid-creado",
+      displayName: "Usuario Creado",
+      role: "SUPERVISOR",
+      active: true,
+      version: 1,
+      canChangeRole: true,
+      activeWork: {
+        activeJourneys: 0,
+        activeReservations: 0,
+        pendingCorrections: 0,
+        hasActiveWork: false,
+        roleChangeBlockers: [],
+      },
+    });
+    expect(await screen.findByText(/Usuario Usuario Creado creado como Supervisor/)).toBeInTheDocument();
+    expect(screen.getByText("Usuario Creado")).toBeInTheDocument();
+    expect(repository.createdUsers[0]).toMatchObject({
+      displayName: "Usuario Creado",
+      email: "creado@example.test",
+      role: "SUPERVISOR",
+    });
+    fireEvent.click(screen.getByRole("button", {name: "Crear usuario"}));
+    expect(screen.getByLabelText("Contraseña")).toHaveValue("");
+    expect(screen.getByLabelText("Confirmar contraseña")).toHaveValue("");
+  });
+
+  it("muestra el error controlado de correo duplicado y conserva el dialogo para corregir", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.user = {
+      ...supervisor,
+      id: "uid-administrador",
+      displayName: "Administrador Pruebas",
+      role: "ADMINISTRADOR",
+      canManageUsers: true,
+    };
+    repository.createUserError = new Error("El correo ya está registrado.");
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Usuarios"}));
+    fireEvent.click(await screen.findByRole("button", {name: "Crear usuario"}));
+    const dialog = screen.getByRole("dialog", {name: "Crear usuario"});
+    fireEvent.change(within(dialog).getByLabelText("Nombre visible"), {target: {value: "Usuario Repetido"}});
+    fireEvent.change(within(dialog).getByLabelText("Correo electrónico"), {target: {value: "repetido@example.test"}});
+    fireEvent.change(within(dialog).getByLabelText("Contraseña"), {target: {value: "clave-ficticia-8"}});
+    fireEvent.change(within(dialog).getByLabelText("Confirmar contraseña"), {target: {value: "clave-ficticia-8"}});
+    fireEvent.click(within(dialog).getByRole("button", {name: "Crear usuario"}));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("correo ya está registrado");
+    expect(screen.getByRole("dialog", {name: "Crear usuario"})).toBeInTheDocument();
+    expect(screen.getByLabelText("Contraseña")).toHaveValue("clave-ficticia-8");
   });
 
   it("desactiva con advertencia, motivo, confirmacion y version refrescada", async () => {

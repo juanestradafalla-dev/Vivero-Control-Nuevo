@@ -1,8 +1,17 @@
 import {createHash, randomUUID} from "node:crypto";
 
-import {Timestamp, type DocumentSnapshot, type Firestore, type Transaction} from "firebase-admin/firestore";
+import type {Auth} from "firebase-admin/auth";
+import {
+  Timestamp,
+  type DocumentReference,
+  type DocumentSnapshot,
+  type Firestore,
+  type Transaction
+} from "firebase-admin/firestore";
 
 import type {
+  CreateManageableUserRequest,
+  CreateManageableUserResult,
   ListManageableUsersResult,
   ManageableUserSummary,
   TrustedOperationContext,
@@ -42,6 +51,13 @@ interface IdempotencyDocument<Result> {
   readonly payloadHash?: string;
   readonly resultado?: Result;
 }
+
+interface UserCreationClaimDocument {
+  readonly payloadHash?: string;
+  readonly propietarioIntentoId?: string;
+}
+
+type UserCreationAuth = Pick<Auth, "createUser" | "deleteUser" | "getUser">;
 
 function sha256(value: string): string {
   return createHash("sha256").update(value, "utf8").digest("hex");
@@ -109,6 +125,239 @@ function manageableUser(
     puedeCambiarRol: work.bloqueosCambioRol.length === 0,
     resumenTrabajoActivo: work
   };
+}
+
+function emptyWorkSummary(): UserActiveWorkSummary {
+  return activeWorkSummary(0, 0, 0);
+}
+
+function authErrorCode(error: unknown): string | null {
+  if (typeof error !== "object" || error === null || !("code" in error)) return null;
+  return typeof error.code === "string" ? error.code : null;
+}
+
+function mapUserCreationAuthError(error: unknown): never {
+  const code = authErrorCode(error);
+  if (code === "auth/email-already-exists") throw domainErrors.userEmailAlreadyExists();
+  if (code === "auth/invalid-email") throw domainErrors.userEmailInvalid();
+  if (code === "auth/invalid-password" || code === "auth/password-does-not-meet-requirements") {
+    throw domainErrors.userPasswordWeak();
+  }
+  throw domainErrors.internal();
+}
+
+function deterministicUserId(idempotencyId: string): string {
+  return `et25-${idempotencyId}`;
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+export class CreateManageableUserService {
+  constructor(
+    private readonly firestore: Firestore,
+    private readonly auth: UserCreationAuth
+  ) {}
+
+  async execute(
+    request: CreateManageableUserRequest,
+    context: TrustedOperationContext
+  ): Promise<CreateManageableUserResult> {
+    const idempotencyId = sha256(`${context.actorId}:CREAR_USUARIO:${request.claveIdempotencia}`);
+    // La contrasena se excluye deliberadamente: no se persiste ni siquiera un hash derivado de ella.
+    const payloadHash = sha256(JSON.stringify({
+      nombreVisible: request.nombreVisible,
+      correo: request.correo,
+      rol: request.rol
+    }));
+    const idempotencyRef = this.firestore.collection("idempotencia").doc(idempotencyId);
+    const claimRef = this.firestore.collection("bloqueosCreacionUsuarios").doc(idempotencyId);
+    const attemptId = randomUUID();
+    const targetUserId = deterministicUserId(idempotencyId);
+
+    const claim = await this.firestore.runTransaction(async (transaction) => {
+      const [actorSnapshot, idempotencySnapshot, claimSnapshot] = await transaction.getAll(
+        this.firestore.collection("usuarios").doc(context.actorId),
+        idempotencyRef,
+        claimRef
+      );
+      if (!actorSnapshot || !idempotencySnapshot || !claimSnapshot) throw domainErrors.internal();
+      assertActiveAdmin(actorSnapshot);
+      if (idempotencySnapshot.exists) {
+        const previous = idempotencySnapshot.data() as IdempotencyDocument<CreateManageableUserResult>;
+        if (previous.payloadHash !== payloadHash) throw domainErrors.idempotencyConflict();
+        if (!previous.resultado) throw domainErrors.internal();
+        return {owner: false, result: previous.resultado};
+      }
+      if (claimSnapshot.exists) {
+        const previousClaim = claimSnapshot.data() as UserCreationClaimDocument;
+        if (previousClaim.payloadHash !== payloadHash) throw domainErrors.idempotencyConflict();
+        return {owner: false, result: null};
+      }
+      transaction.create(claimRef, {
+        id: idempotencyId,
+        actorUsuarioId: context.actorId,
+        operacion: "CREAR_USUARIO",
+        propietarioIntentoId: attemptId,
+        usuarioIdObjetivo: targetUserId,
+        payloadHash,
+        creadoEn: Timestamp.now()
+      });
+      return {owner: true, result: null};
+    });
+    if (claim.result) return claim.result;
+    if (!claim.owner) {
+      for (let attempt = 0; attempt < 40; attempt += 1) {
+        await delay(Math.min(25 * (attempt + 1), 250));
+        const concurrent = await idempotencyRef.get();
+        if (concurrent.exists) {
+          const previous = concurrent.data() as IdempotencyDocument<CreateManageableUserResult>;
+          if (previous.payloadHash !== payloadHash) throw domainErrors.idempotencyConflict();
+          if (previous.resultado) return previous.resultado;
+        } else if (!(await claimRef.get()).exists) {
+          break;
+        }
+      }
+      throw domainErrors.internal();
+    }
+
+    let createdAuthThisAttempt = false;
+    try {
+      await this.auth.createUser({
+        uid: targetUserId,
+        email: request.correo,
+        password: request.password,
+        displayName: request.nombreVisible,
+        disabled: false,
+        emailVerified: false
+      });
+      createdAuthThisAttempt = true;
+    } catch (error) {
+      const code = authErrorCode(error);
+      if (code === "auth/email-already-exists" || code === "auth/uid-already-exists") {
+        let existing;
+        try {
+          existing = await this.auth.getUser(targetUserId);
+        } catch (lookupError) {
+          await this.removePendingClaim(claimRef, attemptId);
+          if (authErrorCode(lookupError) === "auth/user-not-found") mapUserCreationAuthError(error);
+          throw domainErrors.internal();
+        }
+        if (
+          existing.email === request.correo &&
+          existing.displayName === request.nombreVisible &&
+          existing.disabled === false &&
+          existing.emailVerified === false
+        ) {
+          createdAuthThisAttempt = false;
+        } else {
+          await this.removePendingClaim(claimRef, attemptId);
+          mapUserCreationAuthError(error);
+        }
+      } else {
+        await this.removePendingClaim(claimRef, attemptId);
+        mapUserCreationAuthError(error);
+      }
+    }
+
+    try {
+      const outcome = await this.firestore.runTransaction(async (transaction) => {
+        const actorRef = this.firestore.collection("usuarios").doc(context.actorId);
+        const targetRef = this.firestore.collection("usuarios").doc(targetUserId);
+        const [actorSnapshot, targetSnapshot, idempotencySnapshot, claimSnapshot] = await transaction.getAll(
+          actorRef,
+          targetRef,
+          idempotencyRef,
+          claimRef
+        );
+        if (!actorSnapshot || !targetSnapshot || !idempotencySnapshot || !claimSnapshot) {
+          throw domainErrors.internal();
+        }
+        assertActiveAdmin(actorSnapshot);
+        if (idempotencySnapshot.exists) {
+          const previous = idempotencySnapshot.data() as IdempotencyDocument<CreateManageableUserResult>;
+          if (previous.payloadHash !== payloadHash) throw domainErrors.idempotencyConflict();
+          if (previous.resultado) return previous.resultado;
+          throw domainErrors.internal();
+        }
+        if (!claimSnapshot.exists) throw domainErrors.internal();
+        const currentClaim = claimSnapshot.data() as UserCreationClaimDocument;
+        if (currentClaim.payloadHash !== payloadHash || currentClaim.propietarioIntentoId !== attemptId) {
+          throw domainErrors.internal();
+        }
+        if (targetSnapshot.exists) throw domainErrors.internal();
+
+        const now = Timestamp.now();
+        const work = emptyWorkSummary();
+        const result: CreateManageableUserResult = {
+          usuarioId: targetUserId,
+          nombreVisible: request.nombreVisible,
+          rol: request.rol,
+          activo: true,
+          version: 1,
+          puedeCambiarRol: true,
+          resumenTrabajoActivo: work,
+          operacion: "USUARIO_CREADO",
+          creadoEn: now.toDate().toISOString()
+        };
+        const auditId = randomUUID();
+        transaction.create(targetRef, {
+          id: targetUserId,
+          nombreVisible: request.nombreVisible,
+          roles: [request.rol],
+          activo: true,
+          version: 1,
+          creadoEn: now,
+          actualizadoEn: now
+        });
+        transaction.create(this.firestore.collection("auditoria").doc(auditId), {
+          id: auditId,
+          tipo: "CREAR_USUARIO",
+          actorUsuarioId: context.actorId,
+          recursoTipo: "USUARIO",
+          recursoId: targetUserId,
+          claveIdempotencia: request.claveIdempotencia,
+          ocurridoEn: now,
+          metadatos: {rol: request.rol, version: 1, payloadHash}
+        });
+        transaction.create(idempotencyRef, {
+          id: idempotencyId,
+          actorUsuarioId: context.actorId,
+          operacion: "CREAR_USUARIO",
+          claveHash: idempotencyId,
+          payloadHash,
+          resultado: result,
+          creadoEn: now
+        });
+        transaction.delete(claimRef);
+        return result;
+      });
+      return outcome;
+    } catch (error) {
+      if (createdAuthThisAttempt) {
+        try {
+          await this.auth.deleteUser(targetUserId);
+        } catch {
+          throw domainErrors.internal();
+        }
+      }
+      await this.removePendingClaim(claimRef, attemptId);
+      throw error;
+    }
+  }
+
+  private async removePendingClaim(
+    claimRef: DocumentReference,
+    attemptId: string
+  ): Promise<void> {
+    await this.firestore.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(claimRef);
+      if (!snapshot.exists) return;
+      const current = snapshot.data() as UserCreationClaimDocument;
+      if (current.propietarioIntentoId === attemptId) transaction.delete(claimRef);
+    });
+  }
 }
 
 async function readActiveWorkInTransaction(

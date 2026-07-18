@@ -1,0 +1,7 @@
+{
+  "nombreVisible": "Usuario ficticio de prueba",
+  "correo": "usuario.nuevo@prueba.local",
+  "password": "Clave-Ficticia-25!",
+  "rol": "AUXILIAR",
+  "claveIdempotencia": "crear-usuario-etapa-25-0001"
+}

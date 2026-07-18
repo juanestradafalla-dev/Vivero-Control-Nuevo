@@ -18,6 +18,16 @@ interface UserDialog {
   readonly attempted: boolean;
 }
 
+interface CreateUserDialog {
+  readonly displayName: string;
+  readonly email: string;
+  readonly password: string;
+  readonly passwordConfirmation: string;
+  readonly role: MonitorRole;
+  readonly idempotencyKey: string;
+  readonly attempted: boolean;
+}
+
 const roleLabels: Record<MonitorRole, string> = {
   AUXILIAR: "Auxiliar",
   SUPERVISOR: "Supervisor",
@@ -44,6 +54,7 @@ export function UsersSection({repository, currentUser}: UsersSectionProps) {
   const [roleFilter, setRoleFilter] = useState<"TODOS" | MonitorRole>("TODOS");
   const [stateFilter, setStateFilter] = useState<"TODOS" | "ACTIVO" | "INACTIVO">("TODOS");
   const [dialog, setDialog] = useState<UserDialog>();
+  const [createDialog, setCreateDialog] = useState<CreateUserDialog>();
 
   const loadUsers = async () => {
     setLoading(true);
@@ -71,6 +82,7 @@ export function UsersSection({repository, currentUser}: UsersSectionProps) {
   const openStatus = (user: ManageableUser) => {
     setError(undefined);
     setNotice(undefined);
+    setCreateDialog(undefined);
     setDialog({
       kind: "STATUS",
       user,
@@ -85,6 +97,7 @@ export function UsersSection({repository, currentUser}: UsersSectionProps) {
   const openRole = (user: ManageableUser) => {
     setError(undefined);
     setNotice(undefined);
+    setCreateDialog(undefined);
     setDialog({
       kind: "ROLE",
       user,
@@ -103,6 +116,87 @@ export function UsersSection({repository, currentUser}: UsersSectionProps) {
       idempotencyKey: current.attempted ? crypto.randomUUID() : current.idempotencyKey,
       attempted: false,
     }));
+  };
+
+  const openCreate = () => {
+    setError(undefined);
+    setNotice(undefined);
+    setDialog(undefined);
+    setCreateDialog({
+      displayName: "",
+      email: "",
+      password: "",
+      passwordConfirmation: "",
+      role: "AUXILIAR",
+      idempotencyKey: crypto.randomUUID(),
+      attempted: false,
+    });
+  };
+
+  const updateCreateDialog = (
+    changes: Partial<Pick<CreateUserDialog, "displayName" | "email" | "password" | "passwordConfirmation" | "role">>,
+  ) => {
+    setCreateDialog((current) => current && ({
+      ...current,
+      ...changes,
+      idempotencyKey: current.attempted ? crypto.randomUUID() : current.idempotencyKey,
+      attempted: false,
+    }));
+  };
+
+  const submitCreate = async () => {
+    if (!createDialog || saving) return;
+    const displayName = createDialog.displayName.trim();
+    const email = createDialog.email.trim();
+    if (!displayName || !email || !createDialog.password || !createDialog.passwordConfirmation) {
+      setError("Completa todos los campos para crear el usuario.");
+      return;
+    }
+    if (displayName.length > 160) {
+      setError("El nombre visible no puede superar 160 caracteres.");
+      return;
+    }
+    if (email.length > 254) {
+      setError("El correo electrónico no puede superar 254 caracteres.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Escribe un correo electrónico válido.");
+      return;
+    }
+    if (createDialog.password.length < 8) {
+      setError("La contraseña debe tener al menos 8 caracteres.");
+      return;
+    }
+    if (createDialog.password.length > 128) {
+      setError("La contraseña no puede superar 128 caracteres.");
+      return;
+    }
+    if (createDialog.password !== createDialog.passwordConfirmation) {
+      setError("La contraseña y su confirmación no coinciden.");
+      return;
+    }
+    setSaving(true);
+    setError(undefined);
+    setCreateDialog({...createDialog, displayName, email, attempted: true});
+    try {
+      const created = await repository.createManageableUser(
+        displayName,
+        email,
+        createDialog.password,
+        createDialog.role,
+        createDialog.idempotencyKey,
+      );
+      setUsers((current) => current.some((user) => user.id === created.id)
+        ? current.map((user) => user.id === created.id ? created : user)
+        : [...current, created]);
+      setNotice(`Usuario ${created.displayName} creado como ${roleLabels[created.role]}.`);
+      setCreateDialog(undefined);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "No fue posible crear el usuario.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const submit = async () => {
@@ -155,13 +249,16 @@ export function UsersSection({repository, currentUser}: UsersSectionProps) {
     <section className="monitor users-section" aria-labelledby="users-title">
       <div className="monitor-heading">
         <div>
-          <p className="eyebrow">ETAPA 15</p>
+          <p className="eyebrow">ETAPA 25</p>
           <h1 id="users-title">Usuarios</h1>
-          <p>Perfiles centrales del emulador. Firebase Auth no se modifica desde esta sección.</p>
+          <p>Cuentas de acceso y perfiles centrales administrados sin reemplazar la sesión actual.</p>
         </div>
-        <button className="button button--secondary" type="button" onClick={() => void loadUsers()} disabled={loading}>
-          Actualizar
-        </button>
+        <div className="user-card__actions">
+          <button className="button" type="button" onClick={openCreate}>Crear usuario</button>
+          <button className="button button--secondary" type="button" onClick={() => void loadUsers()} disabled={loading}>
+            Actualizar
+          </button>
+        </div>
       </div>
 
       <div className="monitor-filters users-filters">
@@ -290,6 +387,83 @@ export function UsersSection({repository, currentUser}: UsersSectionProps) {
               </button>
               <button className="button" type="button" onClick={() => void submit()} disabled={saving}>
                 {saving ? "Guardando…" : "Confirmar cambio"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {createDialog && (
+        <div className="dialog-backdrop">
+          <section className="review-dialog" role="dialog" aria-modal="true" aria-labelledby="create-user-title">
+            <h2 id="create-user-title">Crear usuario</h2>
+            <p>La cuenta podrá iniciar sesión inmediatamente; no se enviará correo de verificación.</p>
+            <label>
+              Nombre visible
+              <input
+                autoComplete="name"
+                maxLength={160}
+                required
+                value={createDialog.displayName}
+                onChange={(event) => updateCreateDialog({displayName: event.target.value})}
+              />
+            </label>
+            <label>
+              Correo electrónico
+              <input
+                autoComplete="username"
+                maxLength={254}
+                required
+                type="email"
+                value={createDialog.email}
+                onChange={(event) => updateCreateDialog({email: event.target.value})}
+              />
+            </label>
+            <label>
+              Contraseña
+              <input
+                autoComplete="new-password"
+                maxLength={128}
+                required
+                type="password"
+                value={createDialog.password}
+                onChange={(event) => updateCreateDialog({password: event.target.value})}
+              />
+            </label>
+            <label>
+              Confirmar contraseña
+              <input
+                autoComplete="new-password"
+                maxLength={128}
+                required
+                type="password"
+                value={createDialog.passwordConfirmation}
+                onChange={(event) => updateCreateDialog({passwordConfirmation: event.target.value})}
+              />
+            </label>
+            <label>
+              Rol
+              <select
+                required
+                value={createDialog.role}
+                onChange={(event) => updateCreateDialog({role: event.target.value as MonitorRole})}
+              >
+                <option value="AUXILIAR">Auxiliar</option>
+                <option value="SUPERVISOR">Supervisor</option>
+                <option value="ADMINISTRADOR">Administrador</option>
+              </select>
+            </label>
+            <div className="dialog-actions">
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={() => setCreateDialog(undefined)}
+                disabled={saving}
+              >
+                Cancelar
+              </button>
+              <button className="button" type="button" onClick={() => void submitCreate()} disabled={saving}>
+                {saving ? "Creando…" : "Crear usuario"}
               </button>
             </div>
           </section>

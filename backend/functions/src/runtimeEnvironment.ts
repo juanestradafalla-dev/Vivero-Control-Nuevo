@@ -14,6 +14,7 @@ export const CALLABLE_NAMES = Object.freeze([
   "crearLinea",
   "actualizarLinea",
   "listarUsuariosAdministrables",
+  "crearUsuarioAdministrable",
   "actualizarEstadoUsuario",
   "actualizarRolUsuario",
   "cancelarJornadaBorrador",

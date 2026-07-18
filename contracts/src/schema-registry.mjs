@@ -107,7 +107,9 @@ export const expectedSchemas = [
   "approve-discard-request.schema.json",
   "approve-discard-result.schema.json",
   "return-discard-request.schema.json",
-  "return-discard-result.schema.json"
+  "return-discard-result.schema.json",
+  "create-manageable-user-request.schema.json",
+  "create-manageable-user-result.schema.json"
 ];
 
 export const expectedEnums = new Map([

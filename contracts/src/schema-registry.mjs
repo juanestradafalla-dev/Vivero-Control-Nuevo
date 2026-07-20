@@ -122,7 +122,15 @@ export const expectedSchemas = [
   "list-inventory-reports-request.schema.json",
   "list-inventory-reports-result.schema.json",
   "retry-inventory-report-request.schema.json",
-  "retry-inventory-report-result.schema.json"
+  "retry-inventory-report-result.schema.json",
+  "start-google-drive-oauth-request.schema.json",
+  "start-google-drive-oauth-result.schema.json",
+  "complete-google-drive-oauth-request.schema.json",
+  "complete-google-drive-oauth-result.schema.json",
+  "google-drive-connection-status-request.schema.json",
+  "google-drive-connection-status-result.schema.json",
+  "revoke-google-drive-oauth-request.schema.json",
+  "revoke-google-drive-oauth-result.schema.json"
 ];
 
 export const expectedEnums = new Map([

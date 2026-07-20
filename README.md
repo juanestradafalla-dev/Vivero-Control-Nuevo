@@ -2,9 +2,9 @@
 
 Sistema de inventario por línea compuesto por Vivero Campo (Android), Vivero Maestro (Electron/React para Windows) y un backend transaccional en Firebase. Este repositorio es independiente y no reutiliza código del proyecto anterior `Vivero-Control`.
 
-## Estado: ETAPA 26 — informe mensual de inventario y subida automática a Google Drive
+## Estado: ETAPA 27B — autorización OAuth limitada para Google Drive
 
-La ETAPA 26 extiende las jornadas existentes con una configuración mensual opcional y un cierre durable para jornadas de hasta 400 líneas. `cerrarJornada` valida y congela el alcance, cambia `ACTIVA` a `CERRANDO` y crea un trabajo determinista. Un trigger procesa líneas, ocupaciones y autorizaciones en lotes reanudables de 100; solo la transacción final cambia a `INACTIVA`, completa idempotencia y auditoría y crea exactamente un informe `PENDIENTE`. Otro procesador genera el XLSX y lo entrega mediante un adaptador de Google Drive idempotente. **La etapa conserva estado `NO-GO`: no despliega Firebase, no escribe en Drive real ni usa datos reales.**
+La ETAPA 27B conserva el cierre durable y el generador XLSX de la ETAPA 26, pero reemplaza la autenticación de Drive mediante cuenta de servicio por OAuth de usuario con Authorization Code, PKCE S256, navegador del sistema, Google Picker y alcance exclusivo `drive.file`. Un administrador selecciona explícitamente la plantilla y la carpeta; el backend valida la cuenta configurada y guarda el refresh token únicamente en Secret Manager. **La etapa conserva estado `NO-GO`: no despliega Firebase, no configura OAuth remoto, no escribe en Drive real ni almacena tokens reales.**
 
 | Ambiente | Proyecto | Uso | Datos |
 |---|---|---|---|
@@ -13,7 +13,7 @@ La ETAPA 26 extiende las jornadas existentes con una configuración mensual opci
 
 No existe `STAGING` como ambiente funcional. Firestore permanecerá en `nam5` y Functions en `us-central1`.
 
-La última auditoría remota de la ETAPA 21 encontró 11 de las 30 Callables que existían en ese momento. El inventario previo también confirmó 3 aplicaciones, 3 cuentas con perfil y referencias operativas, 41 documentos Firestore en 12 grupos —38 superiores y 3 anidados—, 5 principales IAM y 2 buckets técnicos. El propietario clasificó y eliminó exclusivamente las 3 cuentas y los 41 documentos como datos de prueba. Las aplicaciones, IAM, Functions y buckets no formaron parte de la limpieza y conservan sus decisiones anteriores. El código actual contiene 38 Callables y dos procesadores Firestore —cierre e informes—; esta cifra no reescribe la evidencia histórica de aquella auditoría.
+La última auditoría remota de la ETAPA 21 encontró 11 de las 30 Callables que existían en ese momento. El inventario previo también confirmó 3 aplicaciones, 3 cuentas con perfil y referencias operativas, 41 documentos Firestore en 12 grupos —38 superiores y 3 anidados—, 5 principales IAM y 2 buckets técnicos. El propietario clasificó y eliminó exclusivamente las 3 cuentas y los 41 documentos como datos de prueba. Las aplicaciones, IAM, Functions y buckets no formaron parte de la limpieza y conservan sus decisiones anteriores. El código actual contiene 42 Callables y dos procesadores Firestore —cierre e informes—; esta cifra no reescribe la evidencia histórica de aquella auditoría.
 
 La clasificación identificable, los datos reales, sus fuentes, responsables, cantidades y el paquete generado viven solo en `.private/`. El repositorio conserva únicamente reglas, validadores, fixtures ficticios y evidencia sanitizada del estado de los bloques. Un inventario inicial total cero solo es compatible con la migración cuando se confirma explícitamente que la línea está vacía; el cero no confirmado sigue bloqueado. La renuncia al backup se limitó a los datos de prueba eliminados; backups, PITR y restauración continúan pendientes antes de operar información real. Una línea ligada a una jornada `CERRANDO` permanece lógicamente ocupada aunque su documento de ocupación ya haya sido eliminado por un lote intermedio.
 
@@ -25,7 +25,7 @@ Cada Callable ejecuta la misma frontera antes de autenticar o procesar la solici
 - `PRODUCTION`: `FUNCTIONS_EMULATOR` distinto de `true`, Project ID exacto `viverocontrol-3f83f` y `APP_ENV=production`.
 - cualquier otra combinación se rechaza con `ENVIRONMENT_NOT_ALLOWED`.
 
-Las 38 Callables conservan autenticación, perfil activo, roles, autorización, validación, versión observada, idempotencia, concurrencia, transacciones y auditoría:
+Las 42 Callables conservan autenticación, perfil activo, roles, autorización, validación, versión observada, idempotencia, concurrencia, transacciones y auditoría:
 
 ```text
 importarPaqueteMigracion             listarImportacionesMigracion
@@ -47,6 +47,8 @@ aprobarConteo                       devolverConteo
 listarLineasDescarte                registrarDescarte
 aprobarDescarte                     devolverDescarte
 listarInformesInventario            reintentarInformeInventario
+iniciarConexionGoogleDrive         completarConexionGoogleDrive
+obtenerEstadoConexionGoogleDrive   revocarConexionGoogleDrive
 ```
 
 `procesarCierreJornada` y `procesarInformeInventario` son triggers Firestore Gen 2, no Callables. El primero reclama `trabajosCierreJornada/{jornadaId}` con lease de 15 minutos, conserva cursor, progreso, intentos y error sanitizado, y completa un lote de hasta 100 elementos por entrega. El segundo reclama informes `PENDIENTE` y en Emulator Suite usa exclusivamente un adaptador `fake` sin red.
@@ -75,6 +77,7 @@ Importación, reversión, inventario inicial, catálogo y usuarios continúan re
 - la interfaz muestra conteos, descartes pendientes, revisiones, correcciones, jornadas, usuarios, catálogo, inventario inicial y migración según el rol central.
 - la creación de borradores admite periodo y fuente del informe; el cierre muestra `CERRANDO`, fase y progreso, y permite recuperación manual autorizada ante error o lease vencido;
 - el panel de informes permite consultar estados y reintentar errores autorizados una vez que el cierre final crea el informe único.
+- solo un administrador puede conectar, seleccionar recursos, reconectar o revocar Google Drive; Electron abre `accounts.google.com` en el navegador del sistema y recibe el retorno únicamente en un listener efímero `127.0.0.1` protegido con `state`, nonce y PKCE.
 - Electron Builder queda preparado como `com.arles.viveromaestro`, `Vivero Maestro` y `Vivero-Maestro-Setup-${version}.${ext}`; esta etapa no genera el instalador.
 
 ## Seguridad
@@ -86,6 +89,8 @@ Importación, reversión, inventario inicial, catálogo y usuarios continúan re
 - no se usa `allow read, write: if true`, puertas traseras ni credenciales versionadas.
 - las pruebas de backend y reglas solo usan Emulator Suite.
 - Emulator Suite y CI fuerzan `GOOGLE_DRIVE_INVENTORY_MODE=fake`; ningún cliente recibe credenciales o llama directamente a Drive.
+- `configuracionesIntegraciones` y `sesionesOAuthDrive` niegan toda lectura y escritura directa; las respuestas administrativas nunca contienen tokens ni IDs seleccionados.
+- el refresh token vive exclusivamente como versión de un secreto de Secret Manager; una identidad dedicada agrega versiones y otra identidad dedicada puede leer el secreto para generar informes.
 - CI no contiene despliegues, firmas, cuentas ni identificadores Web reales.
 
 ## Verificación local
@@ -160,10 +165,13 @@ APP_ENV=production
 
 Ese archivo no se crea ni se versiona en esta etapa. Consulte los README de [Vivero Campo](apps/campo-android/README.md) y [Vivero Maestro](apps/maestro-desktop/README.md) para las variables locales de cada cliente.
 
-El despliegue posterior del procesador requiere configurar únicamente en Functions `GOOGLE_DRIVE_INVENTORY_MODE=google`, `GOOGLE_DRIVE_INVENTORY_FOLDER_ID` y `GOOGLE_DRIVE_INVENTORY_TEMPLATE_FILE_ID`, habilitar Drive API y compartir carpeta/plantilla con la identidad de ejecución. Consulte [la guía de Google Drive](docs/arquitectura/GOOGLE_DRIVE_INVENTARIO_ETAPA_26.md).
+El despliegue posterior requiere publicar la pantalla de consentimiento, crear un cliente OAuth de tipo Desktop, habilitar Drive, Picker y Secret Manager, crear dos identidades de ejecución dedicadas y un secreto sin valor inicial. La plantilla y la carpeta ya no se configuran por ID: el usuario autorizado las selecciona mediante Google Picker. Consulte [la guía OAuth de Google Drive](docs/arquitectura/GOOGLE_DRIVE_OAUTH_ETAPA_27.md).
 
 ## Documentación vigente
 
+- [Criterios de aceptación de la ETAPA 27B](docs/ETAPA_27_CRITERIOS_DE_ACEPTACION.md)
+- [OAuth de usuario para Google Drive](docs/arquitectura/GOOGLE_DRIVE_OAUTH_ETAPA_27.md)
+- [Pruebas de la ETAPA 27B](docs/pruebas/PRUEBAS_ETAPA_27.md)
 - [Criterios de aceptación de la ETAPA 26](docs/ETAPA_26_CRITERIOS_DE_ACEPTACION.md)
 - [Arquitectura del informe mensual](docs/arquitectura/INFORMES_INVENTARIO_ETAPA_26.md)
 - [Configuración segura de Google Drive](docs/arquitectura/GOOGLE_DRIVE_INVENTARIO_ETAPA_26.md)
@@ -195,4 +203,4 @@ El despliegue posterior del procesador requiere configurar únicamente en Functi
 
 ## Fuera de alcance
 
-No se despliega Firebase, no se escribe en Google Drive real, no se crean cuentas o Apps reales, no se cargan datos, no se generan llaves de firma, APK firmados ni instaladores definitivos, y no se modifica o fusiona directamente `main`. La validación visual con la plantilla real ya fue completada; Drive API, permisos efectivos de carpeta/plantilla, configuración productiva, respaldo restaurable y autorización expresa de despliegue continúan pendientes. La etapa permanece `NO-GO`.
+No se despliega Firebase, no se escribe en Google Drive real, no se crea el cliente OAuth, no se guardan tokens reales, no se cambia IAM y no se cargan datos. La publicación de consentimiento, APIs, cliente Desktop, identidades, secreto, variables, despliegue y primera conexión siguen siendo acciones manuales posteriores. El primer backup todavía no estaba `READY` en la comprobación única autorizada. La etapa permanece `NO-GO`.

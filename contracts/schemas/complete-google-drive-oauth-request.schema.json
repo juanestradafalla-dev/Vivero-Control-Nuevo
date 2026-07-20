@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/complete-google-drive-oauth-request.schema.json",
+  "title": "Finalizacion OAuth y Picker de Google Drive",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["estado", "codigoAutorizacion", "verificadorCodigo", "uriRedireccion", "idsSeleccionados", "alcanceConcedido"],
+  "properties": {
+    "estado": {"type": "string", "minLength": 70, "maxLength": 300},
+    "codigoAutorizacion": {"type": "string", "minLength": 8, "maxLength": 2048},
+    "verificadorCodigo": {"type": "string", "pattern": "^[A-Za-z0-9._~-]{43,128}$"},
+    "uriRedireccion": {
+      "type": "string",
+      "pattern": "^http://127\\.0\\.0\\.1:[0-9]{4,5}/$"
+    },
+    "idsSeleccionados": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {"type": "string", "minLength": 1, "maxLength": 240}
+    },
+    "alcanceConcedido": {"const": "https://www.googleapis.com/auth/drive.file"}
+  }
+}

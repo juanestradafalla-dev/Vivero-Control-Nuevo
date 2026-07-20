@@ -14,6 +14,7 @@ import type {
   VisibleLocation
 } from "./contracts.js";
 import {domainErrors} from "./errors.js";
+import {DriveOAuthInvalidGrantError} from "./driveOAuth.js";
 import {
   createInventoryReportDriveGatewayFromEnvironment,
   InventoryReportDriveConfigurationError,
@@ -763,15 +764,22 @@ function sanitizedMessage(error: unknown): string {
   if (error instanceof InventoryReportDriveConfigurationError) {
     return "La configuracion central de Drive no permite procesar el informe.";
   }
+  if (error instanceof DriveOAuthInvalidGrantError) {
+    return "La autorizacion de Drive expiro o fue revocada. Reconecta la cuenta desde Maestro.";
+  }
   return "No fue posible completar la operacion con Drive. Reintenta el informe.";
 }
 
 export class ProcessInventoryReportService {
+  private readonly gatewayFactory: () => Promise<InventoryReportDriveGateway>;
+
   constructor(
     private readonly firestore: Firestore,
-    private readonly gatewayFactory: () => Promise<InventoryReportDriveGateway> =
-      createInventoryReportDriveGatewayFromEnvironment
-  ) {}
+    gatewayFactory?: () => Promise<InventoryReportDriveGateway>
+  ) {
+    this.gatewayFactory = gatewayFactory ??
+      (() => createInventoryReportDriveGatewayFromEnvironment(this.firestore));
+  }
 
   private async claim(reportId: string): Promise<ClaimedReport | undefined> {
     const processingId = randomUUID();
@@ -840,7 +848,9 @@ export class ProcessInventoryReportService {
     const permanent = error instanceof InventoryReportPermanentError;
     const code = error instanceof InventoryReportPermanentError
       ? error.code
-      : error instanceof InventoryReportDriveConfigurationError
+      : error instanceof DriveOAuthInvalidGrantError
+        ? "DRIVE_OAUTH_REQUIERE_RECONEXION"
+        : error instanceof InventoryReportDriveConfigurationError
         ? "DRIVE_CONFIGURACION_REQUERIDA"
         : "DRIVE_ERROR_TEMPORAL";
     await this.firestore.runTransaction(async (transaction) => {

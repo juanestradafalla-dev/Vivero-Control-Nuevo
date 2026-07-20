@@ -172,6 +172,14 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /configuracionesIntegraciones/{configuracionId} {
+      allow read, write: if false;
+    }
+
+    match /sesionesOAuthDrive/{sesionId} {
+      allow read, write: if false;
+    }
+
     match /trabajosCierreJornada/{trabajoId} {
       allow read, write: if false;
     }

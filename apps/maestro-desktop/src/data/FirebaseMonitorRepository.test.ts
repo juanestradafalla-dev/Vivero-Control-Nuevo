@@ -315,4 +315,71 @@ describe("conexión Firebase de Maestro", () => {
     await expect(create()).rejects.toThrow("El correo ya está registrado.");
     await expect(create()).rejects.toThrow("La contraseña no cumple los requisitos de seguridad.");
   });
+
+  it("usa exclusivamente las cuatro Callables OAuth y no expone tokens", async () => {
+    const invocations = new Map<string, ReturnType<typeof vi.fn>>([
+      ["iniciarConexionGoogleDrive", vi.fn().mockResolvedValue({data: {
+        urlAutorizacion: "https://accounts.google.com/o/oauth2/v2/auth?scope=drive.file",
+        expiraEn: "2026-07-20T15:00:00.000Z",
+      }})],
+      ["completarConexionGoogleDrive", vi.fn().mockResolvedValue({data: {
+        estado: "LISTO",
+        tipoSeleccion: "PLANTILLA",
+        nombreSeleccion: "INVENTARIO PRUEBA.xlsx",
+        actualizadoEn: "2026-07-20T14:00:00.000Z",
+      }})],
+      ["obtenerEstadoConexionGoogleDrive", vi.fn().mockResolvedValue({data: {
+        estado: "LISTO",
+        plantillaNombre: "INVENTARIO PRUEBA.xlsx",
+        carpetaNombre: "INVENTARIOS PRUEBA",
+        actualizadoEn: "2026-07-20T14:00:00.000Z",
+      }})],
+      ["revocarConexionGoogleDrive", vi.fn().mockResolvedValue({data: {
+        estado: "REVOCADO",
+        revocadaEn: "2026-07-20T14:30:00.000Z",
+      }})],
+    ]);
+    firebase.httpsCallable.mockImplementation((_functions: unknown, name: string) => {
+      const invocation = invocations.get(name);
+      if (!invocation) throw new Error(`Callable inesperada: ${name}`);
+      return invocation;
+    });
+    const repository = FirebaseMonitorRepository.create(config("PRODUCTION"));
+    const startRequest = {
+      selectionKind: "PLANTILLA" as const,
+      redirectUri: "http://127.0.0.1:54321/",
+      codeChallenge: "a".repeat(43),
+      idempotencyKey: "oauth-inicio-ficticio-0001",
+    };
+    await expect(repository.startGoogleDriveOAuth(startRequest)).resolves.toMatchObject({
+      authorizationUrl: expect.stringContaining("accounts.google.com"),
+    });
+    await expect(repository.completeGoogleDriveOAuth({
+      state: `00000000-0000-4000-8000-000000000000.${"b".repeat(43)}.${"c".repeat(43)}`,
+      authorizationCode: "codigo-ficticio",
+      codeVerifier: "v".repeat(64),
+      redirectUri: startRequest.redirectUri,
+      selectedFileIds: ["plantilla-ficticia"],
+      grantedScope: "https://www.googleapis.com/auth/drive.file",
+    })).resolves.toMatchObject({state: "LISTO", templateName: "INVENTARIO PRUEBA.xlsx"});
+    await expect(repository.revokeGoogleDriveOAuth("oauth-revocar-ficticio-0001"))
+      .resolves.toMatchObject({state: "REVOCADO"});
+
+    expect(invocations.get("iniciarConexionGoogleDrive")).toHaveBeenCalledWith({
+      tipoSeleccion: "PLANTILLA",
+      uriRedireccion: startRequest.redirectUri,
+      desafioCodigo: "a".repeat(43),
+      claveIdempotencia: "oauth-inicio-ficticio-0001",
+    });
+    expect(invocations.get("completarConexionGoogleDrive")).toHaveBeenCalledWith({
+      estado: `00000000-0000-4000-8000-000000000000.${"b".repeat(43)}.${"c".repeat(43)}`,
+      codigoAutorizacion: "codigo-ficticio",
+      verificadorCodigo: "v".repeat(64),
+      uriRedireccion: startRequest.redirectUri,
+      idsSeleccionados: ["plantilla-ficticia"],
+      alcanceConcedido: "https://www.googleapis.com/auth/drive.file",
+    });
+    const serialized = JSON.stringify(Array.from(invocations.values()).flatMap((call) => call.mock.calls));
+    expect(serialized).not.toMatch(/refresh[_-]?token/iu);
+  });
 });

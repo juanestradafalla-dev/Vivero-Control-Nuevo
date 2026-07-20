@@ -3,12 +3,14 @@ import {afterEach, describe, expect, it, vi} from "vitest";
 
 import type {
   CloseJourneyOutcome,
+  CompleteGoogleDriveOAuthRequest,
   DraftActivationResult,
   DraftActivationVersions,
   DraftParticipantInput,
   DraftParticipantsData,
   InventoryReportConfiguration,
   InventoryReportSummary,
+  GoogleDriveConnectionStatus,
   ManageableDraftJourney,
   ManageableCatalogData,
   ManageableCatalogLine,
@@ -26,11 +28,14 @@ import type {
   MonitorUnsubscribe,
   MonitorUser,
   RetryInventoryReportRequest,
+  StartGoogleDriveOAuthRequest,
+  StartGoogleDriveOAuthResult,
 } from "../domain/MonitorModels";
 import {App} from "./App";
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   delete window.viveroFoundation;
 });
 
@@ -180,6 +185,10 @@ class FakeMonitorRepository implements MonitorRepository {
   }];
   reportListCalls = 0;
   retriedReports: RetryInventoryReportRequest[] = [];
+  driveStatus: GoogleDriveConnectionStatus = {state: "NO_CONFIGURADO"};
+  driveStartRequests: StartGoogleDriveOAuthRequest[] = [];
+  driveCompleteRequests: CompleteGoogleDriveOAuthRequest[] = [];
+  driveRevocations: string[] = [];
   statusUpdates: Array<{userId: string; version: number; active: boolean; reason: string; key: string}> = [];
   roleUpdates: Array<{userId: string; version: number; role: string; reason: string; key: string}> = [];
   createdUsers: Array<{displayName: string; email: string; password: string; role: string; key: string}> = [];
@@ -764,6 +773,28 @@ class FakeMonitorRepository implements MonitorRepository {
     this.reports = this.reports.map((report) => report.jornadaId === request.jornadaId
       ? {...report, estado: "PENDIENTE"}
       : report);
+  }
+  async getGoogleDriveConnectionStatus(): Promise<GoogleDriveConnectionStatus> {
+    return this.driveStatus;
+  }
+  async startGoogleDriveOAuth(request: StartGoogleDriveOAuthRequest): Promise<StartGoogleDriveOAuthResult> {
+    this.driveStartRequests.push(request);
+    return {
+      authorizationUrl: "https://accounts.google.com/o/oauth2/v2/auth?scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fdrive.file",
+      expiresAt: "2026-07-20T15:10:00.000Z",
+    };
+  }
+  async completeGoogleDriveOAuth(request: CompleteGoogleDriveOAuthRequest): Promise<GoogleDriveConnectionStatus> {
+    this.driveCompleteRequests.push(request);
+    this.driveStatus = request.selectedFileIds[0].includes("CARPETA")
+      ? {...this.driveStatus, state: "LISTO", folderName: "INVENTARIOS PRUEBA"}
+      : {state: "CONECTADO_INCOMPLETO", templateName: "INVENTARIO PRUEBA.xlsx"};
+    return this.driveStatus;
+  }
+  async revokeGoogleDriveOAuth(idempotencyKey: string): Promise<GoogleDriveConnectionStatus> {
+    this.driveRevocations.push(idempotencyKey);
+    this.driveStatus = {state: "REVOCADO"};
+    return this.driveStatus;
   }
   async approveCount(countId: string, key: string, reason?: string): Promise<void> {
     this.approved.push({countId, key, ...(reason === undefined ? {} : {reason})});
@@ -1432,7 +1463,12 @@ describe("informes de inventario de Vivero Maestro", () => {
       finalizadoEn: "2026-07-18T12:02:00.000Z",
     }];
     const openExternalUrl = vi.fn().mockResolvedValue(true);
-    window.viveroFoundation = {getRuntimeStatus: () => "Prueba", openExternalUrl};
+    window.viveroFoundation = {
+      getRuntimeStatus: () => "Prueba",
+      openExternalUrl,
+      prepareGoogleDriveOAuth: vi.fn(),
+      openGoogleDriveOAuth: vi.fn(),
+    };
     await signIn(repository);
 
     fireEvent.click(screen.getByRole("button", {name: "Informes"}));
@@ -1440,6 +1476,93 @@ describe("informes de inventario de Vivero Maestro", () => {
     await waitFor(() => expect(openExternalUrl).toHaveBeenCalledWith(
       "https://drive.google.com/file/d/archivo-prueba/view",
     ));
+  });
+
+  it("reserva la conexion y Picker de Drive exclusivamente al administrador", async () => {
+    const repository = new FakeMonitorRepository();
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Informes"}));
+    expect(screen.queryByRole("button", {name: "Conectar Google Drive"})).not.toBeInTheDocument();
+
+    cleanup();
+    repository.user = {...supervisor, role: "ADMINISTRADOR", canManageUsers: true, canManageCatalog: true};
+    const prepareGoogleDriveOAuth = vi.fn()
+      .mockResolvedValue({
+        localSessionId: "SESION-LOCAL-1",
+        redirectUri: "http://127.0.0.1:48127/",
+        codeChallenge: "A".repeat(43),
+      });
+    const openGoogleDriveOAuth = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        state: `12345678-1234-4234-8234-123456789012.${"A".repeat(43)}.${"B".repeat(43)}`,
+        authorizationCode: "CODIGO-AUTORIZACION-FICTICIO",
+        codeVerifier: "V".repeat(64),
+        redirectUri: "http://127.0.0.1:48127/",
+        selectedFileIds: ["PLANTILLA-ID-FICTICIO"],
+        grantedScope: "https://www.googleapis.com/auth/drive.file",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        state: `12345678-1234-4234-8234-123456789012.${"C".repeat(43)}.${"D".repeat(43)}`,
+        authorizationCode: "CODIGO-AUTORIZACION-FICTICIO-2",
+        codeVerifier: "W".repeat(64),
+        redirectUri: "http://127.0.0.1:48127/",
+        selectedFileIds: ["CARPETA-ID-FICTICIO"],
+        grantedScope: "https://www.googleapis.com/auth/drive.file",
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        state: `12345678-1234-4234-8234-123456789012.${"E".repeat(43)}.${"F".repeat(43)}`,
+        authorizationCode: "CODIGO-AUTORIZACION-FICTICIO-3",
+        codeVerifier: "X".repeat(64),
+        redirectUri: "http://127.0.0.1:48127/",
+        selectedFileIds: ["PLANTILLA-ID-FICTICIO-NUEVA"],
+        grantedScope: "https://www.googleapis.com/auth/drive.file",
+      });
+    window.viveroFoundation = {
+      getRuntimeStatus: () => "Prueba",
+      openExternalUrl: vi.fn(),
+      prepareGoogleDriveOAuth,
+      openGoogleDriveOAuth,
+    };
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Informes"}));
+    fireEvent.click(await screen.findByRole("button", {name: "Conectar Google Drive"}));
+    await waitFor(() => expect(repository.driveCompleteRequests).toHaveLength(1));
+    expect(repository.driveStartRequests[0]).toMatchObject({selectionKind: "PLANTILLA"});
+    expect(repository.driveCompleteRequests[0]?.grantedScope).toBe(
+      "https://www.googleapis.com/auth/drive.file",
+    );
+    expect(screen.getByText("Plantilla autorizada mediante Google Picker.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", {name: "Seleccionar carpeta de salida"}));
+    await waitFor(() => expect(repository.driveCompleteRequests).toHaveLength(2));
+    expect(repository.driveStartRequests[1]).toMatchObject({selectionKind: "CARPETA_SALIDA"});
+    expect(screen.getByText("Listo para generar informes")).toBeInTheDocument();
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    fireEvent.click(screen.getByRole("button", {name: "Reconectar"}));
+    await waitFor(() => expect(repository.driveCompleteRequests).toHaveLength(3));
+    expect(repository.driveRevocations).toHaveLength(1);
+    expect(screen.getByText("Conectado, seleccion incompleta")).toBeInTheDocument();
+  });
+
+  it("revoca la autorizacion sin mostrar ni persistir tokens en la interfaz", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.user = {...supervisor, role: "ADMINISTRADOR", canManageUsers: true, canManageCatalog: true};
+    repository.driveStatus = {
+      state: "LISTO",
+      templateName: "INVENTARIO PRUEBA.xlsx",
+      folderName: "INVENTARIOS PRUEBA",
+    };
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Informes"}));
+    fireEvent.click(await screen.findByRole("button", {name: "Revocar autorizacion"}));
+    await waitFor(() => expect(repository.driveRevocations).toHaveLength(1));
+    expect(screen.getByText("Autorizacion revocada")).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/refresh[_ -]?token/i);
   });
 });
 

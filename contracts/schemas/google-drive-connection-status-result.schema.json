@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/google-drive-connection-status-result.schema.json",
+  "title": "Estado administrativo de Google Drive",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["estado"],
+  "properties": {
+    "estado": {"enum": ["NO_CONFIGURADO", "CONECTADO_INCOMPLETO", "LISTO", "REVOCADO", "REQUIERE_RECONEXION"]},
+    "plantillaNombre": {"type": "string", "minLength": 1, "maxLength": 240},
+    "carpetaNombre": {"type": "string", "minLength": 1, "maxLength": 240},
+    "actualizadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

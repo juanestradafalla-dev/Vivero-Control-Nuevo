@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/revoke-google-drive-oauth-request.schema.json",
+  "title": "Revocacion de Google Drive",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["claveIdempotencia"],
+  "properties": {
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}
+  }
+}

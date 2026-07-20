@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/google-drive-connection-status-request.schema.json",
+  "title": "Consulta de estado Google Drive",
+  "type": "object",
+  "additionalProperties": false,
+  "maxProperties": 0
+}

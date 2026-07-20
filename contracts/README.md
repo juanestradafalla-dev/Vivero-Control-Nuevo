@@ -101,6 +101,15 @@ Reglas de importación y reversión de la Etapa 19:
 - el historial distingue `APLICADA` y `REVERTIDA`, informa elegibilidad y nunca contiene el paquete original;
 - la reversión exige versión observada, motivo e idempotencia y conserva para siempre el registro histórico y el bloqueo de hash.
 
+Reglas OAuth de Google Drive de la Etapa 27B:
+
+- iniciar recibe únicamente tipo de selección, callback loopback, challenge PKCE y clave idempotente;
+- completar recibe `state`, código, verifier, callback, exactamente un ID elegido por Picker y el scope literal `drive.file`;
+- scopes amplios, `localhost`, propiedades adicionales, varios IDs y callbacks remotos son inválidos;
+- estado y revocación nunca devuelven token, código, verifier, correo, IDs internos o credenciales;
+- la selección de plantilla o carpeta no concede acceso al cliente Firebase: toda persistencia pasa por Callables;
+- `LISTO` indica que ambos recursos fueron validados, no que se haya generado o importado un archivo.
+
 ```powershell
 npm ci
 npm run validate

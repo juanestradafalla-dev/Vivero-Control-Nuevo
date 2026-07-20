@@ -37,6 +37,36 @@ export interface RetryInventoryReportRequest {
   readonly claveIdempotencia: string;
 }
 
+export type GoogleDriveSelectionKind = "PLANTILLA" | "CARPETA_SALIDA";
+
+export interface GoogleDriveConnectionStatus {
+  readonly state: "NO_CONFIGURADO" | "CONECTADO_INCOMPLETO" | "LISTO" | "REVOCADO" | "REQUIERE_RECONEXION";
+  readonly templateName?: string;
+  readonly folderName?: string;
+  readonly updatedAt?: string;
+}
+
+export interface StartGoogleDriveOAuthRequest {
+  readonly selectionKind: GoogleDriveSelectionKind;
+  readonly redirectUri: string;
+  readonly codeChallenge: string;
+  readonly idempotencyKey: string;
+}
+
+export interface StartGoogleDriveOAuthResult {
+  readonly authorizationUrl: string;
+  readonly expiresAt: string;
+}
+
+export interface CompleteGoogleDriveOAuthRequest {
+  readonly state: string;
+  readonly authorizationCode: string;
+  readonly codeVerifier: string;
+  readonly redirectUri: string;
+  readonly selectedFileIds: readonly [string];
+  readonly grantedScope: "https://www.googleapis.com/auth/drive.file";
+}
+
 export interface MonitorUser {
   readonly id: string;
   readonly displayName: string;
@@ -571,6 +601,10 @@ export interface MonitorRepository {
   ): Promise<CloseJourneyOutcome & {readonly state: "CERRANDO"}>;
   listInventoryReports(): Promise<{readonly informes: readonly InventoryReportSummary[]}>;
   retryInventoryReport(request: RetryInventoryReportRequest): Promise<void>;
+  getGoogleDriveConnectionStatus(): Promise<GoogleDriveConnectionStatus>;
+  startGoogleDriveOAuth(request: StartGoogleDriveOAuthRequest): Promise<StartGoogleDriveOAuthResult>;
+  completeGoogleDriveOAuth(request: CompleteGoogleDriveOAuthRequest): Promise<GoogleDriveConnectionStatus>;
+  revokeGoogleDriveOAuth(idempotencyKey: string): Promise<GoogleDriveConnectionStatus>;
   approveCount(countId: string, idempotencyKey: string, exceptionReason?: string): Promise<void>;
   returnCount(countId: string, reason: string, idempotencyKey: string): Promise<void>;
   approveDiscard(discardId: string, idempotencyKey: string, exceptionReason?: string): Promise<void>;

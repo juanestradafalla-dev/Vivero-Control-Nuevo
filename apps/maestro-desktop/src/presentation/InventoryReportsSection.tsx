@@ -1,13 +1,17 @@
 import {useEffect, useMemo, useRef, useState} from "react";
 
 import type {
+  GoogleDriveConnectionStatus,
+  GoogleDriveSelectionKind,
   InventoryReportStatus,
   InventoryReportSummary,
   MonitorRepository,
+  MonitorUser,
 } from "../domain/MonitorModels";
 
 interface InventoryReportsSectionProps {
   readonly repository: MonitorRepository;
+  readonly currentUser: MonitorUser;
 }
 
 const statusLabels: Record<InventoryReportStatus, string> = {
@@ -30,7 +34,15 @@ function formatTime(value: string | undefined): string {
       }).format(date);
 }
 
-export function InventoryReportsSection({repository}: InventoryReportsSectionProps) {
+const driveStateLabels: Record<GoogleDriveConnectionStatus["state"], string> = {
+  NO_CONFIGURADO: "No configurado",
+  CONECTADO_INCOMPLETO: "Conectado, seleccion incompleta",
+  LISTO: "Listo para generar informes",
+  REVOCADO: "Autorizacion revocada",
+  REQUIERE_RECONEXION: "Requiere reconexion",
+};
+
+export function InventoryReportsSection({repository, currentUser}: InventoryReportsSectionProps) {
   const [reports, setReports] = useState<readonly InventoryReportSummary[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("TODOS");
@@ -38,6 +50,8 @@ export function InventoryReportsSection({repository}: InventoryReportsSectionPro
   const [retryingJourneyId, setRetryingJourneyId] = useState<string>();
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
+  const [driveStatus, setDriveStatus] = useState<GoogleDriveConnectionStatus>();
+  const [driveBusy, setDriveBusy] = useState(false);
   const retryKeys = useRef(new Map<string, string>());
 
   const load = async (): Promise<void> => {
@@ -55,7 +69,82 @@ export function InventoryReportsSection({repository}: InventoryReportsSectionPro
 
   useEffect(() => {
     void load();
+    if (currentUser.role === "ADMINISTRADOR") {
+      void repository.getGoogleDriveConnectionStatus()
+        .then(setDriveStatus)
+        .catch((statusError: unknown) => {
+          setError(statusError instanceof Error ? statusError.message : "No fue posible consultar Google Drive.");
+        });
+    }
   }, []);
+
+  const connectDrive = async (
+    selectionKind: GoogleDriveSelectionKind,
+    reconnect = false,
+  ): Promise<void> => {
+    if (currentUser.role !== "ADMINISTRADOR" || driveBusy) return;
+    if (reconnect && !window.confirm(
+      "Se revocara la autorizacion actual y deberas seleccionar nuevamente plantilla y carpeta. ¿Continuar?",
+    )) return;
+    const desktop = window.viveroFoundation;
+    if (!desktop?.prepareGoogleDriveOAuth || !desktop.openGoogleDriveOAuth) {
+      setError("La conexion segura con el navegador del sistema no esta disponible.");
+      return;
+    }
+    setDriveBusy(true);
+    setError(undefined);
+    setNotice(undefined);
+    try {
+      if (reconnect) {
+        const revoked = await repository.revokeGoogleDriveOAuth(crypto.randomUUID());
+        setDriveStatus(revoked);
+      }
+      const preparation = await desktop.prepareGoogleDriveOAuth();
+      const start = await repository.startGoogleDriveOAuth({
+        selectionKind,
+        redirectUri: preparation.redirectUri,
+        codeChallenge: preparation.codeChallenge,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      const callback = await desktop.openGoogleDriveOAuth(preparation.localSessionId, start.authorizationUrl);
+      if (!callback.ok) {
+        throw new Error(callback.errorCode === "CANCELLED"
+          ? "La autorizacion fue cancelada."
+          : callback.errorCode === "EXPIRED"
+            ? "La autorizacion expiro. Inicia el proceso de nuevo."
+            : "Google devolvio una respuesta de autorizacion no valida.");
+      }
+      const status = await repository.completeGoogleDriveOAuth(callback);
+      setDriveStatus(status);
+      setNotice(selectionKind === "PLANTILLA"
+        ? "Plantilla autorizada mediante Google Picker."
+        : "Carpeta de salida autorizada mediante Google Picker.");
+    } catch (connectionError) {
+      setError(connectionError instanceof Error
+        ? connectionError.message : "No fue posible conectar Google Drive.");
+    } finally {
+      setDriveBusy(false);
+    }
+  };
+
+  const revokeDrive = async (): Promise<void> => {
+    if (
+      currentUser.role !== "ADMINISTRADOR" || driveBusy ||
+      !window.confirm("Se revocara el acceso de Vivero Maestro a Google Drive. ¿Continuar?")
+    ) return;
+    setDriveBusy(true);
+    setError(undefined);
+    setNotice(undefined);
+    try {
+      const status = await repository.revokeGoogleDriveOAuth(crypto.randomUUID());
+      setDriveStatus(status);
+      setNotice("La autorizacion de Google Drive fue revocada.");
+    } catch (revokeError) {
+      setError(revokeError instanceof Error ? revokeError.message : "No fue posible revocar Google Drive.");
+    } finally {
+      setDriveBusy(false);
+    }
+  };
 
   const visibleReports = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("es");
@@ -117,6 +206,37 @@ export function InventoryReportsSection({repository}: InventoryReportsSectionPro
 
       {error && <p className="alert" role="alert">{error}</p>}
       {notice && <p className="notice" role="status">{notice}</p>}
+
+      {currentUser.role === "ADMINISTRADOR" && (
+        <section className="drive-connection-panel" aria-labelledby="drive-connection-title">
+          <div>
+            <p className="eyebrow">ACCESO LIMITADO DRIVE.FILE</p>
+            <h2 id="drive-connection-title">Google Drive</h2>
+            <strong>{driveStatus ? driveStateLabels[driveStatus.state] : "Consultando estado..."}</strong>
+            <span>Plantilla: {driveStatus?.templateName ?? "Sin seleccionar"}</span>
+            <span>Carpeta de salida: {driveStatus?.folderName ?? "Sin seleccionar"}</span>
+            <small>La autorizacion se abre en el navegador del sistema. Los tokens nunca se muestran.</small>
+          </div>
+          <div className="review-actions">
+            <button className="button" type="button" disabled={driveBusy} onClick={() => void connectDrive("PLANTILLA")}>
+              {driveStatus?.state === "NO_CONFIGURADO" || !driveStatus ? "Conectar Google Drive" : "Seleccionar plantilla"}
+            </button>
+            <button className="button button--secondary" type="button" disabled={driveBusy} onClick={() => void connectDrive("CARPETA_SALIDA")}>
+              Seleccionar carpeta de salida
+            </button>
+            {driveStatus && driveStatus.state !== "NO_CONFIGURADO" && driveStatus.state !== "REVOCADO" && (
+              <>
+                <button className="button button--secondary" type="button" disabled={driveBusy} onClick={() => void connectDrive("PLANTILLA", true)}>
+                  Reconectar
+                </button>
+                <button className="button button--danger" type="button" disabled={driveBusy} onClick={() => void revokeDrive()}>
+                  Revocar autorizacion
+                </button>
+              </>
+            )}
+          </div>
+        </section>
+      )}
 
       <div className="monitor-filters">
         <label>

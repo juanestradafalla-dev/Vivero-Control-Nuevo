@@ -35,6 +35,13 @@ import {
 } from "./domain/discards.js";
 import {InitiateCountCorrectionService} from "./domain/correctCount.js";
 import {
+  CompleteGoogleDriveOAuthService,
+  driveOAuthServiceAccountsFromEnvironment,
+  GetGoogleDriveConnectionStatusService,
+  RevokeGoogleDriveOAuthService,
+  StartGoogleDriveOAuthService
+} from "./domain/driveOAuth.js";
+import {
   CreateDraftJourneyService,
   ListManageableJourneysService,
   UpdateDraftJourneyLinesService
@@ -62,10 +69,12 @@ import {
   parseActivateJourneyRequest,
   parseCancelDraftJourneyRequest,
   parseCloseJourneyRequest,
+  parseCompleteGoogleDriveOAuthRequest,
   parseCreateCatalogLineRequest,
   parseCreateCatalogLocationRequest,
   parseCreateDraftJourneyRequest,
   parseCreateManageableUserRequest,
+  parseGoogleDriveConnectionStatusRequest,
   parseInitiateCountCorrectionRequest,
   parseImportMigrationPackageRequest,
   parseListActiveJourneysRequest,
@@ -81,6 +90,7 @@ import {
   parseRegisterDiscardRequest,
   parseRevertMigrationImportRequest,
   parseReopenCancelledJourneyRequest,
+  parseRevokeGoogleDriveOAuthRequest,
   parseReleaseReservationRequest,
   parseReserveLineRequest,
   parseReturnCountRequest,
@@ -88,6 +98,7 @@ import {
   parseRetryInventoryReportRequest,
   parseRetryCloseJourneyRequest,
   parseSendCountRequest,
+  parseStartGoogleDriveOAuthRequest,
   parseUpdateDraftJourneyLinesRequest,
   parseUpdateDraftJourneyParticipantsRequest,
   parseUpdateCatalogLineRequest,
@@ -108,7 +119,10 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
     "DISCARD_CAUSE_REQUIRED",
     "DISCARD_CAUSE_EXCEEDS_TOTAL",
     "COUNT_DEAD_PLANTS_REQUIRED",
-    "COUNT_DEAD_PLANTS_NOT_ALLOWED"
+    "COUNT_DEAD_PLANTS_NOT_ALLOWED",
+    "DRIVE_OAUTH_STATE_INVALID",
+    "DRIVE_OAUTH_SCOPE_INVALID",
+    "DRIVE_OAUTH_SELECTION_INVALID"
   ].includes(code)) return "invalid-argument";
   if (code === "LINE_NOT_AVAILABLE") return "failed-precondition";
   if ([
@@ -179,7 +193,12 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
     "INVENTORY_REPORT_PENDING_DISCARDS",
     "INVENTORY_REPORT_COUNT_INCOMPATIBLE",
     "INVENTORY_REPORT_CONFIGURATION_INVALID",
-    "INVENTORY_REPORT_NOT_RETRYABLE"
+    "INVENTORY_REPORT_NOT_RETRYABLE",
+    "DRIVE_OAUTH_CONFIGURATION_REQUIRED",
+    "DRIVE_OAUTH_SESSION_EXPIRED",
+    "DRIVE_OAUTH_SESSION_IN_PROGRESS",
+    "DRIVE_OAUTH_INVALID_GRANT",
+    "DRIVE_OAUTH_NOT_CONNECTED"
   ].includes(code)) return "failed-precondition";
   if (["RESERVATION_NOT_ACTIVE", "LINE_RESERVATION_MISMATCH", "LINE_NOT_IN_COUNT"].includes(code)) {
     return "failed-precondition";
@@ -268,6 +287,19 @@ const listDiscardLinesService = new ListDiscardLinesService(firestore);
 const registerDiscardService = new RegisterDiscardService(firestore);
 const approveDiscardService = new ApproveDiscardService(firestore);
 const returnDiscardService = new ReturnDiscardService(firestore);
+const startGoogleDriveOAuthService = new StartGoogleDriveOAuthService(firestore);
+const completeGoogleDriveOAuthService = new CompleteGoogleDriveOAuthService(firestore);
+const getGoogleDriveConnectionStatusService = new GetGoogleDriveConnectionStatusService(firestore);
+const revokeGoogleDriveOAuthService = new RevokeGoogleDriveOAuthService(firestore);
+
+const {writer: oauthWriterServiceAccount, report: reportServiceAccount} =
+  driveOAuthServiceAccountsFromEnvironment();
+const oauthWriterOptions = oauthWriterServiceAccount
+  ? {region: "us-central1", serviceAccount: oauthWriterServiceAccount}
+  : {region: "us-central1"};
+const oauthReaderOptions = reportServiceAccount
+  ? {region: "us-central1", serviceAccount: reportServiceAccount}
+  : {region: "us-central1"};
 export const importarPaqueteMigracion = onCall({region: "us-central1"}, async (request) => {
   try {
     assertRuntimeEnvironment();
@@ -803,6 +835,69 @@ export const devolverDescarte = onCall({region: "us-central1"}, async (request) 
   }
 });
 
+export const iniciarConexionGoogleDrive = onCall(oauthWriterOptions, async (request) => {
+  try {
+    assertRuntimeEnvironment();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    return await startGoogleDriveOAuthService.execute(
+      parseStartGoogleDriveOAuthRequest(request.data), {actorId: request.auth.uid}
+    );
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en iniciarConexionGoogleDrive", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const completarConexionGoogleDrive = onCall(oauthWriterOptions, async (request) => {
+  try {
+    assertRuntimeEnvironment();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    return await completeGoogleDriveOAuthService.execute(
+      parseCompleteGoogleDriveOAuthRequest(request.data), {actorId: request.auth.uid}
+    );
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en completarConexionGoogleDrive", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const obtenerEstadoConexionGoogleDrive = onCall(oauthWriterOptions, async (request) => {
+  try {
+    assertRuntimeEnvironment();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    parseGoogleDriveConnectionStatusRequest(request.data);
+    return await getGoogleDriveConnectionStatusService.execute({actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en obtenerEstadoConexionGoogleDrive", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const revocarConexionGoogleDrive = onCall(oauthWriterOptions, async (request) => {
+  try {
+    assertRuntimeEnvironment();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    return await revokeGoogleDriveOAuthService.execute(
+      parseRevokeGoogleDriveOAuthRequest(request.data), {actorId: request.auth.uid}
+    );
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en revocarConexionGoogleDrive", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
 export const listarInformesInventario = onCall({region: "us-central1"}, async (request) => {
   try {
     assertRuntimeEnvironment();
@@ -839,7 +934,7 @@ export const reintentarInformeInventario = onCall({region: "us-central1"}, async
 });
 
 export const procesarInformeInventario = onDocumentWritten({
-  region: "us-central1",
+  ...oauthReaderOptions,
   document: "informesInventario/{informeId}",
   retry: true
 }, async (event) => {

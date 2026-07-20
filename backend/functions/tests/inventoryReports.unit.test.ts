@@ -22,8 +22,10 @@ import {
 import {
   createInventoryReportDriveGatewayFromEnvironment,
   FakeInventoryReportDriveGateway,
+  GoogleInventoryReportDriveGateway,
   InventoryReportDriveConfigurationError
 } from "../src/domain/inventoryReportDrive.js";
+import {DriveOAuthInvalidGrantError} from "../src/domain/driveOAuth.js";
 
 const HEADERS = [
   "FECHA", "CAMA", "LINEA", "PLANTAS PATRON", "PLANTAS HEMBRAS",
@@ -53,8 +55,6 @@ interface TemplateOptions {
 
 const environmentNames = [
   "GOOGLE_DRIVE_INVENTORY_MODE",
-  "GOOGLE_DRIVE_INVENTORY_FOLDER_ID",
-  "GOOGLE_DRIVE_INVENTORY_TEMPLATE_FILE_ID",
   "FUNCTIONS_EMULATOR",
   "CI",
   "GCLOUD_PROJECT",
@@ -564,6 +564,22 @@ describe("generación XLSX del informe de inventario", () => {
 });
 
 describe("adaptador falso e aislamiento de red", () => {
+  it("conserva invalid_grant aunque falle la marca secundaria de reconexion", async () => {
+    const client = {
+      files: {
+        get: vi.fn().mockRejectedValue({response: {data: {error: "invalid_grant"}}})
+      }
+    } as unknown as ConstructorParameters<typeof GoogleInventoryReportDriveGateway>[0];
+    const markReconnect = vi.fn().mockRejectedValue(new Error("Firestore no disponible"));
+    const gateway = new GoogleInventoryReportDriveGateway(
+      client, "carpeta-ficticia", "plantilla-ficticia", markReconnect
+    );
+
+    await expect(gateway.getTemplateXlsx({lineas: []}))
+      .rejects.toBeInstanceOf(DriveOAuthInvalidGrantError);
+    expect(markReconnect).toHaveBeenCalledOnce();
+  });
+
   it("crea una plantilla fake con etiquetas y encabezados compatibles con el render", async () => {
     const gateway = new FakeInventoryReportDriveGateway();
     const template = await gateway.getTemplateXlsx({lineas: [reportLine()]});
@@ -621,24 +637,22 @@ describe("adaptador falso e aislamiento de red", () => {
     expect(driveClientFactory).not.toHaveBeenCalled();
   });
 
-  it("fuerza fake en CI aun si faltan IDs y rechaza solicitar modo google sin red", async () => {
+  it("fuerza fake en CI y rechaza solicitar OAuth de usuario sin red", async () => {
     process.env.CI = "true";
 
     await expect(createInventoryReportDriveGatewayFromEnvironment())
       .resolves.toBeInstanceOf(FakeInventoryReportDriveGateway);
     expect(driveAuthGetClient).not.toHaveBeenCalled();
 
-    process.env.GOOGLE_DRIVE_INVENTORY_MODE = "google";
+    process.env.GOOGLE_DRIVE_INVENTORY_MODE = "oauth-user";
     await expect(createInventoryReportDriveGatewayFromEnvironment())
       .rejects.toBeInstanceOf(InventoryReportDriveConfigurationError);
     expect(driveAuthGetClient).not.toHaveBeenCalled();
     expect(driveClientFactory).not.toHaveBeenCalled();
   });
 
-  it("rechaza ambientes o proyectos no autorizados antes de solicitar ADC", async () => {
-    process.env.GOOGLE_DRIVE_INVENTORY_MODE = "google";
-    process.env.GOOGLE_DRIVE_INVENTORY_FOLDER_ID = "CARPETA-FICTICIA";
-    process.env.GOOGLE_DRIVE_INVENTORY_TEMPLATE_FILE_ID = "PLANTILLA-FICTICIA";
+  it("rechaza ambientes o proyectos no autorizados antes de solicitar OAuth", async () => {
+    process.env.GOOGLE_DRIVE_INVENTORY_MODE = "oauth-user";
     process.env.APP_ENV = "production";
     process.env.GCLOUD_PROJECT = "proyecto-no-autorizado";
 
@@ -654,8 +668,8 @@ describe("adaptador falso e aislamiento de red", () => {
     expect(driveClientFactory).not.toHaveBeenCalled();
   });
 
-  it("rechaza configuracion incompleta en produccion exacta antes de solicitar ADC", async () => {
-    process.env.GOOGLE_DRIVE_INVENTORY_MODE = "google";
+  it("rechaza configuracion incompleta en produccion exacta antes de solicitar OAuth", async () => {
+    process.env.GOOGLE_DRIVE_INVENTORY_MODE = "oauth-user";
     process.env.APP_ENV = "production";
     process.env.GCLOUD_PROJECT = "viverocontrol-3f83f";
 

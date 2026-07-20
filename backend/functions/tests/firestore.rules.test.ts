@@ -127,6 +127,14 @@ beforeAll(async () => {
       estado: "ERROR",
       fase: "LINEAS"
     });
+    await setDoc(doc(database, "configuracionesIntegraciones/googleDriveInventario"), {
+      id: "googleDriveInventario",
+      estado: "NO_CONFIGURADO"
+    });
+    await setDoc(doc(database, "sesionesOAuthDrive/SESION-OAUTH-REGLAS"), {
+      id: "SESION-OAUTH-REGLAS",
+      estado: "PENDIENTE"
+    });
   });
 });
 
@@ -444,6 +452,22 @@ describe("lecturas mínimas y escrituras críticas cerradas en la ETAPA 5", () =
         estado: "PENDIENTE"
       }));
       await assertFails(deleteDoc(doc(database, "informesInventario/JORNADA-INFORME-REGLAS")));
+    }
+  });
+
+  it("niega toda lectura y escritura directa de configuracion y sesiones OAuth", async () => {
+    for (const uid of ["uid-auxiliar-1", "uid-supervisor", "uid-administrador"]) {
+      const database = testEnvironment.authenticatedContext(uid).firestore();
+      for (const path of [
+        "configuracionesIntegraciones/googleDriveInventario",
+        "sesionesOAuthDrive/SESION-OAUTH-REGLAS"
+      ]) {
+        await assertFails(getDoc(doc(database, path)));
+        await assertFails(updateDoc(doc(database, path), {estado: "ALTERADO"}));
+        await assertFails(deleteDoc(doc(database, path)));
+      }
+      await assertFails(setDoc(doc(database, "configuracionesIntegraciones/directa"), {estado: "LISTO"}));
+      await assertFails(setDoc(doc(database, "sesionesOAuthDrive/directa"), {estado: "PENDIENTE"}));
     }
   });
 });

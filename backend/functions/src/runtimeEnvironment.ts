@@ -39,6 +39,10 @@ export const CALLABLE_NAMES = Object.freeze([
   "registrarDescarte",
   "aprobarDescarte",
   "devolverDescarte",
+  "iniciarConexionGoogleDrive",
+  "completarConexionGoogleDrive",
+  "obtenerEstadoConexionGoogleDrive",
+  "revocarConexionGoogleDrive",
   "listarInformesInventario",
   "reintentarInformeInventario",
 ] as const);

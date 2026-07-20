@@ -23,9 +23,11 @@ No ejecutar `git clean`, `reset`, `checkout --`, `restore` ni otra operación de
 
 ## 2. Recursos de Drive confirmados únicamente en lectura
 
-- Carpeta de inventarios: `1ZCmvbZTW3SP8Llc-yUZX49_ACLgR_qhM`.
+- Carpeta de inventarios: identificada fuera del repositorio mediante
+  `GOOGLE_DRIVE_INVENTORY_FOLDER_ID`.
 - Plantilla: `INVENTARIO JUNIO 2026.xlsx`.
-- ID de la plantilla: `1zz1_ESUkKX_B7jD5oEkz08g_uCiq8YpU`.
+- ID de la plantilla: administrado fuera del repositorio mediante
+  `GOOGLE_DRIVE_INVENTORY_TEMPLATE_FILE_ID`.
 - El conector de Drive confirmó que el archivo existe como XLSX.
 - No se descargó ni copió la plantilla real al repositorio.
 - No se inspeccionaron ni reprodujeron datos privados de la plantilla.
@@ -103,7 +105,7 @@ Nuevos triggers Firestore Gen 2:
 - `procesarInformeInventario`, sobre `informesInventario/{informeId}` en `us-central1`;
 - `procesarCierreJornada`, sobre `trabajosCierreJornada/{trabajoId}` en `us-central1`.
 
-`CALLABLE_NAMES` queda en 38 Callables; los triggers no forman parte de esa lista.
+Al cerrar la ETAPA 26, `CALLABLE_NAMES` quedó en 38 Callables; la ETAPA 27B agrega cuatro operaciones OAuth y eleva el registro vigente a 42. Los triggers no forman parte de esa lista.
 
 ### 3.3 Generación Excel
 
@@ -228,46 +230,9 @@ No aumentar timeouts arbitrariamente, no reducir cobertura y no sustituir la mat
 
 ## 9. Configuración productiva todavía pendiente
 
-Variables backend esperadas:
+Esta sección quedó reemplazada por la ETAPA 27B. Los IDs de plantilla y carpeta ya no se guardan como variables ni se autoriza Drive con la cuenta de servicio. La arquitectura vigente usa OAuth de usuario, `drive.file`, Google Picker, Secret Manager y dos identidades dedicadas sin permisos de Drive ni llaves JSON.
 
-```dotenv
-GOOGLE_DRIVE_INVENTORY_MODE=google
-GOOGLE_DRIVE_INVENTORY_FOLDER_ID=1ZCmvbZTW3SP8Llc-yUZX49_ACLgR_qhM
-GOOGLE_DRIVE_INVENTORY_TEMPLATE_FILE_ID=1zz1_ESUkKX_B7jD5oEkz08g_uCiq8YpU
-```
-
-No deben entrar en payloads, Android ni variables `VITE_*`.
-
-La identidad efectiva prevista fue confirmada localmente mediante `firebase functions:list` sobre las revisiones actuales y la ausencia de un override de servicio en el código; su correo exacto debe mantenerse fuera del repositorio público. El trigger `procesarInformeInventario` todavía no está desplegado; por tanto, debe reconfirmarse su revisión inmediatamente después del primer despliegue.
-
-Permisos mínimos:
-
-- carpeta de destino compartida como editor;
-- plantilla compartida como lector;
-- rol IAM `roles/datastore.user` para operar Firestore;
-- ninguna llave JSON descargada ni permiso de Drive sobre recursos ajenos.
-
-Comando de reconfirmación de solo lectura:
-
-```powershell
-gcloud functions describe procesarInformeInventario `
-  --gen2 `
-  --region=us-central1 `
-  --project=viverocontrol-3f83f `
-  --format="value(serviceConfig.serviceAccountEmail)"
-```
-
-Si el comando devuelve otra identidad, se detiene la prueba de humo y se corrigen primero los permisos del principal real; no se debe asumir herencia de la cuenta predeterminada.
-
-Pasos manuales posteriores, solo con autorización:
-
-1. confirmar backup, rollback y ventana de cambio;
-2. habilitar `drive.googleapis.com` si aún no está habilitada;
-3. compartir carpeta y plantilla con la identidad verificada;
-4. configurar variables únicamente en Functions;
-5. desplegar de manera enumerada reglas y Functions nuevas/modificadas;
-6. ejecutar una prueba de humo con datos ficticios aprobados;
-7. confirmar que un reintento conserva el mismo archivo e ID.
+Consulte [GOOGLE_DRIVE_OAUTH_ETAPA_27.md](arquitectura/GOOGLE_DRIVE_OAUTH_ETAPA_27.md) para las variables con marcadores, APIs, IAM mínimo, despliegue enumerado, conexión, revocación y rollback actuales.
 
 ## 10. Archivos principales de la etapa
 

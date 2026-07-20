@@ -153,6 +153,15 @@ export type ControlledErrorCode =
   | "INVENTORY_REPORT_PENDING_DISCARDS"
   | "INVENTORY_REPORT_COUNT_INCOMPATIBLE"
   | "INVENTORY_REPORT_CONFIGURATION_INVALID"
+  | "DRIVE_OAUTH_CONFIGURATION_REQUIRED"
+  | "DRIVE_OAUTH_SESSION_EXPIRED"
+  | "DRIVE_OAUTH_SESSION_IN_PROGRESS"
+  | "DRIVE_OAUTH_STATE_INVALID"
+  | "DRIVE_OAUTH_SCOPE_INVALID"
+  | "DRIVE_OAUTH_ACCOUNT_MISMATCH"
+  | "DRIVE_OAUTH_SELECTION_INVALID"
+  | "DRIVE_OAUTH_INVALID_GRANT"
+  | "DRIVE_OAUTH_NOT_CONNECTED"
   | "ACTIVE_RESERVATION_EXISTS"
   | "IDEMPOTENCY_CONFLICT"
   | "ENVIRONMENT_NOT_ALLOWED"
@@ -1028,6 +1037,59 @@ export interface RetryInventoryReportResult {
   readonly jornadaId: string;
   readonly estado: "PENDIENTE";
   readonly reintentadoEn: string;
+}
+
+export type GoogleDriveSelectionKind = "PLANTILLA" | "CARPETA_SALIDA";
+
+export type GoogleDriveConnectionState =
+  | "NO_CONFIGURADO"
+  | "CONECTADO_INCOMPLETO"
+  | "LISTO"
+  | "REVOCADO"
+  | "REQUIERE_RECONEXION";
+
+export interface StartGoogleDriveOAuthRequest {
+  readonly tipoSeleccion: GoogleDriveSelectionKind;
+  readonly uriRedireccion: string;
+  readonly desafioCodigo: string;
+  readonly claveIdempotencia: string;
+}
+
+export interface StartGoogleDriveOAuthResult {
+  readonly urlAutorizacion: string;
+  readonly expiraEn: string;
+}
+
+export interface CompleteGoogleDriveOAuthRequest {
+  readonly estado: string;
+  readonly codigoAutorizacion: string;
+  readonly verificadorCodigo: string;
+  readonly uriRedireccion: string;
+  readonly idsSeleccionados: readonly [string];
+  readonly alcanceConcedido: "https://www.googleapis.com/auth/drive.file";
+}
+
+export interface CompleteGoogleDriveOAuthResult {
+  readonly estado: "CONECTADO_INCOMPLETO" | "LISTO";
+  readonly tipoSeleccion: GoogleDriveSelectionKind;
+  readonly nombreSeleccion: string;
+  readonly actualizadoEn: string;
+}
+
+export interface GoogleDriveConnectionStatusResult {
+  readonly estado: GoogleDriveConnectionState;
+  readonly plantillaNombre?: string;
+  readonly carpetaNombre?: string;
+  readonly actualizadoEn?: string;
+}
+
+export interface RevokeGoogleDriveOAuthRequest {
+  readonly claveIdempotencia: string;
+}
+
+export interface RevokeGoogleDriveOAuthResult {
+  readonly estado: "REVOCADO";
+  readonly revocadaEn: string;
 }
 
 export interface OperationResult {

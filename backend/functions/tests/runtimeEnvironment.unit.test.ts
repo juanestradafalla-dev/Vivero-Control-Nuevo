@@ -105,12 +105,12 @@ describe("cobertura de Callables", () => {
     (match) => match[1],
   );
 
-  it("declara exactamente las 38 Callables operativas", () => {
-    expect(CALLABLE_NAMES).toHaveLength(38);
+  it("declara exactamente las 42 Callables operativas", () => {
+    expect(CALLABLE_NAMES).toHaveLength(42);
     expect(exportedCallables).toEqual(CALLABLE_NAMES);
   });
 
-  it("aplica la frontera antes de autenticar en las 37 Callables", () => {
+  it("aplica la frontera antes de autenticar en todas las Callables", () => {
     for (const callableName of CALLABLE_NAMES) {
       const start = indexSource.indexOf(`export const ${callableName} = onCall(`);
       const next = indexSource.indexOf("\nexport const ", start + 1);

@@ -279,6 +279,42 @@ export const domainErrors = {
   migrationReversalBlocked: () => new DomainError(
     "MIGRATION_REVERSAL_BLOCKED", "La importación fue modificada o utilizada y ya no puede revertirse automáticamente."
   ),
+  driveOAuthConfigurationRequired: () => new DomainError(
+    "DRIVE_OAUTH_CONFIGURATION_REQUIRED",
+    "La conexion administrativa con Google Drive todavia no esta configurada."
+  ),
+  driveOAuthSessionExpired: () => new DomainError(
+    "DRIVE_OAUTH_SESSION_EXPIRED",
+    "La autorizacion expiro. Inicia una conexion nueva."
+  ),
+  driveOAuthSessionInProgress: () => new DomainError(
+    "DRIVE_OAUTH_SESSION_IN_PROGRESS",
+    "La autorizacion ya se esta completando. Espera antes de reintentar."
+  ),
+  driveOAuthStateInvalid: () => new DomainError(
+    "DRIVE_OAUTH_STATE_INVALID",
+    "La respuesta de autorizacion no coincide con el intento iniciado."
+  ),
+  driveOAuthScopeInvalid: () => new DomainError(
+    "DRIVE_OAUTH_SCOPE_INVALID",
+    "Google Drive no concedio exclusivamente el alcance drive.file."
+  ),
+  driveOAuthAccountMismatch: () => new DomainError(
+    "DRIVE_OAUTH_ACCOUNT_MISMATCH",
+    "La cuenta de Google seleccionada no coincide con la cuenta empresarial configurada."
+  ),
+  driveOAuthSelectionInvalid: () => new DomainError(
+    "DRIVE_OAUTH_SELECTION_INVALID",
+    "La seleccion de Google Drive no tiene el tipo o los permisos requeridos."
+  ),
+  driveOAuthInvalidGrant: () => new DomainError(
+    "DRIVE_OAUTH_INVALID_GRANT",
+    "La autorizacion de Google Drive expiro o fue revocada. Reconecta la cuenta."
+  ),
+  driveOAuthNotConnected: () => new DomainError(
+    "DRIVE_OAUTH_NOT_CONNECTED",
+    "Google Drive no conserva una autorizacion activa para revocar."
+  ),
   unauthenticated: () => new DomainError("UNAUTHENTICATED", "Debes iniciar sesión."),
   invalidArgument: () => new DomainError("INVALID_ARGUMENT", "La solicitud no tiene un formato válido."),
   userNotFound: () => new DomainError("USER_NOT_FOUND", "La cuenta no tiene un perfil operativo."),

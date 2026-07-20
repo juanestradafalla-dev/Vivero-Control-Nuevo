@@ -26,6 +26,8 @@ import type {
   DraftParticipantCandidate,
   DraftParticipantInput,
   DraftParticipantsData,
+  CompleteGoogleDriveOAuthRequest,
+  GoogleDriveConnectionStatus,
   InventoryReportConfiguration,
   InventoryReportSummary,
   ManageableDraftJourney,
@@ -57,11 +59,28 @@ import type {
   MigrationValidationIssue,
   MigrationValidationReport,
   RetryInventoryReportRequest,
+  StartGoogleDriveOAuthRequest,
+  StartGoogleDriveOAuthResult,
 } from "../domain/MonitorModels";
 import {sortMonitorLines} from "../domain/MonitorModels";
 
 function isRole(value: unknown): value is MonitorRole {
   return value === "AUXILIAR" || value === "SUPERVISOR" || value === "ADMINISTRADOR";
+}
+
+function parseGoogleDriveConnectionStatus(value: unknown): GoogleDriveConnectionStatus {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("El estado de Google Drive no tiene formato valido.");
+  }
+  const record = value as Record<string, unknown>;
+  const states = ["NO_CONFIGURADO", "CONECTADO_INCOMPLETO", "LISTO", "REVOCADO", "REQUIERE_RECONEXION"];
+  if (!states.includes(record.estado as string)) throw new Error("El estado de Google Drive no es valido.");
+  return {
+    state: record.estado as GoogleDriveConnectionStatus["state"],
+    ...(typeof record.plantillaNombre === "string" ? {templateName: record.plantillaNombre} : {}),
+    ...(typeof record.carpetaNombre === "string" ? {folderName: record.carpetaNombre} : {}),
+    ...(typeof record.actualizadoEn === "string" ? {updatedAt: record.actualizadoEn} : {})
+  };
 }
 
 function parseInventoryReportConfiguration(value: unknown): InventoryReportConfiguration | undefined {
@@ -1444,6 +1463,89 @@ export class FirebaseMonitorRepository implements MonitorRepository {
     }
   }
 
+  async getGoogleDriveConnectionStatus(): Promise<GoogleDriveConnectionStatus> {
+    const callable = httpsCallable<Record<string, never>, unknown>(
+      this.functions,
+      "obtenerEstadoConexionGoogleDrive",
+    );
+    try {
+      const response = await callable({});
+      return parseGoogleDriveConnectionStatus(response.data);
+    } catch (error) {
+      throw new Error(
+        error instanceof Error ? error.message : "No fue posible consultar la conexion con Google Drive.",
+        {cause: error},
+      );
+    }
+  }
+
+  async startGoogleDriveOAuth(request: StartGoogleDriveOAuthRequest): Promise<StartGoogleDriveOAuthResult> {
+    const callable = httpsCallable<Record<string, unknown>, Record<string, unknown>>(
+      this.functions,
+      "iniciarConexionGoogleDrive",
+    );
+    try {
+      const response = await callable({
+        tipoSeleccion: request.selectionKind,
+        uriRedireccion: request.redirectUri,
+        desafioCodigo: request.codeChallenge,
+        claveIdempotencia: request.idempotencyKey,
+      });
+      if (
+        typeof response.data.urlAutorizacion !== "string" ||
+        typeof response.data.expiraEn !== "string"
+      ) throw new Error("La respuesta OAuth de Google Drive no es valida.");
+      return {
+        authorizationUrl: response.data.urlAutorizacion,
+        expiresAt: response.data.expiraEn,
+      };
+    } catch (error) {
+      throw new Error(
+        error instanceof Error ? error.message : "No fue posible iniciar la conexion con Google Drive.",
+        {cause: error},
+      );
+    }
+  }
+
+  async completeGoogleDriveOAuth(request: CompleteGoogleDriveOAuthRequest): Promise<GoogleDriveConnectionStatus> {
+    const callable = httpsCallable(this.functions, "completarConexionGoogleDrive");
+    try {
+      await callable({
+        estado: request.state,
+        codigoAutorizacion: request.authorizationCode,
+        verificadorCodigo: request.codeVerifier,
+        uriRedireccion: request.redirectUri,
+        idsSeleccionados: request.selectedFileIds,
+        alcanceConcedido: request.grantedScope,
+      });
+      return await this.getGoogleDriveConnectionStatus();
+    } catch (error) {
+      throw new Error(
+        error instanceof Error ? error.message : "No fue posible completar la conexion con Google Drive.",
+        {cause: error},
+      );
+    }
+  }
+
+  async revokeGoogleDriveOAuth(idempotencyKey: string): Promise<GoogleDriveConnectionStatus> {
+    const callable = httpsCallable<Record<string, string>, {estado: string; revocadaEn: string}>(
+      this.functions,
+      "revocarConexionGoogleDrive",
+    );
+    try {
+      const response = await callable({claveIdempotencia: idempotencyKey});
+      if (response.data.estado !== "REVOCADO" || typeof response.data.revocadaEn !== "string") {
+        throw new Error("La respuesta de revocacion de Google Drive no es valida.");
+      }
+      return {state: "REVOCADO", updatedAt: response.data.revocadaEn};
+    } catch (error) {
+      throw new Error(
+        error instanceof Error ? error.message : "No fue posible revocar Google Drive.",
+        {cause: error},
+      );
+    }
+  }
+
   async returnCount(countId: string, reason: string, idempotencyKey: string): Promise<void> {
     const callable = httpsCallable(this.functions, "devolverConteo");
     try {
@@ -1937,6 +2039,22 @@ export class DisabledMonitorRepository implements MonitorRepository {
   }
 
   async retryInventoryReport(): Promise<void> {
+    throw new Error(this.configurationError);
+  }
+
+  async getGoogleDriveConnectionStatus(): Promise<GoogleDriveConnectionStatus> {
+    throw new Error(this.configurationError);
+  }
+
+  async startGoogleDriveOAuth(): Promise<StartGoogleDriveOAuthResult> {
+    throw new Error(this.configurationError);
+  }
+
+  async completeGoogleDriveOAuth(): Promise<GoogleDriveConnectionStatus> {
+    throw new Error(this.configurationError);
+  }
+
+  async revokeGoogleDriveOAuth(): Promise<GoogleDriveConnectionStatus> {
     throw new Error(this.configurationError);
   }
 

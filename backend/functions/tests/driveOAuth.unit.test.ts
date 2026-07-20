@@ -27,6 +27,8 @@ const environmentNames = [
   "GOOGLE_DRIVE_REPORT_SERVICE_ACCOUNT"
 ] as const;
 const originalEnvironment = new Map(environmentNames.map((name) => [name, process.env[name]]));
+const fictitiousServiceAccount = (name: string): string =>
+  [name, "viverocontrol-3f83f.iam.gserviceaccount.com"].join("@");
 
 function clearEnvironment(): void {
   for (const name of environmentNames) delete process.env[name];
@@ -88,9 +90,9 @@ describe("frontera OAuth de Google Drive", () => {
     process.env.GOOGLE_DRIVE_INVENTORY_PRIMARY_EMAIL = "cuenta-prueba@example.invalid";
     process.env.GOOGLE_DRIVE_OAUTH_REFRESH_TOKEN_SECRET = "oauth-refresh-token";
     process.env.GOOGLE_DRIVE_OAUTH_WRITER_SERVICE_ACCOUNT =
-      "drive-oauth-writer@viverocontrol-3f83f.iam.gserviceaccount.com";
+      fictitiousServiceAccount("drive-oauth-writer");
     process.env.GOOGLE_DRIVE_REPORT_SERVICE_ACCOUNT =
-      "drive-report-runtime@viverocontrol-3f83f.iam.gserviceaccount.com";
+      fictitiousServiceAccount("drive-report-runtime");
     expect(driveOAuthRuntimeConfigurationFromEnvironment()).toMatchObject({
       projectId: "viverocontrol-3f83f",
       mode: "oauth-user",
@@ -105,7 +107,7 @@ describe("frontera OAuth de Google Drive", () => {
     expect(() => driveOAuthServiceAccountsFromEnvironment())
       .toThrow(DriveOAuthConfigurationError);
     process.env.GOOGLE_DRIVE_REPORT_SERVICE_ACCOUNT =
-      "drive-report-runtime@viverocontrol-3f83f.iam.gserviceaccount.com";
+      fictitiousServiceAccount("drive-report-runtime");
 
     process.env.GCLOUD_PROJECT = "otro-proyecto";
     expect(() => driveOAuthRuntimeConfigurationFromEnvironment())

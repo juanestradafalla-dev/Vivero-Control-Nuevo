@@ -2,6 +2,7 @@ import {Timestamp, type Firestore} from "firebase-admin/firestore";
 
 import type {
   ActiveJourneySummary,
+  InventoryReportConfiguration,
   ListActiveJourneysResult,
   TrustedOperationContext,
   UserRole
@@ -27,12 +28,29 @@ interface JourneyDocument {
   readonly creadaEn?: unknown;
   readonly version?: unknown;
   readonly creadaPorUsuarioId?: unknown;
+  readonly configuracionInformeInventario?: unknown;
 }
 
 const roles = new Set<UserRole>(["AUXILIAR", "SUPERVISOR", "ADMINISTRADOR"]);
 
 function isRole(value: unknown): value is UserRole {
   return typeof value === "string" && roles.has(value as UserRole);
+}
+
+function isInventoryReportConfiguration(value: unknown): value is InventoryReportConfiguration {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const configuration = value as Record<string, unknown>;
+  return Object.keys(configuration).length === 4 &&
+    Object.keys(configuration).every((field) =>
+      ["habilitado", "mes", "anio", "fuentePlantasMuertas"].includes(field)
+    ) &&
+    configuration.habilitado === true &&
+    Number.isSafeInteger(configuration.mes) && (configuration.mes as number) >= 1 &&
+    (configuration.mes as number) <= 12 &&
+    Number.isSafeInteger(configuration.anio) && (configuration.anio as number) >= 2000 &&
+    (configuration.anio as number) <= 2100 &&
+    (configuration.fuentePlantasMuertas === "CONTEO_FISICO" ||
+      configuration.fuentePlantasMuertas === "DESCARTES_APROBADOS");
 }
 
 export class ListActiveJourneysService {
@@ -85,6 +103,18 @@ export class ListActiveJourneysService {
       ) {
         return undefined;
       }
+      if (journey.configuracionInformeInventario !== undefined &&
+          !isInventoryReportConfiguration(journey.configuracionInformeInventario)) {
+        throw domainErrors.inventoryReportConfigurationInvalid();
+      }
+      const configuration = isInventoryReportConfiguration(journey.configuracionInformeInventario)
+        ? journey.configuracionInformeInventario
+        : undefined;
+      const pendingDiscards = configuration?.fuentePlantasMuertas === "DESCARTES_APROBADOS"
+        ? await this.firestore.collection("descartes")
+            .where("jornadaId", "==", authorization.jornadaId)
+            .get()
+        : undefined;
       const summary: ActiveJourneySummary = {
         jornadaId: authorization.jornadaId,
         nombreVisible: journey.nombreVisible,
@@ -94,7 +124,13 @@ export class ListActiveJourneysService {
         cantidadLineas: linesSnapshot.docs.filter((line) => line.data().activa === true).length,
         version: journey.version as number,
         puedeCerrar: userRoles.includes("ADMINISTRADOR") ||
-          (userRoles.includes("SUPERVISOR") && journey.creadaPorUsuarioId === context.actorId)
+          (userRoles.includes("SUPERVISOR") && journey.creadaPorUsuarioId === context.actorId),
+        ...(configuration === undefined ? {} : {configuracionInformeInventario: configuration}),
+        ...(pendingDiscards === undefined ? {} : {
+          cantidadDescartesPendientes: pendingDiscards.docs.filter((snapshot) =>
+            snapshot.data().estado === "PENDIENTE_REVISION"
+          ).length
+        })
       };
       return {summary, createdAt: journey.creadaEn.toMillis()};
     }));

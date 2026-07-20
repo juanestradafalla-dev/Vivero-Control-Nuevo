@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/inventory-report.schema.json",
+  "title": "Informe de inventario persistido",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "jornadaId", "jornadaNombreVisible", "creadorJornadaUsuarioId", "solicitadoPorUsuarioId", "responsableUsuarioId", "responsableNombreVisible", "estado", "mes", "anio", "fuentePlantasMuertas", "versionJornadaCierre", "activadaEn", "cerradaEn", "lineas", "intentos", "creadoEn", "actualizadoEn"],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaNombreVisible": {"type": "string", "minLength": 1, "maxLength": 200},
+    "creadorJornadaUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "solicitadoPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "responsableUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "responsableNombreVisible": {"type": "string", "minLength": 1, "maxLength": 240},
+    "estado": {"$ref": "../enums/estados-informe-inventario.json"},
+    "mes": {"type": "integer", "minimum": 1, "maximum": 12},
+    "anio": {"type": "integer", "minimum": 2000, "maximum": 2100},
+    "fuentePlantasMuertas": {"enum": ["CONTEO_FISICO", "DESCARTES_APROBADOS"]},
+    "versionJornadaCierre": {"type": "integer", "minimum": 2, "maximum": 9007199254740991},
+    "activadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "cerradaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "lineas": {"type": "array", "minItems": 1, "maxItems": 400, "items": {"$ref": "inventory-report-line.schema.json"}},
+    "intentos": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "procesamientoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "procesandoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "archivoNombre": {"type": "string", "minLength": 1, "maxLength": 240},
+    "archivoDriveId": {"type": "string", "minLength": 1, "maxLength": 240},
+    "archivoEnlace": {"type": "string", "format": "uri", "maxLength": 2000},
+    "hashContenido": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "errorCodigo": {"type": "string", "minLength": 1, "maxLength": 120},
+    "errorMensaje": {"type": "string", "minLength": 1, "maxLength": 500},
+    "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "actualizadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "finalizadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"estado": {"const": "PENDIENTE"}}, "required": ["estado"]},
+      "then": {
+        "properties": {
+          "procesamientoId": false,
+          "procesandoEn": false,
+          "archivoNombre": false,
+          "archivoDriveId": false,
+          "archivoEnlace": false,
+          "hashContenido": false,
+          "errorCodigo": false,
+          "errorMensaje": false,
+          "finalizadoEn": false
+        }
+      }
+    },
+    {
+      "if": {"properties": {"estado": {"const": "PROCESANDO"}}, "required": ["estado"]},
+      "then": {
+        "properties": {
+          "intentos": {"type": "integer", "minimum": 1},
+          "archivoNombre": false,
+          "archivoDriveId": false,
+          "archivoEnlace": false,
+          "hashContenido": false,
+          "errorCodigo": false,
+          "errorMensaje": false,
+          "finalizadoEn": false
+        },
+        "required": ["procesamientoId", "procesandoEn"]
+      }
+    },
+    {
+      "if": {"properties": {"estado": {"const": "COMPLETADO"}}, "required": ["estado"]},
+      "then": {
+        "properties": {
+          "intentos": {"type": "integer", "minimum": 1},
+          "errorCodigo": false,
+          "errorMensaje": false
+        },
+        "required": ["procesamientoId", "procesandoEn", "archivoNombre", "archivoDriveId", "archivoEnlace", "hashContenido", "finalizadoEn"]
+      }
+    },
+    {
+      "if": {"properties": {"estado": {"enum": ["ERROR_REINTENTABLE", "ERROR_PERMANENTE"]}}, "required": ["estado"]},
+      "then": {
+        "properties": {
+          "intentos": {"type": "integer", "minimum": 1},
+          "archivoNombre": false,
+          "archivoDriveId": false,
+          "archivoEnlace": false,
+          "hashContenido": false
+        },
+        "required": ["procesamientoId", "procesandoEn", "errorCodigo", "errorMensaje", "finalizadoEn"]
+      }
+    }
+  ]
+}

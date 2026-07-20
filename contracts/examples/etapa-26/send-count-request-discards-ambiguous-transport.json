@@ -1,0 +1,11 @@
+{
+  "reservaId": "RESERVA-FICTICIA-26-02",
+  "tokenReserva": "TOKEN_FICTICIO_ETAPA_26_abcdef0123456789",
+  "dispositivoId": "ANDROID-FICTICIO-26-02",
+  "hembras": 12,
+  "machos": 3,
+  "patrones": 1,
+  "plantasMuertas": 4,
+  "timestampDispositivo": "2026-08-15T14:00:00.000Z",
+  "claveIdempotencia": "conteo-ambiguo-descartes-ficticio-2602"
+}

@@ -37,6 +37,8 @@ interface LineDocument {
   readonly activa?: boolean;
   readonly version?: number;
 }
+interface JourneyLineDocument { readonly jornadaId?: string; }
+interface JourneyDocument { readonly estadoAdministrativo?: string; }
 interface DraftSelectionDocument { readonly lineaIds?: unknown; }
 interface InventoryDocument {
   readonly lineaId?: string;
@@ -524,6 +526,23 @@ export class UpdateCatalogLineService {
       const currentVersion = versionOf(line.version);
       if (currentVersion !== request.versionEsperada) throw domainErrors.catalogStaleVersion();
       if (occupation.exists) throw domainErrors.catalogLineOccupied();
+      const memberships = await transaction.get(
+        this.firestore.collection("jornadaLineas").where("lineaId", "==", request.lineaId)
+      );
+      const membershipJourneyIds = [...new Set(memberships.docs.flatMap((snapshot) => {
+        const journeyId = (snapshot.data() as JourneyLineDocument).jornadaId;
+        return typeof journeyId === "string" ? [journeyId] : [];
+      }))];
+      const membershipJourneys = membershipJourneyIds.length === 0
+        ? []
+        : await transaction.getAll(...membershipJourneyIds.map((journeyId) =>
+            this.firestore.collection("jornadas").doc(journeyId)
+          ));
+      if (membershipJourneys.some((snapshot) => {
+        if (!snapshot.exists) return false;
+        const state = (snapshot.data() as JourneyDocument).estadoAdministrativo;
+        return state === "ACTIVA" || state === "CERRANDO";
+      })) throw domainErrors.catalogLineOccupied();
       if (
         line.nombreVisible === request.nombreVisible && line.orden === request.orden &&
         (line.activa === true) === request.activa

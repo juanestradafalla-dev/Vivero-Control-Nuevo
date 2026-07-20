@@ -9,7 +9,10 @@ import type {
   ApproveCountRequest,
   CloseJourneyRequest,
   CloseJourneyResult,
+  ClosedJourneyResult,
   ListActiveJourneysResult,
+  RegisterDiscardRequest,
+  RegisterDiscardResult,
   ReleaseReservationRequest,
   ReserveLineRequest,
   ReserveLineResult,
@@ -60,9 +63,23 @@ async function closeJourney(
   journeyId = ACTIVE_JOURNEY_ID,
   version = 1,
   key = `cerrar-jornada-${crypto.randomUUID()}`
-): Promise<CloseJourneyResult> {
+): Promise<ClosedJourneyResult> {
   const callable = httpsCallable<CloseJourneyRequest, CloseJourneyResult>(client.functions, "cerrarJornada");
-  return (await callable({jornadaId: journeyId, versionEsperada: version, claveIdempotencia: key})).data;
+  const result = (await callable({jornadaId: journeyId, versionEsperada: version, claveIdempotencia: key})).data;
+  if (result.estado === "INACTIVA") return result;
+  const database = adminDatabase();
+  for (let attempt = 0; attempt < 600; attempt += 1) {
+    const job = (await database.collection("trabajosCierreJornada").doc(journeyId).get()).data();
+    if (job?.estado === "ERROR") throw new Error("El worker marco el cierre con error.");
+    if (job?.estado === "COMPLETADO" && typeof job.idempotenciaId === "string") {
+      const completed = (await database.collection("idempotencia").doc(job.idempotenciaId).get())
+        .data()?.resultado as ClosedJourneyResult | undefined;
+      if (!completed || completed.estado !== "INACTIVA") throw new Error("El worker no completo el cierre.");
+      return completed;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error("El worker no completo el cierre dentro de la ventana de prueba.");
 }
 
 function errorCode(error: unknown): string | undefined {
@@ -118,6 +135,75 @@ async function prepareClosable(journeyId = ACTIVE_JOURNEY_ID, creatorId = "uid-a
   return version;
 }
 
+async function prepareConfiguredClosable(
+  source: "CONTEO_FISICO" | "DESCARTES_APROBADOS"
+): Promise<number> {
+  const version = await prepareClosable();
+  const database = adminDatabase();
+  const lines = await database.collection("jornadaLineas").where("jornadaId", "==", ACTIVE_JOURNEY_ID).get();
+  const activatedAt = Timestamp.fromDate(new Date("2026-07-01T12:00:00.000Z"));
+  const receivedAt = Timestamp.fromDate(new Date("2026-07-15T12:00:00.000Z"));
+  const batch = database.batch();
+  batch.update(database.collection("jornadas").doc(ACTIVE_JOURNEY_ID), {
+    activadaEn: activatedAt,
+    configuracionInformeInventario: {
+      habilitado: true,
+      mes: 7,
+      anio: 2026,
+      fuentePlantasMuertas: source
+    }
+  });
+  lines.docs.forEach((line, index) => {
+    const countId = `CONTEO-INFORME-CIERRE-${index + 1}`;
+    batch.update(line.ref, {conteoVigenteId: countId});
+    batch.set(database.collection("conteos").doc(countId), {
+      id: countId,
+      jornadaId: ACTIVE_JOURNEY_ID,
+      jornadaLineaId: line.id,
+      lineaId: line.data().lineaId,
+      hembras: 100 + index,
+      machos: 50 + index,
+      patrones: 25 + index,
+      total: 175 + (index * 3),
+      ...(source === "CONTEO_FISICO" ? {plantasMuertas: 4 + index} : {}),
+      observaciones: `Conteo ficticio ${index + 1}`,
+      recibidoEn: receivedAt,
+      inmutable: true
+    });
+  });
+  await batch.commit();
+  return version;
+}
+
+async function createAssociatedDiscard(
+  state: "PENDIENTE_REVISION" | "APROBADO" | "DEVUELTO",
+  deadPlants: number
+): Promise<string> {
+  const database = adminDatabase();
+  const id = `DESCARTE-CIERRE-${state}-${crypto.randomUUID()}`;
+  await database.collection("descartes").doc(id).set({
+    id,
+    jornadaId: ACTIVE_JOURNEY_ID,
+    jornadaLineaId: journeyLineId(1),
+    lineaId: "LINEA-PRUEBA-1",
+    hembras: deadPlants + 5,
+    machos: 0,
+    patrones: 0,
+    totalUnico: deadPlants + 5,
+    causas: {
+      muertos: deadPlants,
+      nematodos: 5,
+      cuelloGanso: 0,
+      raicesBifurcadas: 0,
+      dobleInjertacion: 0
+    },
+    estado: state,
+    capturaInmutable: true,
+    recibidoEn: Timestamp.fromDate(new Date("2026-07-16T12:00:00.000Z"))
+  });
+  return id;
+}
+
 async function createPendingCount(author: Client): Promise<SendCountResult> {
   const reserve = httpsCallable<ReserveLineRequest, ReserveLineResult>(author.functions, "reservarLinea");
   const reservation = (await reserve({
@@ -148,6 +234,71 @@ afterEach(async () => {
 });
 
 describe("cierre seguro y atomico de jornadas activas", () => {
+  it("CERRANDO bloquea reserva, envio y liberacion", async () => {
+    const auxiliary = await authenticatedClient("auxiliar1@prueba.local", "close-block-aux");
+    const supervisor = await authenticatedClient("supervisor@prueba.local", "close-block-supervisor");
+    const reserve = httpsCallable<ReserveLineRequest, ReserveLineResult>(auxiliary.functions, "reservarLinea");
+    const reservation = (await reserve({
+      jornadaLineaId: journeyLineId(1),
+      dispositivoId: "DISPOSITIVO-CIERRE-BLOQUEO",
+      claveIdempotencia: "reservar-antes-cerrando-bloqueo"
+    })).data;
+    await adminDatabase().collection("jornadas").doc(ACTIVE_JOURNEY_ID).update({
+      estadoAdministrativo: "CERRANDO"
+    });
+    await expectRejectCode(reserve({
+      jornadaLineaId: journeyLineId(2),
+      dispositivoId: "DISPOSITIVO-CIERRE-BLOQUEO",
+      claveIdempotencia: "reservar-durante-cerrando-bloqueo"
+    }), "JOURNEY_NOT_ACTIVE");
+    await expectRejectCode(httpsCallable<SendCountRequest, unknown>(auxiliary.functions, "enviarConteo")({
+      reservaId: reservation.reservaId,
+      tokenReserva: reservation.tokenReserva,
+      dispositivoId: "DISPOSITIVO-CIERRE-BLOQUEO",
+      hembras: 1,
+      machos: 1,
+      patrones: 1,
+      timestampDispositivo: "2026-07-15T15:00:00.000-05:00",
+      claveIdempotencia: "enviar-durante-cerrando-bloqueo"
+    }), "JOURNEY_NOT_ACTIVE");
+    await expectRejectCode(httpsCallable<ReleaseReservationRequest, unknown>(
+      supervisor.functions, "liberarReservaLinea"
+    )({
+      reservaId: reservation.reservaId,
+      motivo: "La jornada esta cerrando.",
+      claveIdempotencia: "liberar-durante-cerrando-bloqueo"
+    }), "JOURNEY_NOT_ACTIVE");
+  });
+
+  it("CERRANDO bloquea iniciar y reasignar correcciones", async () => {
+    const auxiliary = await authenticatedClient("auxiliar1@prueba.local", "close-block-correction-aux");
+    const supervisor = await authenticatedClient("supervisor@prueba.local", "close-block-correction-supervisor");
+    const pending = await createPendingCount(auxiliary);
+    await httpsCallable<ReturnCountRequest, unknown>(supervisor.functions, "devolverConteo")({
+      conteoId: pending.conteoId,
+      motivo: "Preparar una correccion ficticia.",
+      claveIdempotencia: "devolver-antes-cerrando-bloqueo"
+    });
+    await adminDatabase().collection("jornadas").doc(ACTIVE_JOURNEY_ID).update({
+      estadoAdministrativo: "CERRANDO"
+    });
+    await expectRejectCode(httpsCallable<Record<string, unknown>, unknown>(
+      auxiliary.functions, "iniciarCorreccionConteo"
+    )({
+      conteoId: pending.conteoId,
+      dispositivoId: "DISPOSITIVO-CIERRE-BLOQUEO",
+      claveIdempotencia: "corregir-durante-cerrando-bloqueo"
+    }), "JOURNEY_NOT_ACTIVE");
+    await expectRejectCode(httpsCallable<Record<string, unknown>, unknown>(
+      supervisor.functions, "reasignarCorreccionConteo"
+    )({
+      conteoId: pending.conteoId,
+      nuevoUsuarioId: "uid-auxiliar-2",
+      motivo: "No debe reasignarse durante el cierre.",
+      claveIdempotencia: "reasignar-durante-cerrando-bloqueo"
+    }), "JOURNEY_NOT_ACTIVE");
+  });
+
   it("cierra una jornada aprobada, conserva historia y libera exactamente sus ocupaciones", async () => {
     const administrator = await authenticatedClient("administrador@prueba.local", "close-valid");
     const database = adminDatabase();
@@ -283,7 +434,8 @@ describe("cierre seguro y atomico de jornadas activas", () => {
     ]);
     expect(outcomes.filter((outcome) => outcome.status === "fulfilled")).toHaveLength(1);
     const rejection = outcomes.find((outcome) => outcome.status === "rejected");
-    expect(rejection?.status === "rejected" ? errorCode(rejection.reason) : undefined).toBe("JOURNEY_NOT_ACTIVE");
+    expect(["JOURNEY_NOT_ACTIVE", "JOURNEY_CLOSE_IN_PROGRESS"])
+      .toContain(rejection?.status === "rejected" ? errorCode(rejection.reason) : undefined);
     expect((await adminDatabase().collection("auditoria").where("tipo", "==", "JORNADA_CERRADA").get()).size)
       .toBe(1);
   });
@@ -387,7 +539,7 @@ describe("cierre seguro y atomico de jornadas activas", () => {
     expect(outcomes[1]?.status).toBe("fulfilled");
     expect((await adminDatabase().collection("auditoria").where("tipo", "==", "JORNADA_CERRADA").get()).empty)
       .toBe(true);
-  }, 30_000);
+  });
 
   it("desaparece de Campo y sus lineas liberadas vuelven al catalogo de borradores", async () => {
     const administrator = await authenticatedClient("administrador@prueba.local", "close-visibility-admin");
@@ -411,5 +563,167 @@ describe("cierre seguro y atomico de jornadas activas", () => {
         expect.objectContaining({lineaId: "LINEA-PRUEBA-2", seleccionable: true}),
         expect.objectContaining({lineaId: "LINEA-PRUEBA-3", seleccionable: true})
       ]));
+  });
+
+  it("cierra CONTEO_FISICO y crea un unico job determinista con fotografia estable", async () => {
+    const administrator = await authenticatedClient("administrador@prueba.local", "close-report-physical");
+    const version = await prepareConfiguredClosable("CONTEO_FISICO");
+    const key = "cerrar-informe-fisico-idempotente-0001";
+    const first = await closeJourney(administrator, ACTIVE_JOURNEY_ID, version, key);
+    const repeated = await closeJourney(administrator, ACTIVE_JOURNEY_ID, version, key);
+    const database = adminDatabase();
+    const report = await database.collection("informesInventario").doc(ACTIVE_JOURNEY_ID).get();
+
+    expect(repeated).toEqual(first);
+    expect(first.informeInventario).toMatchObject({
+      informeId: ACTIVE_JOURNEY_ID,
+      estado: "PENDIENTE",
+      mes: 7,
+      anio: 2026,
+      fuentePlantasMuertas: "CONTEO_FISICO",
+      intentos: 0
+    });
+    expect(report.exists).toBe(true);
+    expect(report.data()).toMatchObject({
+      id: ACTIVE_JOURNEY_ID,
+      responsableUsuarioId: "uid-administrador",
+      responsableNombreVisible: "Administrador ficticio",
+      versionJornadaCierre: version + 1
+    });
+    expect(report.data()?.lineas).toEqual(expect.arrayContaining([
+      expect.objectContaining({jornadaLineaId: journeyLineId(1), plantasMuertas: 4})
+    ]));
+    expect((await database.collection("informesInventario").get()).size).toBe(1);
+  });
+
+  it("bloquea descartes pendientes y suma solo causas.muertos aprobadas dentro del periodo", async () => {
+    const administrator = await authenticatedClient("administrador@prueba.local", "close-report-discards");
+    const version = await prepareConfiguredClosable("DESCARTES_APROBADOS");
+    const pendingId = await createAssociatedDiscard("PENDIENTE_REVISION", 6);
+    await expectRejectCode(
+      closeJourney(administrator, ACTIVE_JOURNEY_ID, version, "cerrar-descartes-pendientes-0001"),
+      "INVENTORY_REPORT_PENDING_DISCARDS"
+    );
+    expect((await adminDatabase().collection("informesInventario").doc(ACTIVE_JOURNEY_ID).get()).exists)
+      .toBe(false);
+
+    await adminDatabase().collection("descartes").doc(pendingId).update({
+      estado: "APROBADO",
+      recibidoEn: Timestamp.fromDate(new Date("2026-06-30T23:59:59.000Z"))
+    });
+    await expectRejectCode(
+      closeJourney(administrator, ACTIVE_JOURNEY_ID, version, "cerrar-descarte-fuera-periodo-0001"),
+      "INVENTORY_REPORT_COUNT_INCOMPATIBLE"
+    );
+
+    await adminDatabase().collection("descartes").doc(pendingId).update({
+      recibidoEn: Timestamp.fromDate(new Date("2026-07-16T12:00:00.000Z"))
+    });
+    await createAssociatedDiscard("DEVUELTO", 90);
+    const result = await closeJourney(
+      administrator, ACTIVE_JOURNEY_ID, version, "cerrar-descartes-aprobados-0001"
+    );
+    const report = await adminDatabase().collection("informesInventario").doc(ACTIVE_JOURNEY_ID).get();
+    expect(result.informeInventario?.fuentePlantasMuertas).toBe("DESCARTES_APROBADOS");
+    expect(report.data()?.lineas).toEqual(expect.arrayContaining([
+      expect.objectContaining({jornadaLineaId: journeyLineId(1), plantasMuertas: 6})
+    ]));
+  });
+
+  it("serializa la carrera entre cerrar y registrar un descarte asociado", async () => {
+    const administrator = await authenticatedClient("administrador@prueba.local", "close-discard-race-admin");
+    const auxiliary = await authenticatedClient("auxiliar1@prueba.local", "close-discard-race-author");
+    const version = await prepareConfiguredClosable("DESCARTES_APROBADOS");
+    const registerDiscard = httpsCallable<RegisterDiscardRequest, RegisterDiscardResult>(
+      auxiliary.functions, "registrarDescarte"
+    );
+    const [closeOutcome, registerOutcome] = await Promise.allSettled([
+      closeJourney(administrator, ACTIVE_JOURNEY_ID, version, "cerrar-carrera-descarte-0001"),
+      registerDiscard({
+        lineaId: "LINEA-PRUEBA-1",
+        versionInventarioObservada: 1,
+        dispositivoId: "DISPOSITIVO-CARRERA-DESCARTE",
+        hembras: 1,
+        machos: 0,
+        patrones: 0,
+        causas: {
+          muertos: 1,
+          nematodos: 0,
+          cuelloGanso: 0,
+          raicesBifurcadas: 0,
+          dobleInjertacion: 0
+        },
+        timestampDispositivo: "2026-07-18T08:00:00.000-05:00",
+        claveIdempotencia: "registrar-carrera-cierre-0001"
+      })
+    ]);
+    const database = adminDatabase();
+    if (registerOutcome.status === "fulfilled") {
+      const discard = await database.collection("descartes").doc(registerOutcome.value.data.descarteId).get();
+      const associatedWithJourney = discard.data()?.jornadaId === ACTIVE_JOURNEY_ID;
+      if (associatedWithJourney) {
+        expect(closeOutcome.status).toBe("rejected");
+        if (closeOutcome.status === "rejected") {
+          expect(errorCode(closeOutcome.reason)).toBe("INVENTORY_REPORT_PENDING_DISCARDS");
+        }
+        expect((await database.collection("jornadas").doc(ACTIVE_JOURNEY_ID).get()).data()?.estadoAdministrativo)
+          .toBe("ACTIVA");
+        expect((await database.collection("informesInventario").doc(ACTIVE_JOURNEY_ID).get()).exists)
+          .toBe(false);
+      } else {
+        expect(closeOutcome.status).toBe("fulfilled");
+        expect((await database.collection("jornadas").doc(ACTIVE_JOURNEY_ID).get()).data()?.estadoAdministrativo)
+          .toBe("INACTIVA");
+        expect((await database.collection("informesInventario").doc(ACTIVE_JOURNEY_ID).get()).exists)
+          .toBe(true);
+      }
+    } else {
+      expect(closeOutcome.status).toBe("fulfilled");
+      expect(["JOURNEY_CLOSE_IN_PROGRESS", "JOURNEY_NOT_ACTIVE"])
+        .toContain(errorCode(registerOutcome.reason));
+      expect((await database.collection("jornadas").doc(ACTIVE_JOURNEY_ID).get()).data()?.estadoAdministrativo)
+        .toBe("INACTIVA");
+      expect((await database.collection("informesInventario").doc(ACTIVE_JOURNEY_ID).get()).exists)
+        .toBe(true);
+    }
+  });
+
+  it("rechaza cerrar CONTEO_FISICO si el conteo aprobado no congela plantas muertas", async () => {
+    const administrator = await authenticatedClient("administrador@prueba.local", "close-report-invalid-count");
+    const version = await prepareConfiguredClosable("CONTEO_FISICO");
+    await adminDatabase().collection("conteos").doc("CONTEO-INFORME-CIERRE-1").update({
+      plantasMuertas: FieldValue.delete()
+    });
+    await expectRejectCode(
+      closeJourney(administrator, ACTIVE_JOURNEY_ID, version, "cerrar-conteo-incompatible-0001"),
+      "INVENTORY_REPORT_COUNT_INCOMPATIBLE"
+    );
+    expect((await adminDatabase().collection("jornadas").doc(ACTIVE_JOURNEY_ID).get()).data())
+      .toMatchObject({estadoAdministrativo: "ACTIVA"});
+  });
+
+  it("rechaza un snapshot Unicode que excede el margen seguro sin cerrar parcialmente", async () => {
+    const administrator = await authenticatedClient("administrador@prueba.local", "close-report-size-limit");
+    const version = await prepareConfiguredClosable("CONTEO_FISICO");
+    const database = adminDatabase();
+    const oversizedObservation = "🌱".repeat(70_000);
+    await Promise.all([1, 2, 3].map((index) =>
+      database.collection("conteos").doc(`CONTEO-INFORME-CIERRE-${index}`).update({
+        observaciones: oversizedObservation
+      })
+    ));
+
+    await expectRejectCode(
+      closeJourney(administrator, ACTIVE_JOURNEY_ID, version, "cerrar-informe-snapshot-grande-0001"),
+      "JOURNEY_CLOSE_LIMIT_EXCEEDED"
+    );
+    expect((await database.collection("informesInventario").doc(ACTIVE_JOURNEY_ID).get()).exists)
+      .toBe(false);
+    expect((await database.collection("jornadas").doc(ACTIVE_JOURNEY_ID).get()).data())
+      .toMatchObject({estadoAdministrativo: "ACTIVA", version});
+    expect((await database.collection("ocupacionesLineasActivas").doc("LINEA-PRUEBA-1").get()).exists)
+      .toBe(true);
+    expect((await database.collection("jornadaLineas").doc(journeyLineId(1)).get()).data()?.activa)
+      .toBe(true);
   });
 });

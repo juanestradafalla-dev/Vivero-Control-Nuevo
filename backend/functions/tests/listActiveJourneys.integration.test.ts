@@ -169,4 +169,57 @@ describe("listarJornadasActivas mediante Auth, Functions y Firestore Emulator", 
       beforeInventory.docs.map((document) => document.data())
     );
   });
+
+  it("expone configuracion y cantidad central de descartes pendientes incluso cuando vuelve a cero", async () => {
+    const client = await authenticatedClient("auxiliar1@prueba.local", "journeys-pending-discards");
+    const database = adminDatabase();
+    await database.collection("jornadas").doc(ACTIVE_JOURNEY_ID).update({
+      configuracionInformeInventario: {
+        habilitado: true,
+        mes: 7,
+        anio: 2026,
+        fuentePlantasMuertas: "DESCARTES_APROBADOS"
+      }
+    });
+    const discardRef = database.collection("descartes").doc("DESCARTE-PENDIENTE-RESUMEN");
+    await discardRef.set({
+      id: discardRef.id,
+      jornadaId: ACTIVE_JOURNEY_ID,
+      jornadaLineaId: journeyLineId(1),
+      lineaId: "LINEA-PRUEBA-1",
+      estado: "PENDIENTE_REVISION"
+    });
+
+    let active = (await list(client.functions)).jornadas.find((journey) =>
+      journey.jornadaId === ACTIVE_JOURNEY_ID
+    );
+    expect(active).toMatchObject({
+      configuracionInformeInventario: {
+        habilitado: true,
+        fuentePlantasMuertas: "DESCARTES_APROBADOS"
+      },
+      cantidadDescartesPendientes: 1
+    });
+
+    await discardRef.update({estado: "APROBADO"});
+    active = (await list(client.functions)).jornadas.find((journey) =>
+      journey.jornadaId === ACTIVE_JOURNEY_ID
+    );
+    expect(active?.cantidadDescartesPendientes).toBe(0);
+  });
+
+  it("rechaza una configuracion persistida invalida sin omitirla silenciosamente", async () => {
+    const client = await authenticatedClient("auxiliar1@prueba.local", "journeys-invalid-report-config");
+    await adminDatabase().collection("jornadas").doc(ACTIVE_JOURNEY_ID).update({
+      configuracionInformeInventario: {
+        habilitado: true,
+        mes: 7,
+        anio: 2026,
+        fuentePlantasMuertas: "CONTEO_FISICO",
+        campoNoPermitido: true
+      }
+    });
+
+    await expectRejectCode(list(client.functions), "INVENTORY_REPORT_CONFIGURATION_INVALID");
+  });
 });

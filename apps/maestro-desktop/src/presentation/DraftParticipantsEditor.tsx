@@ -341,6 +341,22 @@ export function DraftParticipantsEditor({
             <h2 id="activation-summary-title">Activar jornada</h2>
             <div className="inventory-summary" aria-label="Resumen de activación de jornada">
               <strong>{journey.displayName}</strong>
+              {journey.configuracionInformeInventario ? (
+                <>
+                  <strong>Informe de inventario</strong>
+                  <span>
+                    {journey.configuracionInformeInventario.habilitado ? "Habilitado" : "Deshabilitado"}
+                    {journey.configuracionInformeInventario.habilitado
+                      ? ` · ${journey.configuracionInformeInventario.mes}/${journey.configuracionInformeInventario.anio}`
+                      : ""}
+                  </span>
+                  <span>
+                    Fuente de plantas muertas: {journey.configuracionInformeInventario.fuentePlantasMuertas === "CONTEO_FISICO"
+                      ? "Conteo físico"
+                      : "Descartes aprobados"}
+                  </span>
+                </>
+              ) : <span>Informe de inventario: sin configuración.</span>}
               <span>Líneas: {selectedLines.length}</span>
               {selectedLines.map((line) => (
                 <span key={line.id}>
@@ -356,6 +372,7 @@ export function DraftParticipantsEditor({
             </div>
             <p className="warning">Después de confirmar, Vivero Campo podrá ver esta jornada.</p>
             <p className="warning">La jornada activa no podrá editarse durante esta etapa.</p>
+            <p className="warning">La configuración del informe quedará bloqueada al activar la jornada.</p>
             <div className="dialog-actions">
               <button
                 className="button button--secondary"

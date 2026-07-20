@@ -1,0 +1,14 @@
+{
+  "id": "JORNADA-CIERRE-DURABLE-26",
+  "nombreVisible": "Cierre durable ficticio",
+  "creadaPorUsuarioId": "uid-supervisor",
+  "creadorNombreVisible": "Supervisor ficticio",
+  "estadoAdministrativo": "CERRANDO",
+  "version": 8,
+  "creadaEn": "2026-07-01T12:00:00.000Z",
+  "actualizadaEn": "2026-07-31T21:00:00.000Z",
+  "trabajoCierreId": "JORNADA-CIERRE-DURABLE-26",
+  "huellaCierre": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "cierreIniciadoEn": "2026-07-31T21:00:00.000Z",
+  "cierreIniciadoPorUsuarioId": "uid-supervisor"
+}

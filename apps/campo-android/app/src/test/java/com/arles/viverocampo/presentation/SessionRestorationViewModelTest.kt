@@ -5,9 +5,11 @@ import com.arles.viverocampo.data.sync.DiscardSyncScheduler
 import com.arles.viverocampo.domain.ActiveJourney
 import com.arles.viverocampo.domain.CampoEnvironment
 import com.arles.viverocampo.domain.CampoRepository
+import com.arles.viverocampo.domain.CampoRepositoryException
 import com.arles.viverocampo.domain.ConfirmedReservation
 import com.arles.viverocampo.domain.CountInput
 import com.arles.viverocampo.domain.CountSyncOutcome
+import com.arles.viverocampo.domain.DeadPlantsSource
 import com.arles.viverocampo.domain.DiscardInput
 import com.arles.viverocampo.domain.DiscardLine
 import com.arles.viverocampo.domain.DiscardSyncOutcome
@@ -15,6 +17,7 @@ import com.arles.viverocampo.domain.FrozenCountPayload
 import com.arles.viverocampo.domain.FrozenDiscardPayload
 import com.arles.viverocampo.domain.InitiateCountCorrectionPayload
 import com.arles.viverocampo.domain.InventoryValues
+import com.arles.viverocampo.domain.InventoryReportConfiguration
 import com.arles.viverocampo.domain.JourneyLine
 import com.arles.viverocampo.domain.JourneySnapshot
 import com.arles.viverocampo.domain.LocalCountDraft
@@ -69,6 +72,8 @@ class SessionRestorationViewModelTest {
         assertEquals(SessionStatus.RESTORED_VERIFIED, state.sessionStatus)
         assertEquals(RESERVATION.reservationId, state.confirmedReservation?.reservationId)
         assertEquals(COUNT_DRAFT.input, state.countDraft?.input)
+        assertNull(state.countDraft?.frozenPayload?.deadPlants)
+        assertFalse(state.countDraft?.frozenPayload?.toWireMap("token")?.containsKey("plantasMuertas") == true)
         assertEquals(DISCARD_DRAFT.input, state.discardDraft?.input)
         assertEquals(setOf(RESERVATION.reservationId to COUNT_KEY), fixture.countScheduler.scheduled)
         assertEquals(setOf(DISCARD_DRAFT.draftId to DISCARD_KEY), fixture.discardScheduler.scheduled)
@@ -87,6 +92,43 @@ class SessionRestorationViewModelTest {
         assertEquals(COUNT_DRAFT, state.countDraft)
         assertEquals(DISCARD_DRAFT, state.discardDraft)
         assertTrue(state.message?.contains("cach\u00e9") == true)
+    }
+
+    @Test
+    fun `arranque offline conserva requisito fisico desde snapshot de reserva`() = runTest {
+        val configuredReservation = RESERVATION.copy(
+            inventoryReportConfiguration = PHYSICAL_REPORT_CONFIGURATION,
+        )
+        val fixture = fixture(
+            SessionRestoreResult.RestoredCached(USER_ONE),
+            withLocalWork = true,
+            reservation = configuredReservation,
+            countDraft = UNFROZEN_COUNT_DRAFT,
+            failActiveJourneys = true,
+        )
+        advanceUntilIdle()
+
+        val state = fixture.viewModel.uiState.value
+        assertEquals(PHYSICAL_REPORT_CONFIGURATION, state.inventoryReportConfiguration)
+        assertTrue(state.requiresPhysicalDeadPlants)
+
+        fixture.viewModel.requestCountConfirmation()
+        assertFalse(fixture.viewModel.uiState.value.showCountSummary)
+        assertTrue(fixture.viewModel.uiState.value.countErrors.deadPlants != null)
+    }
+
+    @Test
+    fun `arranque offline no inventa configuracion para reserva antigua`() = runTest {
+        val fixture = fixture(
+            SessionRestoreResult.RestoredCached(USER_ONE),
+            withLocalWork = true,
+            countDraft = UNFROZEN_COUNT_DRAFT,
+            failActiveJourneys = true,
+        )
+        advanceUntilIdle()
+
+        assertNull(fixture.viewModel.uiState.value.inventoryReportConfiguration)
+        assertFalse(fixture.viewModel.uiState.value.requiresPhysicalDeadPlants)
     }
 
     @Test
@@ -232,12 +274,18 @@ class SessionRestorationViewModelTest {
         result: SessionRestoreResult,
         withLocalWork: Boolean = false,
         environment: CampoEnvironment = CampoEnvironment.EMULATOR,
+        reservation: ConfirmedReservation = RESERVATION,
+        countDraft: LocalCountDraft = COUNT_DRAFT,
+        failActiveJourneys: Boolean = false,
     ): Fixture {
         val repository = SessionRepository(environment).apply {
             restoreResult = result
+            this.failActiveJourneys = failActiveJourneys
             if (withLocalWork) {
-                reservations += RESERVATION
-                countDrafts[RESERVATION.reservationId] = MutableStateFlow(COUNT_DRAFT)
+                reservations += reservation
+                countDrafts[reservation.reservationId] = MutableStateFlow(
+                    countDraft.copy(reservationId = reservation.reservationId),
+                )
                 discardDrafts[USER_ONE.id] = MutableStateFlow(DISCARD_DRAFT)
             }
         }
@@ -291,6 +339,7 @@ class SessionRestorationViewModelTest {
         var restoreCalls = 0
         var signInCalls = 0
         var signOutCalls = 0
+        var failActiveJourneys = false
         val reservations = mutableListOf<ConfirmedReservation>()
         val countDrafts = mutableMapOf<String, MutableStateFlow<LocalCountDraft?>>()
         val discardDrafts = mutableMapOf<String, MutableStateFlow<LocalDiscardDraft?>>()
@@ -319,7 +368,10 @@ class SessionRestorationViewModelTest {
         }
 
         override fun observeAccountActive(userId: String): Flow<Boolean> = accountActive
-        override suspend fun listActiveJourneys(): List<ActiveJourney> = listOf(ACTIVE_JOURNEY)
+        override suspend fun listActiveJourneys(): List<ActiveJourney> {
+            if (failActiveJourneys) throw CampoRepositoryException("NETWORK_ERROR", "Sin conexión")
+            return listOf(ACTIVE_JOURNEY)
+        }
 
         override fun observeJourney(journeyId: String): Flow<JourneySnapshot> = trackedFlow(
             source = journey,
@@ -377,12 +429,21 @@ class SessionRestorationViewModelTest {
             )
         }
 
-        override suspend fun reserveLine(payload: ReserveLinePayload, userId: String): ConfirmedReservation = RESERVATION
+        override suspend fun reserveLine(
+            payload: ReserveLinePayload,
+            userId: String,
+            inventoryReportConfiguration: InventoryReportConfiguration?,
+        ): ConfirmedReservation = RESERVATION.copy(
+            inventoryReportConfiguration = inventoryReportConfiguration,
+        )
         override suspend fun initiateCountCorrection(
             payload: InitiateCountCorrectionPayload,
             userId: String,
             initialInput: CountInput,
-        ): ConfirmedReservation = RESERVATION
+            inventoryReportConfiguration: InventoryReportConfiguration?,
+        ): ConfirmedReservation = RESERVATION.copy(
+            inventoryReportConfiguration = inventoryReportConfiguration,
+        )
         override suspend fun markReservationReleased(reservationId: String) = Unit
         override suspend fun saveCountInput(
             reservationId: String,
@@ -396,6 +457,7 @@ class SessionRestorationViewModelTest {
             deviceId: String,
             idempotencyKey: String,
             deviceTimestamp: String,
+            deadPlantsRequired: Boolean,
         ): LocalCountDraft = requireNotNull(countDrafts[reservationId]?.value)
         override suspend fun synchronizeCount(reservationId: String): CountSyncOutcome = CountSyncOutcome.Success
         override suspend fun synchronizeDiscard(draftId: String): DiscardSyncOutcome = DiscardSyncOutcome.Success
@@ -424,6 +486,12 @@ class SessionRestorationViewModelTest {
         val LINE = JourneyLine("jornada-linea-1", "EN_CONTEO", 2, LOCATION)
         val JOURNEY = JourneySnapshot("jornada-prueba", "Jornada ficticia", listOf(LINE))
         val ACTIVE_JOURNEY = ActiveJourney(JOURNEY.id, JOURNEY.displayName, "ACTIVA", "AUXILIAR", true, 1)
+        val PHYSICAL_REPORT_CONFIGURATION = InventoryReportConfiguration(
+            enabled = true,
+            month = 7,
+            year = 2026,
+            deadPlantsSource = DeadPlantsSource.CONTEO_FISICO,
+        )
         val RESERVATION = ConfirmedReservation(
             "reserva-restaurada", USER_ONE.id, DEVICE_ID, JOURNEY.id, LINE.id, "EN_CONTEO",
             "2026-07-17T12:00:00.000Z", 2, LOCATION,
@@ -440,6 +508,10 @@ class SessionRestorationViewModelTest {
             null,
             null,
             null,
+        )
+        val UNFROZEN_COUNT_DRAFT = COUNT_DRAFT.copy(
+            input = CountInput("10", "5", "2", "Borrador offline"),
+            frozenPayload = null,
         )
         val DISCARD_LINE = DiscardLine("linea-catalogo-1", LOCATION, InventoryValues(20, 10, 5, 35), 1)
         val DISCARD_DRAFT = LocalDiscardDraft(

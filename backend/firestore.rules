@@ -168,6 +168,14 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /informesInventario/{informeId} {
+      allow read, write: if false;
+    }
+
+    match /trabajosCierreJornada/{trabajoId} {
+      allow read, write: if false;
+    }
+
     match /idempotencia/{idempotenciaId} {
       allow read, write: if false;
     }

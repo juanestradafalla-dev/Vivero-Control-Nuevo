@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/enums/estados-informe-inventario.json",
+  "title": "Estados del informe de inventario",
+  "type": "string",
+  "enum": ["PENDIENTE", "PROCESANDO", "COMPLETADO", "ERROR_REINTENTABLE", "ERROR_PERMANENTE"]
+}

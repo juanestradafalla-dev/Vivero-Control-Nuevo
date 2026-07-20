@@ -17,6 +17,8 @@ import {
 import {loadFirebaseConfig, type FirebaseRuntimeConfig} from "../core/firebaseConfig";
 import type {
   CancelledDraftJourney,
+  CloseJourneyOutcome,
+  ClosingJourney,
   DraftActivationResult,
   DraftActivationVersions,
   DraftCatalogLine,
@@ -24,6 +26,8 @@ import type {
   DraftParticipantCandidate,
   DraftParticipantInput,
   DraftParticipantsData,
+  InventoryReportConfiguration,
+  InventoryReportSummary,
   ManageableDraftJourney,
   ManageableCatalogData,
   ManageableCatalogLine,
@@ -52,11 +56,81 @@ import type {
   MigrationReversalResult,
   MigrationValidationIssue,
   MigrationValidationReport,
+  RetryInventoryReportRequest,
 } from "../domain/MonitorModels";
 import {sortMonitorLines} from "../domain/MonitorModels";
 
 function isRole(value: unknown): value is MonitorRole {
   return value === "AUXILIAR" || value === "SUPERVISOR" || value === "ADMINISTRADOR";
+}
+
+function parseInventoryReportConfiguration(value: unknown): InventoryReportConfiguration | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "object") throw new Error("La configuracion del informe de inventario no es valida.");
+  const configuration = value as Record<string, unknown>;
+  if (
+    configuration.habilitado !== true ||
+    !Number.isSafeInteger(configuration.mes) ||
+    (configuration.mes as number) < 1 ||
+    (configuration.mes as number) > 12 ||
+    !Number.isSafeInteger(configuration.anio) ||
+    (configuration.anio as number) < 2000 ||
+    (configuration.anio as number) > 2100 ||
+    (configuration.fuentePlantasMuertas !== "CONTEO_FISICO" &&
+      configuration.fuentePlantasMuertas !== "DESCARTES_APROBADOS")
+  ) {
+    throw new Error("La configuracion del informe de inventario no es valida.");
+  }
+  return {
+    habilitado: configuration.habilitado,
+    mes: configuration.mes as number,
+    anio: configuration.anio as number,
+    fuentePlantasMuertas: configuration.fuentePlantasMuertas,
+  };
+}
+
+function inventoryReportConfigurationField(
+  value: unknown,
+): {readonly configuracionInformeInventario?: InventoryReportConfiguration} {
+  const configuration = parseInventoryReportConfiguration(value);
+  return configuration ? {configuracionInformeInventario: configuration} : {};
+}
+
+function parseInventoryReportSummary(value: unknown): InventoryReportSummary {
+  if (typeof value !== "object" || value === null) throw new Error("Un informe de inventario no es valido.");
+  const report = value as Record<string, unknown>;
+  const validStatus = [
+    "PENDIENTE",
+    "PROCESANDO",
+    "COMPLETADO",
+    "ERROR_REINTENTABLE",
+    "ERROR_PERMANENTE",
+  ].includes(String(report.estado));
+  if (
+    typeof report.informeId !== "string" ||
+    typeof report.jornadaId !== "string" ||
+    typeof report.jornadaNombreVisible !== "string" ||
+    !Number.isSafeInteger(report.mes) ||
+    (report.mes as number) < 1 ||
+    (report.mes as number) > 12 ||
+    !Number.isSafeInteger(report.anio) ||
+    (report.anio as number) < 2000 ||
+    (report.anio as number) > 2100 ||
+    (report.fuentePlantasMuertas !== "CONTEO_FISICO" && report.fuentePlantasMuertas !== "DESCARTES_APROBADOS") ||
+    !validStatus ||
+    !Number.isSafeInteger(report.intentos) ||
+    (report.intentos as number) < 0 ||
+    typeof report.creadoEn !== "string" ||
+    typeof report.actualizadoEn !== "string" ||
+    (report.errorCodigo !== undefined && typeof report.errorCodigo !== "string") ||
+    (report.errorMensaje !== undefined && typeof report.errorMensaje !== "string") ||
+    (report.archivoNombre !== undefined && typeof report.archivoNombre !== "string") ||
+    (report.archivoEnlace !== undefined && typeof report.archivoEnlace !== "string") ||
+    (report.finalizadoEn !== undefined && typeof report.finalizadoEn !== "string")
+  ) {
+    throw new Error("Un informe de inventario no es valido.");
+  }
+  return report as unknown as InventoryReportSummary;
 }
 
 function parseLocation(value: unknown): MonitorLocation | undefined {
@@ -158,6 +232,7 @@ function parseDraftJourney(value: unknown): ManageableDraftJourney {
     lineIds: journey.lineaIds as string[],
     createdAt: journey.creadaEn,
     updatedAt: journey.actualizadaEn,
+    ...inventoryReportConfigurationField(journey.configuracionInformeInventario),
   };
 }
 
@@ -171,7 +246,9 @@ function parseDraftCatalogLine(value: unknown): DraftCatalogLine {
     typeof line.seleccionable !== "boolean" ||
     !location ||
     (line.motivoNoSeleccionable !== undefined &&
-      line.motivoNoSeleccionable !== "JORNADA_ACTIVA" && line.motivoNoSeleccionable !== "LINEA_INACTIVA")
+      line.motivoNoSeleccionable !== "JORNADA_ACTIVA" &&
+      line.motivoNoSeleccionable !== "JORNADA_CERRANDO" &&
+      line.motivoNoSeleccionable !== "LINEA_INACTIVA")
   ) {
     throw new Error("Una lÃ­nea de catÃ¡logo no es vÃ¡lida.");
   }
@@ -179,7 +256,9 @@ function parseDraftCatalogLine(value: unknown): DraftCatalogLine {
     id: line.lineaId,
     displayName: line.nombreVisible,
     selectable: line.seleccionable,
-    ...(line.motivoNoSeleccionable === "JORNADA_ACTIVA" || line.motivoNoSeleccionable === "LINEA_INACTIVA"
+    ...(line.motivoNoSeleccionable === "JORNADA_ACTIVA" ||
+      line.motivoNoSeleccionable === "JORNADA_CERRANDO" ||
+      line.motivoNoSeleccionable === "LINEA_INACTIVA"
       ? {unavailableReason: line.motivoNoSeleccionable}
       : {}),
     location,
@@ -248,7 +327,124 @@ function parseCancelledDraftJourney(value: unknown): CancelledDraftJourney {
     cancelledAt: journey.canceladaEn,
     createdAt: journey.creadaEn,
     updatedAt: journey.actualizadaEn,
+    ...inventoryReportConfigurationField(journey.configuracionInformeInventario),
   };
+}
+
+function parseClosingJourney(value: unknown): ClosingJourney {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Una jornada en cierre no tiene formato valido.");
+  }
+  const journey = value as Record<string, unknown>;
+  const safeNonNegative = (field: string, maximum: number) =>
+    Number.isSafeInteger(journey[field]) && (journey[field] as number) >= 0 &&
+      (journey[field] as number) <= maximum;
+  const workStatus = journey.estadoTrabajo;
+  const phase = journey.fase;
+  if (
+    typeof journey.jornadaId !== "string" ||
+    typeof journey.nombreVisible !== "string" ||
+    journey.estado !== "CERRANDO" ||
+    typeof journey.creadorUsuarioId !== "string" ||
+    typeof journey.creadorNombreVisible !== "string" ||
+    !Number.isSafeInteger(journey.version) ||
+    typeof journey.trabajoCierreId !== "string" ||
+    !["PENDIENTE", "PROCESANDO", "ERROR"].includes(String(workStatus)) ||
+    !["LINEAS", "OCUPACIONES", "AUTORIZACIONES", "FINALIZAR"].includes(String(phase)) ||
+    !safeNonNegative("cursor", Number.MAX_SAFE_INTEGER) ||
+    !safeNonNegative("cantidadLineas", 400) ||
+    !safeNonNegative("cantidadOcupaciones", 400) ||
+    !safeNonNegative("cantidadAutorizaciones", 400) ||
+    !safeNonNegative("lineasProcesadas", 400) ||
+    !safeNonNegative("ocupacionesProcesadas", 400) ||
+    !safeNonNegative("autorizacionesProcesadas", 400) ||
+    !safeNonNegative("intentos", Number.MAX_SAFE_INTEGER) ||
+    typeof journey.puedeReintentar !== "boolean" ||
+    typeof journey.actualizadaEn !== "string" ||
+    (workStatus === "ERROR" &&
+      (typeof journey.errorCodigo !== "string" || typeof journey.errorMensaje !== "string")) ||
+    (workStatus !== "ERROR" &&
+      (journey.errorCodigo !== undefined || journey.errorMensaje !== undefined))
+  ) {
+    throw new Error("Una jornada en cierre no tiene formato valido.");
+  }
+  return {
+    id: journey.jornadaId,
+    displayName: journey.nombreVisible,
+    state: "CERRANDO",
+    creatorUserId: journey.creadorUsuarioId,
+    creatorDisplayName: journey.creadorNombreVisible,
+    version: journey.version as number,
+    closeWorkId: journey.trabajoCierreId,
+    closeWorkStatus: workStatus as ClosingJourney["closeWorkStatus"],
+    closeWorkPhase: phase as ClosingJourney["closeWorkPhase"],
+    cursor: journey.cursor as number,
+    lineCount: journey.cantidadLineas as number,
+    occupationCount: journey.cantidadOcupaciones as number,
+    authorizationCount: journey.cantidadAutorizaciones as number,
+    processedLines: journey.lineasProcesadas as number,
+    processedOccupations: journey.ocupacionesProcesadas as number,
+    processedAuthorizations: journey.autorizacionesProcesadas as number,
+    attempts: journey.intentos as number,
+    canRetry: journey.puedeReintentar,
+    ...(typeof journey.errorCodigo === "string" ? {errorCode: journey.errorCodigo} : {}),
+    ...(typeof journey.errorMensaje === "string" ? {errorMessage: journey.errorMensaje} : {}),
+    updatedAt: journey.actualizadaEn,
+  };
+}
+
+function parseCloseJourneyOutcome(
+  value: unknown,
+  expectedJourneyId: string,
+  allowInactiveHistoricalResult: boolean,
+): CloseJourneyOutcome {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("La respuesta de cierre no tiene formato valido.");
+  }
+  const result = value as Record<string, unknown>;
+  const safeNonNegative = (field: string, maximum: number) =>
+    Number.isSafeInteger(result[field]) && (result[field] as number) >= 0 &&
+      (result[field] as number) <= maximum;
+  if (
+    result.jornadaId !== expectedJourneyId ||
+    !Number.isSafeInteger(result.version) ||
+    (result.version as number) < 2
+  ) {
+    throw new Error("La respuesta de cierre no tiene formato valido.");
+  }
+  if (result.estado === "INACTIVA" && allowInactiveHistoricalResult) {
+    if (
+      !safeNonNegative("cantidadLineas", 400) ||
+      !safeNonNegative("cantidadAutorizaciones", 200) ||
+      !safeNonNegative("ocupacionesLiberadas", 400) ||
+      typeof result.cerradaEn !== "string"
+    ) {
+      throw new Error("La respuesta de cierre no tiene formato valido.");
+    }
+    return {state: "INACTIVA", version: result.version as number};
+  }
+  if (
+    result.estado !== "CERRANDO" ||
+    typeof result.trabajoCierreId !== "string" ||
+    !/^[a-f0-9]{64}$/.test(String(result.huellaAlcance)) ||
+    !safeNonNegative("cantidadLineas", 400) ||
+    !safeNonNegative("cantidadAutorizaciones", 200) ||
+    !safeNonNegative("cantidadOcupaciones", 400) ||
+    !["LINEAS", "OCUPACIONES", "AUTORIZACIONES", "FINALIZAR"].includes(String(result.fase)) ||
+    !safeNonNegative("cursor", Number.MAX_SAFE_INTEGER) ||
+    !safeNonNegative("lineasProcesadas", 400) ||
+    !safeNonNegative("ocupacionesProcesadas", 400) ||
+    !safeNonNegative("autorizacionesProcesadas", 200) ||
+    (result.lineasProcesadas as number) > (result.cantidadLineas as number) ||
+    (result.ocupacionesProcesadas as number) > (result.cantidadOcupaciones as number) ||
+    (result.autorizacionesProcesadas as number) > (result.cantidadAutorizaciones as number) ||
+    !safeNonNegative("intentos", Number.MAX_SAFE_INTEGER) ||
+    typeof result.iniciadoEn !== "string" ||
+    typeof result.actualizadoEn !== "string"
+  ) {
+    throw new Error("La respuesta de cierre no tiene formato valido.");
+  }
+  return {state: "CERRANDO", version: result.version as number};
 }
 
 function parseManageableUser(value: unknown): ManageableUser {
@@ -625,7 +821,10 @@ export class FirebaseMonitorRepository implements MonitorRepository {
           typeof journey.puedeContar !== "boolean" ||
           !Number.isSafeInteger(journey.cantidadLineas) ||
           !Number.isSafeInteger(journey.version) ||
-          typeof journey.puedeCerrar !== "boolean"
+          typeof journey.puedeCerrar !== "boolean" ||
+          (journey.cantidadDescartesPendientes !== undefined &&
+            (!Number.isSafeInteger(journey.cantidadDescartesPendientes) ||
+              (journey.cantidadDescartesPendientes as number) < 0))
         ) throw new Error("Una jornada no tiene formato válido.");
         return {
           id: journey.jornadaId,
@@ -636,6 +835,10 @@ export class FirebaseMonitorRepository implements MonitorRepository {
           lineCount: journey.cantidadLineas as number,
           version: journey.version as number,
           canClose: journey.puedeCerrar,
+          cantidadDescartesPendientes: typeof journey.cantidadDescartesPendientes === "number"
+            ? journey.cantidadDescartesPendientes
+            : 0,
+          ...inventoryReportConfigurationField(journey.configuracionInformeInventario),
         };
       });
     } catch (error) {
@@ -646,6 +849,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
   async listManageableJourneys(): Promise<ManageableJourneysData> {
     const callable = httpsCallable<Record<string, never>, {
       jornadas: unknown[];
+      jornadasCerrando: unknown[];
       jornadasCanceladas: unknown[];
       lineasCatalogo: unknown[];
     }>(
@@ -656,6 +860,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
       const response = await callable({});
       if (
         !Array.isArray(response.data.jornadas) ||
+        !Array.isArray(response.data.jornadasCerrando) ||
         !Array.isArray(response.data.jornadasCanceladas) ||
         !Array.isArray(response.data.lineasCatalogo)
       ) {
@@ -663,6 +868,7 @@ export class FirebaseMonitorRepository implements MonitorRepository {
       }
       return {
         journeys: response.data.jornadas.map(parseDraftJourney),
+        closingJourneys: response.data.jornadasCerrando.map(parseClosingJourney),
         cancelledJourneys: response.data.jornadasCanceladas.map(parseCancelledDraftJourney),
         catalogLines: response.data.lineasCatalogo.map(parseDraftCatalogLine),
       };
@@ -969,10 +1175,18 @@ export class FirebaseMonitorRepository implements MonitorRepository {
     }
   }
 
-  async createDraftJourney(displayName: string, idempotencyKey: string): Promise<ManageableDraftJourney> {
+  async createDraftJourney(
+    displayName: string,
+    configuracionInformeInventario: InventoryReportConfiguration | undefined,
+    idempotencyKey: string,
+  ): Promise<ManageableDraftJourney> {
     const callable = httpsCallable(this.functions, "crearJornadaBorrador");
     try {
-      const response = await callable({nombreVisible: displayName, claveIdempotencia: idempotencyKey});
+      const response = await callable({
+        nombreVisible: displayName,
+        ...(configuracionInformeInventario ? {configuracionInformeInventario} : {}),
+        claveIdempotencia: idempotencyKey,
+      });
       return parseDraftJourney(response.data);
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : "No fue posible crear el borrador.", {cause: error});
@@ -1158,7 +1372,11 @@ export class FirebaseMonitorRepository implements MonitorRepository {
     }
   }
 
-  async closeJourney(journeyId: string, expectedVersion: number, idempotencyKey: string): Promise<void> {
+  async closeJourney(
+    journeyId: string,
+    expectedVersion: number,
+    idempotencyKey: string,
+  ): Promise<CloseJourneyOutcome> {
     const callable = httpsCallable(this.functions, "cerrarJornada");
     try {
       const response = await callable({
@@ -1166,15 +1384,63 @@ export class FirebaseMonitorRepository implements MonitorRepository {
         versionEsperada: expectedVersion,
         claveIdempotencia: idempotencyKey,
       });
-      if (typeof response.data !== "object" || response.data === null) {
-        throw new Error("La respuesta de cierre no tiene formato válido.");
-      }
-      const data = response.data as Record<string, unknown>;
-      if (data.jornadaId !== journeyId || data.estado !== "INACTIVA" || !Number.isSafeInteger(data.version)) {
-        throw new Error("La respuesta de cierre no tiene formato válido.");
-      }
+      return parseCloseJourneyOutcome(response.data, journeyId, true);
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : "No fue posible cerrar la jornada.", {cause: error});
+    }
+  }
+
+  async retryClosingJourney(
+    journeyId: string,
+    expectedVersion: number,
+    idempotencyKey: string,
+  ): Promise<CloseJourneyOutcome & {readonly state: "CERRANDO"}> {
+    const callable = httpsCallable(this.functions, "reintentarCierreJornada");
+    try {
+      const response = await callable({
+        jornadaId: journeyId,
+        versionEsperada: expectedVersion,
+        claveIdempotencia: idempotencyKey,
+      });
+      const outcome = parseCloseJourneyOutcome(response.data, journeyId, false);
+      if (outcome.state !== "CERRANDO") {
+        throw new Error("La respuesta del reintento de cierre no tiene formato valido.");
+      }
+      return outcome;
+    } catch (error) {
+      throw new Error(
+        error instanceof Error ? error.message : "No fue posible reanudar el cierre.",
+        {cause: error},
+      );
+    }
+  }
+
+  async listInventoryReports(): Promise<{readonly informes: readonly InventoryReportSummary[]}> {
+    const callable = httpsCallable<Record<string, never>, {informes: unknown[]}>(
+      this.functions,
+      "listarInformesInventario",
+    );
+    try {
+      const response = await callable({});
+      if (!Array.isArray(response.data.informes)) throw new Error("La respuesta no contiene informes de inventario.");
+      return {informes: response.data.informes.map(parseInventoryReportSummary)};
+    } catch (error) {
+      throw new Error(
+        error instanceof Error ? error.message : "No fue posible consultar los informes de inventario.",
+        {cause: error},
+      );
+    }
+  }
+
+  async retryInventoryReport(request: RetryInventoryReportRequest): Promise<void> {
+    const callable = httpsCallable(this.functions, "reintentarInformeInventario");
+    try {
+      await callable(request);
+    } catch (error) {
+      throw new Error(
+        error instanceof Error ? error.message : "No fue posible reintentar el informe de inventario.",
+        {cause: error},
+      );
     }
   }
 
@@ -1473,6 +1739,9 @@ export class FirebaseMonitorRepository implements MonitorRepository {
                   females: data.hembras,
                   males: data.machos,
                   rootstocks: data.patrones,
+                  ...(Number.isSafeInteger(data.plantasMuertas) && data.plantasMuertas >= 0
+                    ? {deadPlants: data.plantasMuertas}
+                    : {}),
                   total: data.total,
                   ...(typeof data.observaciones === "string" && data.observaciones !== ""
                     ? {observations: data.observaciones}
@@ -1655,7 +1924,19 @@ export class DisabledMonitorRepository implements MonitorRepository {
     throw new Error(this.configurationError);
   }
 
-  async closeJourney(): Promise<void> {
+  async closeJourney(): Promise<CloseJourneyOutcome> {
+    throw new Error(this.configurationError);
+  }
+
+  async retryClosingJourney(): Promise<CloseJourneyOutcome & {readonly state: "CERRANDO"}> {
+    throw new Error(this.configurationError);
+  }
+
+  async listInventoryReports(): Promise<{readonly informes: readonly InventoryReportSummary[]}> {
+    throw new Error(this.configurationError);
+  }
+
+  async retryInventoryReport(): Promise<void> {
     throw new Error(this.configurationError);
   }
 

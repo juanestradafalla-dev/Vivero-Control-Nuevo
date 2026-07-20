@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/retry-close-journey-result.schema.json",
+  "title": "Resultado reintentarCierreJornada",
+  "allOf": [
+    {"$ref": "close-journey-result.schema.json"},
+    {
+      "type": "object",
+      "properties": {"estado": {"const": "CERRANDO"}},
+      "required": ["estado"]
+    }
+  ]
+}

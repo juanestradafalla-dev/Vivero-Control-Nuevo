@@ -20,6 +20,7 @@
       "items": {"$ref": "comun.schema.json#/$defs/idRutaSegura"}
     },
     "creadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
-    "actualizadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+    "actualizadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "configuracionInformeInventario": {"$ref": "inventory-report-configuration.schema.json"}
   }
 }

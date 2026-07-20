@@ -1,0 +1,5 @@
+{
+  "jornadaId": "JORNADA-CIERRE-DURABLE-26",
+  "versionEsperada": 8,
+  "claveIdempotencia": "reintentar-cierre-ficticio-26"
+}

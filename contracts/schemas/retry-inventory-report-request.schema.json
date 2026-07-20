@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/retry-inventory-report-request.schema.json",
+  "title": "Solicitud reintentarInformeInventario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["jornadaId", "claveIdempotencia"],
+  "properties": {
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idRutaSegura"},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}
+  }
+}

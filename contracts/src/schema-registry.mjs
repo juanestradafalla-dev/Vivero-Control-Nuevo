@@ -60,6 +60,10 @@ export const expectedSchemas = [
   "active-line-occupation.schema.json",
   "close-journey-request.schema.json",
   "close-journey-result.schema.json",
+  "close-journey-work.schema.json",
+  "closing-journey-summary.schema.json",
+  "retry-close-journey-request.schema.json",
+  "retry-close-journey-result.schema.json",
   "cancel-draft-journey-request.schema.json",
   "cancel-draft-journey-result.schema.json",
   "reopen-cancelled-journey-request.schema.json",
@@ -104,20 +108,32 @@ export const expectedSchemas = [
   "list-discard-lines-result.schema.json",
   "register-discard-request.schema.json",
   "register-discard-result.schema.json",
+  "descarte.schema.json",
   "approve-discard-request.schema.json",
   "approve-discard-result.schema.json",
   "return-discard-request.schema.json",
   "return-discard-result.schema.json",
   "create-manageable-user-request.schema.json",
-  "create-manageable-user-result.schema.json"
+  "create-manageable-user-result.schema.json",
+  "inventory-report-configuration.schema.json",
+  "inventory-report-summary.schema.json",
+  "inventory-report-line.schema.json",
+  "inventory-report.schema.json",
+  "list-inventory-reports-request.schema.json",
+  "list-inventory-reports-result.schema.json",
+  "retry-inventory-report-request.schema.json",
+  "retry-inventory-report-result.schema.json"
 ];
 
 export const expectedEnums = new Map([
-  ["estados-jornada.json", ["BORRADOR", "ACTIVA", "INACTIVA"]],
+  ["estados-jornada.json", ["BORRADOR", "ACTIVA", "CERRANDO", "INACTIVA"]],
   ["estados-linea.json", ["DISPONIBLE", "EN_CONTEO", "PENDIENTE_REVISION", "DEVUELTA", "APROBADA"]],
   ["estados-sincronizacion.json", ["PENDIENTE", "SINCRONIZANDO", "ENVIADA", "ERROR"]],
   ["estados-reserva.json", ["ACTIVA", "CONSUMIDA", "LIBERADA"]],
-  ["roles.json", ["AUXILIAR", "SUPERVISOR", "ADMINISTRADOR"]]
+  ["roles.json", ["AUXILIAR", "SUPERVISOR", "ADMINISTRADOR"]],
+  ["estados-informe-inventario.json", [
+    "PENDIENTE", "PROCESANDO", "COMPLETADO", "ERROR_REINTENTABLE", "ERROR_PERMANENTE"
+  ]]
 ]);
 
 async function loadDirectory(directory) {

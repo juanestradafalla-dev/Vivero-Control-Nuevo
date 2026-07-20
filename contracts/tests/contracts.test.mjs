@@ -24,9 +24,279 @@ async function assertInvalid(schemaFilename, exampleFilename) {
 }
 
 test("compila todos los esquemas Draft 2020-12 y resuelve sus referencias", () => {
-  assert.equal(registry.entityCount, 104);
-  assert.equal(registry.schemaCount, 105);
-  assert.equal(registry.enumCount, 5);
+  assert.equal(registry.entityCount, 117);
+  assert.equal(registry.schemaCount, 118);
+  assert.equal(registry.enumCount, 6);
+});
+
+test("acepta las dos configuraciones mensuales de informe y exige periodo completo", async () => {
+  await assertValid(
+    "inventory-report-configuration.schema.json",
+    "etapa-26/inventory-report-configuration-physical.json"
+  );
+  await assertValid(
+    "inventory-report-configuration.schema.json",
+    "etapa-26/inventory-report-configuration-discards.json"
+  );
+  await assertInvalid(
+    "inventory-report-configuration.schema.json",
+    "etapa-26/inventory-report-configuration-missing-period.json"
+  );
+  await assertInvalid(
+    "inventory-report-configuration.schema.json",
+    "etapa-26/inventory-report-configuration-disabled.json"
+  );
+});
+
+test("acepta configuracion opcional central en borrador y rechaza datos de Drive del cliente", async () => {
+  await assertValid(
+    "create-draft-journey-request.schema.json",
+    "etapa-26/create-draft-journey-request-with-report.json"
+  );
+  await assertValid("jornada.schema.json", "etapa-26/draft-journey-with-report.json");
+  await assertValid(
+    "draft-journey-summary.schema.json",
+    "etapa-26/draft-journey-summary-with-report.json"
+  );
+  await assertValid(
+    "list-active-journeys-result.schema.json",
+    "etapa-26/list-active-journeys-result-with-report.json"
+  );
+  await assertInvalid(
+    "create-draft-journey-request.schema.json",
+    "etapa-26/create-draft-journey-request-with-drive-data.json"
+  );
+});
+
+test("acepta plantas muertas en transporte fisico sin sumarlas al total vivo", async () => {
+  await assertValid(
+    "send-count-request.schema.json",
+    "etapa-26/send-count-request-physical.json"
+  );
+  await assertValid(
+    "send-count-result.schema.json",
+    "etapa-26/send-count-result-physical.json"
+  );
+  const count = await example("etapa-26/count-physical.json");
+  const result = validateContract(registry, "conteo.schema.json", count);
+  assert.equal(result.valid, true, JSON.stringify(result, null, 2));
+  assert.equal(count.total, count.hembras + count.machos + count.patrones);
+  assert.notEqual(
+    count.total,
+    count.hembras + count.machos + count.patrones + count.plantasMuertas
+  );
+});
+
+test("mantiene la fuente de plantas muertas como decision central de la jornada", async () => {
+  const ambiguous = await example("etapa-26/send-count-request-discards-ambiguous-transport.json");
+  const transportResult = validateContract(registry, "send-count-request.schema.json", ambiguous);
+  assert.equal(transportResult.valid, true, JSON.stringify(transportResult, null, 2));
+  assert.equal(Object.hasOwn(ambiguous, "plantasMuertas"), true);
+  await assertInvalid(
+    "send-count-request.schema.json",
+    "etapa-26/send-count-request-with-client-source.json"
+  );
+});
+
+test("asocia descartes a jornada solo en el resultado y documento centrales", async () => {
+  await assertInvalid(
+    "register-discard-request.schema.json",
+    "etapa-26/register-discard-request-with-journey.json"
+  );
+  await assertValid(
+    "register-discard-result.schema.json",
+    "etapa-26/register-discard-result-associated.json"
+  );
+  await assertValid(
+    "register-discard-result.schema.json",
+    "etapa-23/register-discard-result.json"
+  );
+  await assertValid("descarte.schema.json", "etapa-26/discard-associated.json");
+  await assertInvalid(
+    "descarte.schema.json",
+    "etapa-26/discard-associated-missing-journey-line.json"
+  );
+  await assertInvalid(
+    "register-discard-result.schema.json",
+    "etapa-26/register-discard-result-missing-journey.json"
+  );
+});
+
+test("acepta trabajo, linea y resumen ficticios del informe de inventario", async () => {
+  await assertValid("inventory-report-line.schema.json", "etapa-26/inventory-report-line.json");
+  const pending = await example("etapa-26/inventory-report-pending.json");
+  const processing = await example("etapa-26/inventory-report-processing.json");
+  const completed = await example("etapa-26/inventory-report-completed.json");
+  const retryableError = await example("etapa-26/inventory-report-error-retryable.json");
+  assert.equal(
+    validateContract(registry, "inventory-report.schema.json", pending).valid,
+    true
+  );
+  assert.equal(
+    validateContract(registry, "inventory-report.schema.json", processing).valid,
+    true
+  );
+  assert.equal(
+    validateContract(registry, "inventory-report.schema.json", completed).valid,
+    true
+  );
+  assert.equal(
+    validateContract(registry, "inventory-report.schema.json", retryableError).valid,
+    true
+  );
+  assert.equal(pending.id, pending.jornadaId);
+  assert.equal(completed.id, completed.jornadaId);
+  await assertValid(
+    "inventory-report-summary.schema.json",
+    "etapa-26/inventory-report-summary-pending.json"
+  );
+  await assertValid(
+    "inventory-report-summary.schema.json",
+    "etapa-26/inventory-report-summary-completed.json"
+  );
+  await assertInvalid(
+    "inventory-report.schema.json",
+    "etapa-26/inventory-report-invalid-state.json"
+  );
+
+  const pendingWithProcessingLease = {
+    ...pending,
+    procesamientoId: "PROCESAMIENTO-RESIDUAL-FICTICIO-26",
+    procesandoEn: "2026-07-31T21:00:01.000Z"
+  };
+  assert.equal(
+    validateContract(registry, "inventory-report.schema.json", pendingWithProcessingLease).valid,
+    false
+  );
+
+  const processingWithoutLease = {...processing};
+  delete processingWithoutLease.procesandoEn;
+  assert.equal(
+    validateContract(registry, "inventory-report.schema.json", processingWithoutLease).valid,
+    false
+  );
+
+  const completedWithError = {
+    ...completed,
+    errorCodigo: "ERROR-RESIDUAL-FICTICIO",
+    errorMensaje: "Error residual ficticio que no debe coexistir con un archivo completado."
+  };
+  assert.equal(
+    validateContract(registry, "inventory-report.schema.json", completedWithError).valid,
+    false
+  );
+
+  const errorWithOutput = {
+    ...retryableError,
+    archivoNombre: "ARCHIVO RESIDUAL FICTICIO.xlsx"
+  };
+  assert.equal(
+    validateContract(registry, "inventory-report.schema.json", errorWithOutput).valid,
+    false
+  );
+});
+
+test("mantiene resúmenes coherentes con cada estado del informe", async () => {
+  const pending = await example("etapa-26/inventory-report-summary-pending.json");
+  const completed = await example("etapa-26/inventory-report-summary-completed.json");
+  const processing = {...pending, estado: "PROCESANDO", intentos: 1};
+  const retryableError = {
+    ...pending,
+    estado: "ERROR_REINTENTABLE",
+    intentos: 1,
+    errorCodigo: "DRIVE_TEMPORALMENTE_NO_DISPONIBLE",
+    errorMensaje: "No fue posible completar la carga ficticia; se puede reintentar.",
+    finalizadoEn: "2026-07-31T21:00:03.000Z"
+  };
+
+  for (const summary of [pending, processing, completed, retryableError]) {
+    const result = validateContract(registry, "inventory-report-summary.schema.json", summary);
+    assert.equal(result.valid, true, JSON.stringify(result, null, 2));
+  }
+
+  assert.equal(
+    validateContract(registry, "inventory-report-summary.schema.json", {
+      ...processing,
+      archivoNombre: "ARCHIVO PREMATURO FICTICIO.xlsx"
+    }).valid,
+    false
+  );
+  assert.equal(
+    validateContract(registry, "inventory-report-summary.schema.json", {
+      ...completed,
+      errorCodigo: "ERROR-RESIDUAL-FICTICIO",
+      errorMensaje: "Error residual ficticio."
+    }).valid,
+    false
+  );
+  const incompleteError = {...retryableError};
+  delete incompleteError.errorMensaje;
+  assert.equal(
+    validateContract(registry, "inventory-report-summary.schema.json", incompleteError).valid,
+    false
+  );
+});
+
+test("acepta cierre con trabajo PENDIENTE y contratos de listado y reintento", async () => {
+  await assertValid(
+    "close-journey-result.schema.json",
+    "etapa-26/close-journey-result-with-report.json"
+  );
+  await assertValid(
+    "list-inventory-reports-request.schema.json",
+    "etapa-26/list-inventory-reports-request.json"
+  );
+  await assertValid(
+    "list-inventory-reports-result.schema.json",
+    "etapa-26/list-inventory-reports-result.json"
+  );
+  await assertValid(
+    "retry-inventory-report-request.schema.json",
+    "etapa-26/retry-inventory-report-request.json"
+  );
+  await assertValid(
+    "retry-inventory-report-result.schema.json",
+    "etapa-26/retry-inventory-report-result.json"
+  );
+  await assertValid(
+    "resultado-idempotente.schema.json",
+    "etapa-26/idempotent-retry-inventory-report-result.json"
+  );
+  await assertInvalid(
+    "retry-inventory-report-request.schema.json",
+    "etapa-26/retry-inventory-report-request-with-drive-data.json"
+  );
+
+  const closeResult = await example("etapa-26/close-journey-result-with-report.json");
+  const completedSummary = await example("etapa-26/inventory-report-summary-completed.json");
+  assert.equal(
+    validateContract(registry, "close-journey-result.schema.json", {
+      ...closeResult,
+      informeInventario: completedSummary
+    }).valid,
+    false,
+    "cerrarJornada solo puede anunciar el trabajo recién creado como PENDIENTE"
+  );
+});
+
+test("modela CERRANDO, el trabajo durable y la recuperacion manual sin ampliar Campo", async () => {
+  await assertValid("jornada.schema.json", "etapa-26/closing-journey.json");
+  await assertValid("close-journey-work.schema.json", "etapa-26/close-journey-work-pending.json");
+  await assertValid("closing-journey-summary.schema.json", "etapa-26/closing-journey-summary-error.json");
+  await assertValid("close-journey-result.schema.json", "etapa-26/close-journey-result-closing.json");
+  await assertValid("retry-close-journey-request.schema.json", "etapa-26/retry-close-journey-request.json");
+  await assertValid("retry-close-journey-result.schema.json", "etapa-26/retry-close-journey-result.json");
+  await assertValid("resultado-idempotente.schema.json", "etapa-26/idempotent-close-in-progress.json");
+  await assertValid("resultado-idempotente.schema.json", "etapa-26/idempotent-retry-close-result.json");
+
+  const activeJourneys = await example("etapa-26/list-active-journeys-result-with-report.json");
+  assert.equal(activeJourneys.jornadas.every((journey) => journey.estado === "ACTIVA"), true);
+
+  const reportSchema = registry.validators.get("schemas/inventory-report.schema.json").schema;
+  assert.equal(reportSchema.properties.lineas.maxItems, 400);
+  const closeResultSchema = registry.validators.get("schemas/close-journey-result.schema.json").schema;
+  assert.equal(closeResultSchema.$defs.cerrando.properties.cantidadLineas.maximum, 400);
+  assert.equal(closeResultSchema.$defs.inactivaHistorica.properties.cantidadLineas.maximum, 400);
 });
 
 test("acepta crear un usuario administrable sin exponer credenciales en el resultado", async () => {

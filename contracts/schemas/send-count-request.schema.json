@@ -13,6 +13,7 @@
     "hembras": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
     "machos": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
     "patrones": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "plantasMuertas": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
     "observaciones": {"type": "string", "maxLength": 4000},
     "timestampDispositivo": {"type": "string", "format": "date-time"},
     "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}

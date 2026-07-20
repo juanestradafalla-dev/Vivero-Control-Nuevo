@@ -1,0 +1,34 @@
+{
+  "id": "DESCARTE-FICTICIO-26-SIN-LINEA-JORNADA",
+  "lineaId": "LINEA-FICTICIA-26-01",
+  "jornadaId": "JORNADA-ACTIVA-INFORME-26",
+  "ubicacion": {
+    "vivero": "Vivero ficticio",
+    "modulo": "MODULO 1",
+    "cama": "CAMA FICTICIA 1",
+    "linea": "LINEA FICTICIA 1",
+    "nombreVisible": "Linea ficticia 1",
+    "orden": 1
+  },
+  "autorUsuarioId": "USUARIO-AUXILIAR-FICTICIO-26",
+  "autorNombreVisible": "Auxiliar ficticio",
+  "rolEfectivo": "AUXILIAR",
+  "dispositivoId": "ANDROID-FICTICIO-26-01",
+  "hembras": 2,
+  "machos": 0,
+  "patrones": 0,
+  "totalUnico": 2,
+  "causas": {
+    "muertos": 2,
+    "nematodos": 0,
+    "cuelloGanso": 0,
+    "raicesBifurcadas": 0,
+    "dobleInjertacion": 0
+  },
+  "versionInventarioObservada": 2,
+  "estado": "PENDIENTE_REVISION",
+  "claveIdempotencia": "descarte-parcial-ficticio-etapa-26-0001",
+  "timestampDispositivo": "2026-07-15T15:00:00.000Z",
+  "recibidoEn": "2026-07-15T15:00:05.000Z",
+  "capturaInmutable": true
+}

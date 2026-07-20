@@ -105,12 +105,12 @@ describe("cobertura de Callables", () => {
     (match) => match[1],
   );
 
-  it("declara exactamente las 35 Callables operativas", () => {
-    expect(CALLABLE_NAMES).toHaveLength(35);
+  it("declara exactamente las 38 Callables operativas", () => {
+    expect(CALLABLE_NAMES).toHaveLength(38);
     expect(exportedCallables).toEqual(CALLABLE_NAMES);
   });
 
-  it("aplica la frontera antes de autenticar en las 35 Callables", () => {
+  it("aplica la frontera antes de autenticar en las 37 Callables", () => {
     for (const callableName of CALLABLE_NAMES) {
       const start = indexSource.indexOf(`export const ${callableName} = onCall(`);
       const next = indexSource.indexOf("\nexport const ", start + 1);
@@ -122,5 +122,10 @@ describe("cobertura de Callables", () => {
       expect(boundaryPosition, `${callableName} debe usar la frontera central`).toBeGreaterThanOrEqual(0);
       expect(authenticationPosition, `${callableName} debe conservar autenticación`).toBeGreaterThan(boundaryPosition);
     }
+  });
+
+  it("exporta el trigger de informe fuera del registro de Callables", () => {
+    expect(indexSource).toContain("export const procesarInformeInventario = onDocumentWritten(");
+    expect(CALLABLE_NAMES).not.toContain("procesarInformeInventario");
   });
 });

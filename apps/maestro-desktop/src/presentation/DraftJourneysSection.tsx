@@ -1,8 +1,10 @@
 import {type FormEvent, useEffect, useMemo, useRef, useState} from "react";
 
 import type {
+  ClosingJourney,
   DraftActivationResult,
   DraftCatalogLine,
+  InventoryReportConfiguration,
   ManageableDraftJourney,
   ManageableJourneysData,
   MonitorRepository,
@@ -32,17 +34,27 @@ function groupKey(line: DraftCatalogLine): string {
 }
 
 export function DraftJourneysSection({repository, user, onActiveJourneysChanged}: DraftJourneysSectionProps) {
-  const [data, setData] = useState<ManageableJourneysData>({journeys: [], cancelledJourneys: [], catalogLines: []});
+  const [data, setData] = useState<ManageableJourneysData>({
+    journeys: [], closingJourneys: [], cancelledJourneys: [], catalogLines: [],
+  });
   const [selectedDraftId, setSelectedDraftId] = useState<string>();
+  const [selectedClosingId, setSelectedClosingId] = useState<string>();
   const [selectedCancelledId, setSelectedCancelledId] = useState<string>();
   const [selectedLineIds, setSelectedLineIds] = useState<readonly string[]>([]);
   const [draftName, setDraftName] = useState("");
+  const [reportEnabled, setReportEnabled] = useState(false);
+  const [reportMonth, setReportMonth] = useState(() => new Date().getMonth() + 1);
+  const [reportYear, setReportYear] = useState(() => new Date().getFullYear());
+  const [deadPlantsSource, setDeadPlantsSource] = useState<
+    InventoryReportConfiguration["fuentePlantasMuertas"]
+  >("CONTEO_FISICO");
   const [search, setSearch] = useState("");
   const [availabilityFilter, setAvailabilityFilter] = useState("TODAS");
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [reopening, setReopening] = useState(false);
+  const [retryingClose, setRetryingClose] = useState(false);
   const [showReopenSummary, setShowReopenSummary] = useState(false);
   const [showSaveSummary, setShowSaveSummary] = useState(false);
   const [error, setError] = useState<string>();
@@ -50,6 +62,7 @@ export function DraftJourneysSection({repository, user, onActiveJourneysChanged}
   const createKey = useRef<string | undefined>(undefined);
   const saveKey = useRef<string | undefined>(undefined);
   const reopenKey = useRef<string | undefined>(undefined);
+  const retryCloseKey = useRef<string | undefined>(undefined);
 
   const load = async (): Promise<ManageableJourneysData | undefined> => {
     setLoading(true);
@@ -71,6 +84,7 @@ export function DraftJourneysSection({repository, user, onActiveJourneysChanged}
   }, []);
 
   const selectedDraft = data.journeys.find((journey) => journey.id === selectedDraftId);
+  const selectedClosing = data.closingJourneys.find((journey) => journey.id === selectedClosingId);
   const selectedCancelled = data.cancelledJourneys.find((journey) => journey.id === selectedCancelledId);
   const cancelledLines = selectedCancelled?.lineIds.flatMap((lineId) => {
     const line = data.catalogLines.find((candidate) => candidate.id === lineId);
@@ -96,6 +110,7 @@ export function DraftJourneysSection({repository, user, onActiveJourneysChanged}
 
   const openDraft = (journey: ManageableDraftJourney) => {
     setSelectedDraftId(journey.id);
+    setSelectedClosingId(undefined);
     setSelectedCancelledId(undefined);
     setSelectedLineIds(journey.lineIds);
     setShowSaveSummary(false);
@@ -106,11 +121,24 @@ export function DraftJourneysSection({repository, user, onActiveJourneysChanged}
 
   const openCancelled = (journeyId: string) => {
     setSelectedDraftId(undefined);
+    setSelectedClosingId(undefined);
     setSelectedCancelledId(journeyId);
     setSelectedLineIds([]);
     setShowSaveSummary(false);
     setShowReopenSummary(false);
     reopenKey.current = undefined;
+    setError(undefined);
+    setNotice(undefined);
+  };
+
+  const openClosing = (journey: ClosingJourney) => {
+    setSelectedDraftId(undefined);
+    setSelectedClosingId(journey.id);
+    setSelectedCancelledId(undefined);
+    setSelectedLineIds([]);
+    setShowSaveSummary(false);
+    setShowReopenSummary(false);
+    retryCloseKey.current = undefined;
     setError(undefined);
     setNotice(undefined);
   };
@@ -122,12 +150,28 @@ export function DraftJourneysSection({repository, user, onActiveJourneysChanged}
       if (name === "") setError("Escribe un nombre para la jornada.");
       return;
     }
+    if (
+      reportEnabled &&
+      (!Number.isSafeInteger(reportMonth) || reportMonth < 1 || reportMonth > 12 ||
+        !Number.isSafeInteger(reportYear) || reportYear < 2000 || reportYear > 2100)
+    ) {
+      setError("El periodo del informe de inventario no es válido.");
+      return;
+    }
     setCreating(true);
     setError(undefined);
     const idempotencyKey = createKey.current ?? crypto.randomUUID();
     createKey.current = idempotencyKey;
+    const reportConfiguration: InventoryReportConfiguration | undefined = reportEnabled
+      ? {
+          habilitado: true,
+          mes: reportMonth,
+          anio: reportYear,
+          fuentePlantasMuertas: deadPlantsSource,
+        }
+      : undefined;
     try {
-      const created = await repository.createDraftJourney(name, idempotencyKey);
+      const created = await repository.createDraftJourney(name, reportConfiguration, idempotencyKey);
       createKey.current = undefined;
       setDraftName("");
       const next = await load();
@@ -215,6 +259,26 @@ export function DraftJourneysSection({repository, user, onActiveJourneysChanged}
     }
   };
 
+  const retryClose = async () => {
+    if (!selectedClosing?.canRetry || retryingClose) return;
+    setRetryingClose(true);
+    setError(undefined);
+    const key = retryCloseKey.current ?? crypto.randomUUID();
+    retryCloseKey.current = key;
+    try {
+      await repository.retryClosingJourney(selectedClosing.id, selectedClosing.version, key);
+      retryCloseKey.current = undefined;
+      setSelectedClosingId(undefined);
+      await load();
+      await onActiveJourneysChanged();
+      setNotice("Recuperación aceptada. La jornada continúa CERRANDO y el worker reanudará el procesamiento por fases.");
+    } catch (retryError) {
+      setError(retryError instanceof Error ? retryError.message : "No fue posible reanudar el cierre.");
+    } finally {
+      setRetryingClose(false);
+    }
+  };
+
   const lineSelectionDirty = selectedDraft
     ? [...selectedLineIds].sort().join("|") !== [...selectedDraft.lineIds].sort().join("|")
     : false;
@@ -247,6 +311,69 @@ export function DraftJourneysSection({repository, user, onActiveJourneysChanged}
             placeholder="Ej. Conteo semanal vivero norte"
           />
         </label>
+        <fieldset className="report-configuration-fields">
+          <legend>Informe de inventario</legend>
+          <label className="can-count-toggle">
+            <input
+              type="checkbox"
+              checked={reportEnabled}
+              onChange={(event) => {
+                setReportEnabled(event.target.checked);
+                createKey.current = undefined;
+              }}
+            />
+            Generar informe al cerrar la jornada
+          </label>
+          {reportEnabled && (
+            <>
+              <label>
+                Mes del informe
+                <input
+                  aria-label="Mes del informe"
+                  type="number"
+                  min={1}
+                  max={12}
+                  required
+                  value={reportMonth}
+                  onChange={(event) => {
+                    setReportMonth(Number(event.target.value));
+                    createKey.current = undefined;
+                  }}
+                />
+              </label>
+              <label>
+                Año del informe
+                <input
+                  aria-label="Año del informe"
+                  type="number"
+                  min={2000}
+                  max={2100}
+                  required
+                  value={reportYear}
+                  onChange={(event) => {
+                    setReportYear(Number(event.target.value));
+                    createKey.current = undefined;
+                  }}
+                />
+              </label>
+              <label>
+                Fuente de plantas muertas
+                <select
+                  aria-label="Fuente de plantas muertas"
+                  value={deadPlantsSource}
+                  onChange={(event) => {
+                    setDeadPlantsSource(event.target.value as InventoryReportConfiguration["fuentePlantasMuertas"]);
+                    createKey.current = undefined;
+                  }}
+                >
+                  <option value="CONTEO_FISICO">Conteo físico</option>
+                  <option value="DESCARTES_APROBADOS">Descartes aprobados</option>
+                </select>
+              </label>
+            </>
+          )}
+          <small>Esta configuración quedará bloqueada cuando la jornada sea activada.</small>
+        </fieldset>
         <button className="button" type="submit" disabled={creating}>
           {creating ? "Creando…" : "Crear borrador"}
         </button>
@@ -270,6 +397,30 @@ export function DraftJourneysSection({repository, user, onActiveJourneysChanged}
               <span>BORRADOR · {journey.lineIds.length} líneas</span>
               <span>Creada por {journey.creatorDisplayName}</span>
               <span>Versión {journey.version} · {formatTime(journey.updatedAt)}</span>
+              {journey.configuracionInformeInventario && (
+                <span>
+                  Informe {journey.configuracionInformeInventario.habilitado ? "habilitado" : "deshabilitado"}
+                  {journey.configuracionInformeInventario.habilitado
+                    ? ` · ${journey.configuracionInformeInventario.mes}/${journey.configuracionInformeInventario.anio}`
+                    : ""}
+                </span>
+              )}
+            </button>
+          ))}
+          <h2>Cierres en curso</h2>
+          {data.closingJourneys.length === 0 ? (
+            <p>No hay cierres pendientes.</p>
+          ) : data.closingJourneys.map((journey) => (
+            <button
+              className={journey.id === selectedClosingId ? "draft-card draft-card--selected" : "draft-card"}
+              key={journey.id}
+              type="button"
+              onClick={() => openClosing(journey)}
+            >
+              <strong>{journey.displayName}</strong>
+              <span>CERRANDO · {journey.closeWorkStatus}</span>
+              <span>Fase {journey.closeWorkPhase} · intento {journey.attempts}</span>
+              <span>Actualizada {formatTime(journey.updatedAt)}</span>
             </button>
           ))}
           <h2>Borradores cancelados</h2>
@@ -291,7 +442,45 @@ export function DraftJourneysSection({repository, user, onActiveJourneysChanged}
         </aside>
 
         <div className="draft-editor">
-          {selectedCancelled ? (
+          {selectedClosing ? (
+            <section className="cancelled-draft-detail" aria-labelledby="closing-journey-title">
+              <div className="draft-editor-heading">
+                <div>
+                  <span className="state state--inactive">CERRANDO</span>
+                  <h2 id="closing-journey-title">{selectedClosing.displayName}</h2>
+                  <p>CIERRE DURABLE — OPERACIONES BLOQUEADAS</p>
+                </div>
+                {selectedClosing.canRetry && (
+                  <button className="button" type="button" disabled={retryingClose} onClick={retryClose}>
+                    {retryingClose ? "Reanudando…" : "Reanudar cierre"}
+                  </button>
+                )}
+              </div>
+              <div className="inventory-summary" aria-label="Progreso del cierre">
+                <span>Estado del trabajo: {selectedClosing.closeWorkStatus}</span>
+                <span>Fase: {selectedClosing.closeWorkPhase}</span>
+                <span>Líneas: {selectedClosing.processedLines}/{selectedClosing.lineCount}</span>
+                <span>Ocupaciones: {selectedClosing.processedOccupations}/{selectedClosing.occupationCount}</span>
+                <span>Autorizaciones: {selectedClosing.processedAuthorizations}/{selectedClosing.authorizationCount}</span>
+                <span>Intentos: {selectedClosing.attempts}</span>
+                <span>Versión: {selectedClosing.version}</span>
+                <span>Actualización: {formatTime(selectedClosing.updatedAt)}</span>
+                {selectedClosing.errorCode && <span>Código: {selectedClosing.errorCode}</span>}
+                {selectedClosing.errorMessage && <span role="alert">{selectedClosing.errorMessage}</span>}
+              </div>
+              {selectedClosing.closeWorkStatus !== "ERROR" && !selectedClosing.canRetry && (
+                <p className="notice" role="status">El worker puede continuar el cierre sin intervención manual.</p>
+              )}
+              {selectedClosing.closeWorkStatus === "PROCESANDO" && selectedClosing.canRetry && (
+                <p className="alert" role="alert">
+                  El lease del worker venció. La recuperación manual está habilitada sin reiniciar el alcance.
+                </p>
+              )}
+              {selectedClosing.closeWorkStatus === "ERROR" && !selectedClosing.canRetry && (
+                <p className="alert" role="alert">Tu cuenta no está autorizada para reanudar este cierre.</p>
+              )}
+            </section>
+          ) : selectedCancelled ? (
             <section className="cancelled-draft-detail" aria-labelledby="cancelled-draft-title">
               <div className="draft-editor-heading">
                 <div>
@@ -327,7 +516,7 @@ export function DraftJourneysSection({repository, user, onActiveJourneysChanged}
               )}
             </section>
           ) : !selectedDraft ? (
-            <p className="empty-state">Abre un borrador para seleccionar sus líneas.</p>
+            <p className="empty-state">Abre un borrador o un cierre para consultar su estado.</p>
           ) : (
             <>
               <div className="draft-editor-heading">
@@ -335,6 +524,14 @@ export function DraftJourneysSection({repository, user, onActiveJourneysChanged}
                   <span className="state state--draft">BORRADOR</span>
                   <h2>{selectedDraft.displayName}</h2>
                   <p>{selectedLineIds.length} líneas seleccionadas</p>
+                  {selectedDraft.configuracionInformeInventario && (
+                    <p>
+                      Informe {selectedDraft.configuracionInformeInventario.habilitado ? "habilitado" : "deshabilitado"}
+                      {selectedDraft.configuracionInformeInventario.habilitado
+                        ? ` · ${selectedDraft.configuracionInformeInventario.mes}/${selectedDraft.configuracionInformeInventario.anio}`
+                        : ""}
+                    </p>
+                  )}
                 </div>
                 <button
                   className="button"
@@ -388,7 +585,11 @@ export function DraftJourneysSection({repository, user, onActiveJourneysChanged}
                             <small>{line.location.line}</small>
                           </span>
                           {!line.selectable && (
-                            <em>{line.unavailableReason === "LINEA_INACTIVA" ? "Línea inactiva; corrige la selección" : "Ya pertenece a una jornada activa"}</em>
+                            <em>{line.unavailableReason === "LINEA_INACTIVA"
+                              ? "Línea inactiva; corrige la selección"
+                              : line.unavailableReason === "JORNADA_CERRANDO"
+                                ? "Bloqueada hasta que finalice el cierre de su jornada"
+                                : "Ya pertenece a una jornada activa"}</em>
                           )}
                         </label>
                       ))}

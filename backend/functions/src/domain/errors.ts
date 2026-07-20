@@ -106,11 +106,35 @@ export const domainErrors = {
   ),
   journeyCloseLimitExceeded: () => new DomainError(
     "JOURNEY_CLOSE_LIMIT_EXCEEDED",
-    "La jornada supera el maximo tecnico combinado de 200 lineas y autorizaciones para un cierre atomico."
+    "La jornada supera el maximo tecnico de 400 lineas, 200 autorizaciones o el informe congelado excede 750 KiB para el cierre por fases."
   ),
   journeyCloseOccupationMismatch: () => new DomainError(
     "JOURNEY_CLOSE_OCCUPATION_MISMATCH",
     "Una linea no conserva el bloqueo activo de esta jornada."
+  ),
+  journeyCloseInProgress: () => new DomainError(
+    "JOURNEY_CLOSE_IN_PROGRESS",
+    "La jornada ya tiene un cierre durable en progreso."
+  ),
+  journeyCloseJobNotFound: () => new DomainError(
+    "JOURNEY_CLOSE_JOB_NOT_FOUND",
+    "El trabajo durable de cierre no existe."
+  ),
+  journeyCloseScopeChanged: () => new DomainError(
+    "JOURNEY_CLOSE_SCOPE_CHANGED",
+    "El alcance congelado del cierre ya no coincide con los datos centrales."
+  ),
+  journeyCloseLeaseLost: () => new DomainError(
+    "JOURNEY_CLOSE_LEASE_LOST",
+    "Otro worker adquirio el trabajo de cierre."
+  ),
+  journeyCloseProcessingFailed: () => new DomainError(
+    "JOURNEY_CLOSE_PROCESSING_FAILED",
+    "El cierre se interrumpio y requiere una recuperacion autorizada."
+  ),
+  journeyCloseNotRetryable: () => new DomainError(
+    "JOURNEY_CLOSE_NOT_RETRYABLE",
+    "El cierre no esta en un estado recuperable."
   ),
   draftCancellationReasonRequired: () => new DomainError(
     "DRAFT_CANCELLATION_REASON_REQUIRED",
@@ -343,6 +367,30 @@ export const domainErrors = {
   ),
   discardCauseExceedsTotal: () => new DomainError(
     "DISCARD_CAUSE_EXCEEDS_TOTAL", "Una causa no puede superar el total único de plantas descartadas."
+  ),
+  countDeadPlantsRequired: () => new DomainError(
+    "COUNT_DEAD_PLANTS_REQUIRED", "El informe configurado exige registrar las plantas muertas del conteo fisico."
+  ),
+  countDeadPlantsNotAllowed: () => new DomainError(
+    "COUNT_DEAD_PLANTS_NOT_ALLOWED", "Las plantas muertas no se aceptan para la fuente configurada."
+  ),
+  inventoryReportNotFound: () => new DomainError(
+    "INVENTORY_REPORT_NOT_FOUND", "El informe de inventario no existe."
+  ),
+  inventoryReportAccessDenied: () => new DomainError(
+    "INVENTORY_REPORT_ACCESS_DENIED", "La cuenta no puede administrar este informe de inventario."
+  ),
+  inventoryReportNotRetryable: () => new DomainError(
+    "INVENTORY_REPORT_NOT_RETRYABLE", "El informe no se encuentra en un estado reintentable."
+  ),
+  inventoryReportPendingDiscards: () => new DomainError(
+    "INVENTORY_REPORT_PENDING_DISCARDS", "La jornada tiene descartes pendientes de revision."
+  ),
+  inventoryReportCountIncompatible: () => new DomainError(
+    "INVENTORY_REPORT_COUNT_INCOMPATIBLE", "Un conteo aprobado no es compatible con la configuracion del informe."
+  ),
+  inventoryReportConfigurationInvalid: () => new DomainError(
+    "INVENTORY_REPORT_CONFIGURATION_INVALID", "La configuracion del informe de inventario no es valida."
   ),
   activeReservationExists: () => new DomainError("ACTIVE_RESERVATION_EXISTS", "La cuenta ya tiene otra reserva activa."),
   idempotencyConflict: () => new DomainError("IDEMPOTENCY_CONFLICT", "La clave de reintento ya se utilizó con otra solicitud."),

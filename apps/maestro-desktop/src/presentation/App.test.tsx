@@ -2,10 +2,13 @@ import {act, cleanup, fireEvent, render, screen, waitFor, within} from "@testing
 import {afterEach, describe, expect, it, vi} from "vitest";
 
 import type {
+  CloseJourneyOutcome,
   DraftActivationResult,
   DraftActivationVersions,
   DraftParticipantInput,
   DraftParticipantsData,
+  InventoryReportConfiguration,
+  InventoryReportSummary,
   ManageableDraftJourney,
   ManageableCatalogData,
   ManageableCatalogLine,
@@ -22,10 +25,14 @@ import type {
   MonitorSnapshot,
   MonitorUnsubscribe,
   MonitorUser,
+  RetryInventoryReportRequest,
 } from "../domain/MonitorModels";
 import {App} from "./App";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  delete window.viveroFoundation;
+});
 
 const supervisor: MonitorUser = {
   id: "uid-supervisor",
@@ -60,6 +67,7 @@ const pendingLine = {
     females: 450,
     males: 320,
     rootstocks: 210,
+    deadPlants: 7,
     total: 980,
     observations: "Sin novedad",
     deviceTimestamp: "2026-07-14T13:29:00.000Z",
@@ -88,6 +96,13 @@ const journeyOne: MonitorJourney = {
   lineCount: 1,
   version: 4,
   canClose: true,
+  configuracionInformeInventario: {
+    habilitado: true,
+    mes: 7,
+    anio: 2026,
+    fuentePlantasMuertas: "DESCARTES_APROBADOS",
+  },
+  cantidadDescartesPendientes: 0,
 };
 
 const pendingDiscard: MonitorDiscard = {
@@ -130,7 +145,7 @@ class FakeMonitorRepository implements MonitorRepository {
   reassigned: Array<{countId: string; newUserId: string; reason: string; key: string}> = [];
   released: Array<{reservationId: string; reason: string; key: string}> = [];
   manageableListCalls = 0;
-  createdDrafts: Array<{name: string; key: string}> = [];
+  createdDrafts: Array<{name: string; configuration?: InventoryReportConfiguration; key: string}> = [];
   updatedDrafts: Array<{journeyId: string; lineIds: readonly string[]; key: string}> = [];
   participantListCalls: string[] = [];
   updatedParticipants: Array<{
@@ -146,7 +161,25 @@ class FakeMonitorRepository implements MonitorRepository {
   cancelledDrafts: Array<{journeyId: string; expectedVersion: number; reason: string; key: string}> = [];
   reopenedDrafts: Array<{journeyId: string; expectedVersion: number; key: string}> = [];
   closedJourneys: Array<{journeyId: string; expectedVersion: number; key: string}> = [];
+  closeOutcomeState: CloseJourneyOutcome["state"] = "INACTIVA";
+  retriedClosingJourneys: Array<{journeyId: string; expectedVersion: number; key: string}> = [];
   activationErrors: string[] = [];
+  reports: readonly InventoryReportSummary[] = [{
+    informeId: "INFORME-PRUEBA-1",
+    jornadaId: "JORNADA-CERRADA-1",
+    jornadaNombreVisible: "Jornada cerrada de prueba",
+    mes: 6,
+    anio: 2026,
+    fuentePlantasMuertas: "CONTEO_FISICO",
+    estado: "ERROR_REINTENTABLE",
+    intentos: 1,
+    errorCodigo: "DRIVE_TEMPORAL",
+    errorMensaje: "Servicio temporalmente no disponible",
+    creadoEn: "2026-07-18T12:00:00.000Z",
+    actualizadoEn: "2026-07-18T12:01:00.000Z",
+  }];
+  reportListCalls = 0;
+  retriedReports: RetryInventoryReportRequest[] = [];
   statusUpdates: Array<{userId: string; version: number; active: boolean; reason: string; key: string}> = [];
   roleUpdates: Array<{userId: string; version: number; role: string; reason: string; key: string}> = [];
   createdUsers: Array<{displayName: string; email: string; password: string; role: string; key: string}> = [];
@@ -278,7 +311,14 @@ class FakeMonitorRepository implements MonitorRepository {
       lineIds: ["LINEA-LIBRE-1"],
       createdAt: "2026-07-15T12:00:00.000Z",
       updatedAt: "2026-07-15T12:00:00.000Z",
+      configuracionInformeInventario: {
+        habilitado: true,
+        mes: 7,
+        anio: 2026,
+        fuentePlantasMuertas: "CONTEO_FISICO",
+      },
     }],
+    closingJourneys: [],
     cancelledJourneys: [],
     catalogLines: [
       {
@@ -533,8 +573,12 @@ class FakeMonitorRepository implements MonitorRepository {
     this.manageableListCalls += 1;
     return this.manageableData;
   }
-  async createDraftJourney(name: string, key: string): Promise<ManageableDraftJourney> {
-    this.createdDrafts.push({name, key});
+  async createDraftJourney(
+    name: string,
+    configuration: InventoryReportConfiguration | undefined,
+    key: string,
+  ): Promise<ManageableDraftJourney> {
+    this.createdDrafts.push({name, ...(configuration ? {configuration} : {}), key});
     const draft: ManageableDraftJourney = {
       id: `JORNADA-BORRADOR-${this.createdDrafts.length + 1}`,
       displayName: name,
@@ -545,6 +589,7 @@ class FakeMonitorRepository implements MonitorRepository {
       lineIds: [],
       createdAt: "2026-07-15T16:00:00.000Z",
       updatedAt: "2026-07-15T16:00:00.000Z",
+      ...(configuration ? {configuracionInformeInventario: configuration} : {}),
     };
     this.manageableData = {...this.manageableData, journeys: [draft, ...this.manageableData.journeys]};
     return draft;
@@ -616,6 +661,9 @@ class FakeMonitorRepository implements MonitorRepository {
       lineCount: draft.lineIds.length,
       version: result.version,
       canClose: this.user.role === "ADMINISTRADOR" || draft.creatorUserId === this.user.id,
+      ...(draft.configuracionInformeInventario
+        ? {configuracionInformeInventario: draft.configuracionInformeInventario}
+        : {}),
     }];
     return result;
   }
@@ -648,6 +696,9 @@ class FakeMonitorRepository implements MonitorRepository {
         cancelledAt: "2026-07-15T20:00:00.000Z",
         createdAt: draft.createdAt,
         updatedAt: "2026-07-15T20:00:00.000Z",
+        ...(draft.configuracionInformeInventario
+          ? {configuracionInformeInventario: draft.configuracionInformeInventario}
+          : {}),
       }, ...this.manageableData.cancelledJourneys],
     };
   }
@@ -665,6 +716,9 @@ class FakeMonitorRepository implements MonitorRepository {
       lineIds: cancelled.lineIds,
       createdAt: cancelled.createdAt,
       updatedAt: "2026-07-15T20:30:00.000Z",
+      ...(cancelled.configuracionInformeInventario
+        ? {configuracionInformeInventario: cancelled.configuracionInformeInventario}
+        : {}),
     };
     this.manageableData = {
       ...this.manageableData,
@@ -678,9 +732,38 @@ class FakeMonitorRepository implements MonitorRepository {
       participants: cancelled.participants,
     };
   }
-  async closeJourney(journeyId: string, expectedVersion: number, key: string): Promise<void> {
+  async closeJourney(
+    journeyId: string,
+    expectedVersion: number,
+    key: string,
+  ): Promise<CloseJourneyOutcome> {
     this.closedJourneys.push({journeyId, expectedVersion, key});
     this.journeys = this.journeys.filter((journey) => journey.id !== journeyId);
+    return {state: this.closeOutcomeState, version: expectedVersion + 1};
+  }
+  async retryClosingJourney(
+    journeyId: string,
+    expectedVersion: number,
+    key: string,
+  ): Promise<CloseJourneyOutcome & {readonly state: "CERRANDO"}> {
+    this.retriedClosingJourneys.push({journeyId, expectedVersion, key});
+    this.manageableData = {
+      ...this.manageableData,
+      closingJourneys: this.manageableData.closingJourneys.map((journey) => journey.id === journeyId
+        ? {...journey, closeWorkStatus: "PENDIENTE", canRetry: false, errorCode: undefined, errorMessage: undefined}
+        : journey),
+    };
+    return {state: "CERRANDO", version: expectedVersion};
+  }
+  async listInventoryReports(): Promise<{readonly informes: readonly InventoryReportSummary[]}> {
+    this.reportListCalls += 1;
+    return {informes: this.reports};
+  }
+  async retryInventoryReport(request: RetryInventoryReportRequest): Promise<void> {
+    this.retriedReports.push(request);
+    this.reports = this.reports.map((report) => report.jornadaId === request.jornadaId
+      ? {...report, estado: "PENDIENTE"}
+      : report);
   }
   async approveCount(countId: string, key: string, reason?: string): Promise<void> {
     this.approved.push({countId, key, ...(reason === undefined ? {} : {reason})});
@@ -729,6 +812,19 @@ async function signIn(repository: FakeMonitorRepository): Promise<void> {
   fireEvent.change(screen.getByLabelText("Contraseña"), {target: {value: "secreto"}});
   fireEvent.click(screen.getByRole("button", {name: "Iniciar sesión"}));
   await screen.findByRole("heading", {name: "Jornada ficticia Etapa 5"});
+}
+
+function buttonsNamed(name: string | RegExp): HTMLButtonElement[] {
+  return [...document.querySelectorAll<HTMLButtonElement>("button")].filter((button) => {
+    const label = button.textContent?.replace(/\s+/gu, " ").trim() ?? "";
+    return typeof name === "string" ? label === name : name.test(label);
+  });
+}
+
+function buttonNamed(name: string | RegExp): HTMLButtonElement {
+  const button = buttonsNamed(name)[0];
+  if (!button) throw new Error(`No se encontró el botón ${String(name)}.`);
+  return button;
 }
 
 describe("bandeja de revisión de Vivero Maestro", () => {
@@ -789,37 +885,36 @@ describe("bandeja de revisión de Vivero Maestro", () => {
 
     await signIn(repository);
     for (const action of ["Cerrar jornada", "Aprobar", "Devolver"]) {
-      expect(screen.getByRole("button", {name: action})).toBeInTheDocument();
+      expect(buttonNamed(action)).toBeInTheDocument();
     }
     fireEvent.change(screen.getByLabelText("Estado"), {target: {value: "EN_CONTEO"}});
-    expect(screen.getByRole("button", {name: "Liberar reserva"})).toBeInTheDocument();
+    expect(buttonNamed("Liberar reserva")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Estado"), {target: {value: "DEVUELTA"}});
-    expect(screen.getByRole("button", {name: /Reasignar|Corregir/i})).toBeInTheDocument();
+    expect(buttonNamed(/Reasignar|Corregir/i)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", {name: "Usuarios"}));
-    await screen.findByRole("heading", {name: "Usuarios"});
-    expect(screen.getByText("Auxiliar Uno")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", {name: "Cambiar rol"}).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", {name: /Desactivar|Reactivar/}).length).toBeGreaterThan(0);
+    fireEvent.click(buttonNamed("Usuarios"));
+    expect(await screen.findByText("Auxiliar Uno")).toBeInTheDocument();
+    expect(buttonsNamed("Cambiar rol").length).toBeGreaterThan(0);
+    expect(buttonsNamed(/Desactivar|Reactivar/).length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole("button", {name: /Catálogo/}));
+    fireEvent.click(buttonNamed(/Catálogo/));
     await screen.findByRole("heading", {name: /Catálogo/});
-    expect(screen.getByRole("button", {name: /Nueva ubicación raíz/})).toBeInTheDocument();
-    expect(screen.getAllByRole("button", {name: /Nueva línea/}).length).toBeGreaterThan(0);
+    expect(buttonNamed(/Nueva ubicación raíz/)).toBeInTheDocument();
+    expect(buttonsNamed(/Nueva línea/).length).toBeGreaterThan(0);
     for (const action of [/Editar ubicación/i, /Editar línea/i, /Registrar inventario inicial/i]) {
-      expect(screen.getAllByRole("button", {name: action}).length).toBeGreaterThan(0);
+      expect(buttonsNamed(action).length).toBeGreaterThan(0);
     }
 
-    expect(screen.getByRole("button", {name: /Migración/})).toBeInTheDocument();
+    expect(buttonNamed(/Migración/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", {name: "Jornadas"}));
+    fireEvent.click(buttonNamed("Jornadas"));
     await screen.findByRole("heading", {name: "Jornadas"});
-    expect(screen.getByRole("button", {name: "Crear borrador"})).toBeInTheDocument();
-    fireEvent.click(await screen.findByRole("button", {name: /Borrador semanal/}));
-    expect(screen.getByRole("button", {name: "Revisar selección"})).toBeInTheDocument();
-    expect(screen.getByRole("button", {name: "Revisar participantes"})).toBeInTheDocument();
-    expect(screen.getByRole("button", {name: "Activar jornada"})).toBeInTheDocument();
-    expect(screen.getByRole("button", {name: "Cancelar borrador"})).toBeInTheDocument();
+    expect(buttonNamed("Crear borrador")).toBeInTheDocument();
+    fireEvent.click(buttonNamed(/Borrador semanal/));
+    expect(buttonNamed("Revisar selección")).toBeInTheDocument();
+    expect(buttonNamed("Revisar participantes")).toBeInTheDocument();
+    expect(buttonNamed("Activar jornada")).toBeInTheDocument();
+    expect(buttonNamed("Cancelar borrador")).toBeInTheDocument();
   });
 
   it("permite reabrir borradores cancelados en production", async () => {
@@ -867,45 +962,48 @@ describe("bandeja de revisión de Vivero Maestro", () => {
     };
 
     await signIn(repository);
-    fireEvent.click(screen.getByRole("button", {name: /Catálogo/}));
+    fireEvent.click(buttonNamed(/Catálogo/));
     await screen.findByRole("heading", {name: /Catálogo/});
-    fireEvent.click(screen.getByRole("button", {name: /Nueva ubicación raíz/}));
+    fireEvent.click(buttonNamed(/Nueva ubicación raíz/));
     fireEvent.change(screen.getByLabelText("Código"), {target: {value: "PRODUCTION-PRUEBA"}});
     fireEvent.change(screen.getByLabelText("Tipo técnico"), {target: {value: "FIXTURE"}});
     fireEvent.change(screen.getByLabelText("Nombre visible"), {target: {value: "Ubicación production prueba"}});
-    fireEvent.click(screen.getByRole("button", {name: "Crear"}));
+    fireEvent.click(buttonNamed("Crear"));
     await screen.findByText("Ubicación creada mediante operación central.");
     const createdLocation = screen.getByText("Ubicación production prueba").closest("details");
     expect(createdLocation).not.toBeNull();
-    fireEvent.click(within(createdLocation!).getByRole("button", {name: /Nueva línea/}));
+    fireEvent.click(within(createdLocation!).getByText(/Nueva línea/).closest("button")!);
     fireEvent.change(screen.getByLabelText("Código"), {target: {value: "LINEA-PRODUCTION"}});
     fireEvent.change(screen.getByLabelText("Nombre visible"), {target: {value: "Línea production prueba"}});
-    fireEvent.click(screen.getByRole("button", {name: "Crear"}));
+    fireEvent.click(buttonNamed("Crear"));
     await screen.findByText("Línea creada mediante operación central.");
     expect(screen.getByText("Línea production prueba")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", {name: "Jornadas"}));
+    fireEvent.click(buttonNamed("Jornadas"));
     await screen.findByRole("heading", {name: "Jornadas"});
     fireEvent.change(screen.getByLabelText("Nombre de la nueva jornada"), {
       target: {value: "Borrador production"},
     });
-    fireEvent.click(screen.getByRole("button", {name: "Crear borrador"}));
+    fireEvent.click(buttonNamed("Crear borrador"));
     await waitFor(() => expect(repository.createdDrafts).toHaveLength(1));
-    fireEvent.click(await screen.findByRole("button", {name: /Borrador semanal/}));
-    fireEvent.click(screen.getByRole("checkbox", {name: /Linea libre 2/}));
-    fireEvent.click(screen.getByRole("button", {name: "Revisar selección"}));
-    fireEvent.click(screen.getByRole("button", {name: "Confirmar y guardar"}));
+    expect(repository.createdDrafts[0]?.configuration).toBeUndefined();
+    await screen.findByText("Borrador semanal");
+    fireEvent.click(buttonNamed(/Borrador semanal/));
+    fireEvent.click(screen.getByLabelText(/Linea libre 2/));
+    fireEvent.click(buttonNamed("Revisar selección"));
+    fireEvent.click(buttonNamed("Confirmar y guardar"));
     await waitFor(() => expect(repository.updatedDrafts).toHaveLength(1));
     await screen.findByText("Auxiliar Uno");
-    const reviewParticipants = screen.getByRole("button", {name: "Revisar participantes"});
+    const reviewParticipants = buttonNamed("Revisar participantes");
     await waitFor(() => expect(reviewParticipants).toBeEnabled());
     fireEvent.click(reviewParticipants);
-    fireEvent.click(await screen.findByRole("button", {name: "Confirmar participantes"}));
+    await screen.findByText("Confirmar participantes");
+    fireEvent.click(buttonNamed("Confirmar participantes"));
     await waitFor(() => expect(repository.updatedParticipants).toHaveLength(1));
-    const activateButton = screen.getByRole("button", {name: "Activar jornada"});
+    const activateButton = buttonNamed("Activar jornada");
     await waitFor(() => expect(activateButton).toBeEnabled());
     fireEvent.click(activateButton);
-    fireEvent.click(screen.getByRole("button", {name: "Confirmar activación"}));
+    fireEvent.click(buttonNamed("Confirmar activación"));
     await waitFor(() => expect(repository.activatedDrafts).toHaveLength(1));
     expect(await screen.findByText(/Jornada activada correctamente/)).toHaveTextContent("Campo ya puede verla");
   });
@@ -983,6 +1081,7 @@ describe("bandeja de revisión de Vivero Maestro", () => {
     await signIn(new FakeMonitorRepository());
     expect(screen.getByText("Auxiliar Conteo · AUXILIAR")).toBeInTheDocument();
     expect(screen.getByText("DISPOSITIVO-FICTICIO")).toBeInTheDocument();
+    expect(screen.getByText("Plantas muertas").nextSibling).toHaveTextContent("7");
     expect(screen.getByText("Inventario actual").nextSibling).toHaveTextContent("1000");
     expect(screen.getByText("Diferencia total").nextSibling).toHaveTextContent("-20");
   });
@@ -1001,6 +1100,21 @@ describe("bandeja de revisión de Vivero Maestro", () => {
     expect(screen.getByText("1 línea(s) todavía no tienen estado APROBADA.")).toBeInTheDocument();
   });
 
+  it("bloquea el cierre cuando el informe depende de descartes todavía pendientes", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.journeys = [{...journeyOne, cantidadDescartesPendientes: 2}];
+    repository.currentSnapshot = {
+      ...snapshot,
+      lines: [{...pendingLine, state: "APROBADA", reservation: undefined}],
+    };
+
+    await signIn(repository);
+
+    const closeButton = screen.getByRole("button", {name: "Cerrar jornada"});
+    expect(closeButton).toBeDisabled();
+    expect(screen.getByText("2 descarte(s) pendiente(s) de revisión.")).toBeInTheDocument();
+  });
+
   it("confirma el cierre aprobado, usa la version observada y retira la jornada activa", async () => {
     const repository = new FakeMonitorRepository();
     repository.currentSnapshot = {
@@ -1012,6 +1126,11 @@ describe("bandeja de revisión de Vivero Maestro", () => {
     expect(closeButton).toBeEnabled();
     fireEvent.click(closeButton);
     expect(screen.getByLabelText("Resumen del cierre")).toHaveTextContent("Líneas aprobadas: 1");
+    expect(screen.getByLabelText("Resumen del cierre")).toHaveTextContent("Informe de inventario");
+    expect(screen.getByLabelText("Resumen del cierre")).toHaveTextContent("7/2026");
+    expect(screen.getByLabelText("Resumen del cierre")).toHaveTextContent("Descartes aprobados");
+    expect(screen.getByLabelText("Resumen del cierre")).toHaveTextContent("Descartes pendientes: 0");
+    expect(screen.getByLabelText("Resumen del cierre")).toHaveTextContent("generar y subir el informe");
     expect(screen.getByText(/dejará de estar disponible en Vivero Campo/)).toBeInTheDocument();
     const confirmation = screen.getByRole("checkbox", {name: /Confirmo que deseo cerrar/});
     fireEvent.click(confirmation);
@@ -1022,6 +1141,23 @@ describe("bandeja de revisión de Vivero Maestro", () => {
       expectedVersion: journeyOne.version,
     });
     expect(await screen.findByText(/Jornada cerrada/)).toHaveTextContent("líneas quedaron liberadas");
+    expect(screen.getByLabelText("Jornada activa")).toHaveValue("");
+  });
+
+  it("informa CERRANDO sin afirmar que el worker ya liberó las líneas", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.closeOutcomeState = "CERRANDO";
+    repository.currentSnapshot = {
+      ...snapshot,
+      lines: [{...pendingLine, state: "APROBADA", reservation: undefined}],
+    };
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Cerrar jornada"}));
+    fireEvent.click(screen.getByRole("checkbox", {name: /Confirmo que deseo cerrar/}));
+    fireEvent.click(screen.getByRole("button", {name: "Confirmar cierre"}));
+
+    expect(await screen.findByText(/Cierre iniciado.*procesará por fases/)).toBeInTheDocument();
+    expect(screen.queryByText(/líneas quedaron liberadas/)).not.toBeInTheDocument();
     expect(screen.getByLabelText("Jornada activa")).toHaveValue("");
   });
 
@@ -1260,6 +1396,53 @@ describe("bandeja de revisión de Vivero Maestro", () => {
   });
 });
 
+describe("informes de inventario de Vivero Maestro", () => {
+  it("lista estados centrales y reintenta solo errores reintentables con una clave", async () => {
+    const repository = new FakeMonitorRepository();
+    await signIn(repository);
+
+    fireEvent.click(screen.getByRole("button", {name: "Informes"}));
+    expect(await screen.findByRole("heading", {name: "Informes de inventario"})).toBeInTheDocument();
+    expect(screen.getAllByText("Error reintentable").length).toBeGreaterThan(0);
+    expect(screen.getByText("DRIVE_TEMPORAL")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", {name: "Reintentar"}));
+    await waitFor(() => expect(repository.retriedReports).toHaveLength(1));
+    expect(repository.retriedReports[0]).toMatchObject({jornadaId: "JORNADA-CERRADA-1"});
+    expect(repository.retriedReports[0]?.claveIdempotencia).toEqual(expect.any(String));
+    expect(await screen.findByText("Reintento solicitado de forma idempotente.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: "Reintentar"})).not.toBeInTheDocument();
+  });
+
+  it("abre un archivo completado mediante el puente seguro de Electron", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.reports = [{
+      informeId: "INFORME-COMPLETO-1",
+      jornadaId: "JORNADA-CERRADA-2",
+      jornadaNombreVisible: "Jornada completa de prueba",
+      mes: 6,
+      anio: 2026,
+      fuentePlantasMuertas: "DESCARTES_APROBADOS",
+      estado: "COMPLETADO",
+      intentos: 1,
+      archivoNombre: "INVENTARIO-PRUEBA.xlsx",
+      archivoEnlace: "https://drive.google.com/file/d/archivo-prueba/view",
+      creadoEn: "2026-07-18T12:00:00.000Z",
+      actualizadoEn: "2026-07-18T12:02:00.000Z",
+      finalizadoEn: "2026-07-18T12:02:00.000Z",
+    }];
+    const openExternalUrl = vi.fn().mockResolvedValue(true);
+    window.viveroFoundation = {getRuntimeStatus: () => "Prueba", openExternalUrl};
+    await signIn(repository);
+
+    fireEvent.click(screen.getByRole("button", {name: "Informes"}));
+    fireEvent.click(await screen.findByRole("button", {name: "Abrir archivo"}));
+    await waitFor(() => expect(openExternalUrl).toHaveBeenCalledWith(
+      "https://drive.google.com/file/d/archivo-prueba/view",
+    ));
+  });
+});
+
 describe("jornadas en borrador de Vivero Maestro", () => {
   it("muestra la seccion Jornadas solo a supervision y lista sus borradores", async () => {
     const repository = new FakeMonitorRepository();
@@ -1274,6 +1457,87 @@ describe("jornadas en borrador de Vivero Maestro", () => {
     }
   });
 
+  it("muestra CERRANDO y permite reanudar solo un trabajo en ERROR autorizado", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.manageableData = {
+      ...repository.manageableData,
+      closingJourneys: [{
+        id: "JORNADA-CERRANDO-1",
+        displayName: "Jornada cerrando de prueba",
+        state: "CERRANDO",
+        creatorUserId: "uid-supervisor",
+        creatorDisplayName: "Supervisor Pruebas",
+        version: 8,
+        closeWorkId: "JORNADA-CERRANDO-1",
+        closeWorkStatus: "ERROR",
+        closeWorkPhase: "OCUPACIONES",
+        cursor: 100,
+        lineCount: 271,
+        occupationCount: 271,
+        authorizationCount: 3,
+        processedLines: 271,
+        processedOccupations: 100,
+        processedAuthorizations: 0,
+        attempts: 5,
+        canRetry: true,
+        errorCode: "JOURNEY_CLOSE_PROCESSING_FAILED",
+        errorMessage: "Error sanitizado de prueba.",
+        updatedAt: "2026-07-31T21:05:00.000Z",
+      }],
+    };
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Jornadas"}));
+    await screen.findByRole("heading", {name: "Jornadas"});
+    fireEvent.click(await screen.findByRole("button", {name: /Jornada cerrando de prueba/}));
+
+    expect(screen.getByLabelText("Progreso del cierre")).toHaveTextContent("Líneas: 271/271");
+    expect(screen.getByLabelText("Progreso del cierre")).toHaveTextContent("Ocupaciones: 100/271");
+    expect(screen.getByText("Error sanitizado de prueba.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "Reanudar cierre"}));
+
+    await waitFor(() => expect(repository.retriedClosingJourneys).toHaveLength(1));
+    expect(repository.retriedClosingJourneys[0]).toMatchObject({
+      journeyId: "JORNADA-CERRANDO-1",
+      expectedVersion: 8,
+    });
+    expect(await screen.findByText(/Recuperación aceptada.*continúa CERRANDO/))
+      .toBeInTheDocument();
+  });
+
+  it("mantiene un cierre en curso solo lectura cuando backend no autoriza recuperarlo", async () => {
+    const repository = new FakeMonitorRepository();
+    repository.manageableData = {
+      ...repository.manageableData,
+      closingJourneys: [{
+        id: "JORNADA-CERRANDO-2",
+        displayName: "Jornada cerrando sin recuperacion",
+        state: "CERRANDO",
+        creatorUserId: "uid-administrador",
+        creatorDisplayName: "Administrador Pruebas",
+        version: 4,
+        closeWorkId: "JORNADA-CERRANDO-2",
+        closeWorkStatus: "PROCESANDO",
+        closeWorkPhase: "LINEAS",
+        cursor: 100,
+        lineCount: 271,
+        occupationCount: 271,
+        authorizationCount: 3,
+        processedLines: 100,
+        processedOccupations: 0,
+        processedAuthorizations: 0,
+        attempts: 2,
+        canRetry: false,
+        updatedAt: "2026-07-31T21:05:00.000Z",
+      }],
+    };
+    await signIn(repository);
+    fireEvent.click(screen.getByRole("button", {name: "Jornadas"}));
+    fireEvent.click(await screen.findByRole("button", {name: /Jornada cerrando sin recuperacion/}));
+
+    expect(screen.getByText("CIERRE DURABLE — OPERACIONES BLOQUEADAS")).toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: "Reanudar cierre"})).not.toBeInTheDocument();
+  });
+
   it("crea una jornada incompleta y mantiene la activacion bloqueada", async () => {
     const repository = new FakeMonitorRepository();
     await signIn(repository);
@@ -1282,9 +1546,19 @@ describe("jornadas en borrador de Vivero Maestro", () => {
     fireEvent.change(screen.getByLabelText("Nombre de la nueva jornada"), {
       target: {value: "Borrador creado desde Maestro"},
     });
+    fireEvent.click(screen.getByRole("checkbox", {name: "Generar informe al cerrar la jornada"}));
+    fireEvent.change(screen.getByLabelText("Mes del informe"), {target: {value: "8"}});
+    fireEvent.change(screen.getByLabelText("Año del informe"), {target: {value: "2026"}});
+    fireEvent.change(screen.getByLabelText("Fuente de plantas muertas"), {target: {value: "DESCARTES_APROBADOS"}});
     fireEvent.click(screen.getByRole("button", {name: "Crear borrador"}));
     await waitFor(() => expect(repository.createdDrafts).toHaveLength(1));
     expect(repository.createdDrafts[0]?.name).toBe("Borrador creado desde Maestro");
+    expect(repository.createdDrafts[0]?.configuration).toEqual({
+      habilitado: true,
+      mes: 8,
+      anio: 2026,
+      fuentePlantasMuertas: "DESCARTES_APROBADOS",
+    });
     expect((await screen.findAllByText("Borrador creado desde Maestro")).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole("button", {name: "Activar jornada"})).toBeDisabled();
   });
@@ -1325,6 +1599,7 @@ describe("jornadas en borrador de Vivero Maestro", () => {
     };
     await signIn(repository);
     expect(screen.queryByRole("button", {name: "Jornadas"})).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", {name: "Informes"})).not.toBeInTheDocument();
     expect(repository.manageableListCalls).toBe(0);
     expect(repository.participantListCalls).toHaveLength(0);
   });
@@ -1391,11 +1666,15 @@ describe("jornadas en borrador de Vivero Maestro", () => {
     fireEvent.click(activateButton);
     const summary = screen.getByLabelText("Resumen de activación de jornada");
     expect(summary).toHaveTextContent("Borrador semanal");
+    expect(summary).toHaveTextContent("Informe de inventario");
+    expect(summary).toHaveTextContent("7/2026");
+    expect(summary).toHaveTextContent("Conteo físico");
     expect(summary).toHaveTextContent("Líneas: 1");
     expect(summary).toHaveTextContent("Auxiliar Uno · Auxiliar · Puede contar");
     expect(summary).toHaveTextContent("Supervisor Pruebas · Supervisor · No cuenta");
     expect(screen.getByText(/Campo podrá ver esta jornada/)).toBeInTheDocument();
     expect(screen.getByText(/no podrá editarse/)).toBeInTheDocument();
+    expect(screen.getByText(/configuración del informe quedará bloqueada/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", {name: "Confirmar activación"}));
     await waitFor(() => expect(repository.activatedDrafts).toHaveLength(1));
     expect(repository.activatedDrafts[0]).toMatchObject({

@@ -40,6 +40,7 @@
     "hembras": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
     "machos": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
     "patrones": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "plantasMuertas": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
     "total": {
       "allOf": [{"$ref": "comun.schema.json#/$defs/enteroNoNegativo"}],
       "readOnly": true,

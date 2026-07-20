@@ -57,23 +57,16 @@ async function upsertAuthUser(auth, account) {
   await auth.setCustomUserClaims(account.uid, {entorno: "EMULADOR"});
 }
 
-async function clearCollection(database, collectionName) {
-  while (true) {
-    const snapshot = await database.collection(collectionName).limit(400).get();
-    if (snapshot.empty) return;
-    const batch = database.batch();
-    snapshot.docs.forEach((document) => batch.delete(document.ref));
-    await batch.commit();
+async function clearFirestoreEmulator(projectId) {
+  const host = process.env.FIRESTORE_EMULATOR_HOST;
+  if (typeof host !== "string" || !/^(?:127\.0\.0\.1|localhost):\d+$/u.test(host)) {
+    throw new Error("Limpieza cancelada: Firestore Emulator debe usar una direccion local.");
   }
-}
-
-async function clearJourneyAuthorizations(database) {
-  while (true) {
-    const snapshot = await database.collectionGroup("autorizaciones").limit(400).get();
-    if (snapshot.empty) return;
-    const batch = database.batch();
-    snapshot.docs.forEach((document) => batch.delete(document.ref));
-    await batch.commit();
+  const endpoint = `http://${host}/emulator/v1/projects/${encodeURIComponent(projectId)}` +
+    "/databases/(default)/documents";
+  const response = await fetch(endpoint, {method: "DELETE"});
+  if (!response.ok) {
+    throw new Error(`No fue posible limpiar Firestore Emulator (${response.status}).`);
   }
 }
 
@@ -90,33 +83,8 @@ export async function seedEmulator() {
   const now = Timestamp.fromDate(new Date("2026-07-13T12:00:00.000Z"));
   const secondJourneyCreatedAt = Timestamp.fromDate(new Date("2026-07-14T12:00:00.000Z"));
 
-  for (const account of demoAccounts) await upsertAuthUser(auth, account);
-  await clearJourneyAuthorizations(database);
-  for (const collectionName of [
-    "conteos",
-    "inventarioOficialLineas",
-    "cargasInventarioInicial",
-    "movimientosInventario",
-    "decisionesRevision",
-    "reasignacionesCorreccion",
-    "liberacionesReserva",
-    "cancelacionesJornadas",
-    "reservas",
-    "idempotencia",
-    "auditoria",
-    "importacionesMigracion",
-    "bloqueosHashesMigracion",
-    "jornadaLineas",
-    "jornadas",
-    "seleccionesLineasJornada",
-    "seleccionesParticipantesJornada",
-    "ocupacionesLineasActivas",
-    "bloqueosCodigosCatalogo",
-    "lineas",
-    "ubicaciones"
-  ]) {
-    await clearCollection(database, collectionName);
-  }
+  await Promise.all(demoAccounts.map((account) => upsertAuthUser(auth, account)));
+  await clearFirestoreEmulator(projectId);
 
   const batch = database.batch();
   for (const account of demoAccounts) {

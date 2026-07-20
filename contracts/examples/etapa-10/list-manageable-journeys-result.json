@@ -13,6 +13,7 @@
       "actualizadaEn": "2026-07-15T12:00:00.000Z"
     }
   ],
+  "jornadasCerrando": [],
   "jornadasCanceladas": [],
   "lineasCatalogo": [
     {
@@ -26,6 +27,20 @@
         "linea": "LINEA-CATALOGO-LIBRE-1",
         "nombreVisible": "Linea libre de catalogo 1",
         "orden": 92
+      }
+    },
+    {
+      "lineaId": "LINEA-CATALOGO-CERRANDO-1",
+      "nombreVisible": "Linea retenida por cierre durable",
+      "seleccionable": false,
+      "motivoNoSeleccionable": "JORNADA_CERRANDO",
+      "ubicacion": {
+        "vivero": "Vivero ficticio",
+        "modulo": "Modulo ficticio 4",
+        "cama": "Cama ficticia 1",
+        "linea": "LINEA-CATALOGO-CERRANDO-1",
+        "nombreVisible": "Linea retenida por cierre durable",
+        "orden": 401
       }
     }
   ]

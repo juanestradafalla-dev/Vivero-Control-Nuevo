@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/list-inventory-reports-request.schema.json",
+  "title": "Solicitud listarInformesInventario",
+  "type": "object",
+  "additionalProperties": false,
+  "maxProperties": 0
+}

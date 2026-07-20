@@ -67,6 +67,58 @@ interface DiscardDocument {
   readonly versionInventarioObservada?: number;
   readonly estado?: string;
   readonly capturaInmutable?: boolean;
+  readonly jornadaId?: string;
+  readonly jornadaLineaId?: string;
+}
+
+interface OccupationDocument {
+  readonly lineaId?: string;
+  readonly jornadaId?: string;
+  readonly versionDescartesAsociados?: unknown;
+}
+
+interface JourneyDocument {
+  readonly estadoAdministrativo?: string;
+  readonly configuracionInformeInventario?: unknown;
+}
+
+async function rejectClosingJourney(
+  transaction: Transaction,
+  firestore: Firestore,
+  journeyId: unknown
+): Promise<void> {
+  if (typeof journeyId !== "string") return;
+  const snapshot = await transaction.get(firestore.collection("jornadas").doc(journeyId));
+  if (snapshot.exists && (snapshot.data() as JourneyDocument).estadoAdministrativo === "CERRANDO") {
+    throw domainErrors.journeyCloseInProgress();
+  }
+}
+
+async function rejectClosingJourneyForLine(
+  transaction: Transaction,
+  firestore: Firestore,
+  lineId: string
+): Promise<void> {
+  const journeyLines = await transaction.get(
+    firestore.collection("jornadaLineas").where("lineaId", "==", lineId)
+  );
+  const journeyIds = [...new Set(journeyLines.docs.map((snapshot) => snapshot.data().jornadaId)
+    .filter((journeyId): journeyId is string => typeof journeyId === "string"))];
+  if (journeyIds.length === 0) return;
+  const journeys = await transaction.getAll(
+    ...journeyIds.map((journeyId) => firestore.collection("jornadas").doc(journeyId))
+  );
+  if (journeys.some((snapshot) =>
+    snapshot.exists && (snapshot.data() as JourneyDocument).estadoAdministrativo === "CERRANDO"
+  )) {
+    throw domainErrors.journeyCloseInProgress();
+  }
+}
+
+interface JourneyLineDocument {
+  readonly jornadaId?: string;
+  readonly lineaId?: string;
+  readonly activa?: boolean;
 }
 
 interface IdempotencyDocument<T> {
@@ -120,6 +172,22 @@ function inventoryValues(document: InventoryDocument): InventoryValues | undefin
 
 function validVersion(value: unknown): value is number {
   return Number.isSafeInteger(value) && (value as number) >= 1 && (value as number) < Number.MAX_SAFE_INTEGER;
+}
+
+function hasValidInventoryReportConfiguration(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const configuration = value as Record<string, unknown>;
+  return Object.keys(configuration).length === 4 &&
+    Object.keys(configuration).every((field) =>
+      ["habilitado", "mes", "anio", "fuentePlantasMuertas"].includes(field)
+    ) &&
+    configuration.habilitado === true &&
+    Number.isSafeInteger(configuration.mes) && (configuration.mes as number) >= 1 &&
+    (configuration.mes as number) <= 12 &&
+    Number.isSafeInteger(configuration.anio) && (configuration.anio as number) >= 2000 &&
+    (configuration.anio as number) <= 2100 &&
+    (configuration.fuentePlantasMuertas === "CONTEO_FISICO" ||
+      configuration.fuentePlantasMuertas === "DESCARTES_APROBADOS");
 }
 
 function visibleLocation(
@@ -239,11 +307,15 @@ export class RegisterDiscardService {
       const userRef = this.firestore.collection("usuarios").doc(context.actorId);
       const lineRef = this.firestore.collection("lineas").doc(request.lineaId);
       const inventoryRef = this.firestore.collection("inventarioOficialLineas").doc(request.lineaId);
+      const occupationRef = this.firestore.collection("ocupacionesLineasActivas").doc(request.lineaId);
       const idempotencyRef = this.firestore.collection("idempotencia").doc(idempotencyId);
-      const [userSnapshot, lineSnapshot, inventorySnapshot, previousSnapshot] = await transaction.getAll(
-        userRef, lineRef, inventoryRef, idempotencyRef
-      );
-      if (!userSnapshot || !lineSnapshot || !inventorySnapshot || !previousSnapshot) throw domainErrors.internal();
+      const [userSnapshot, lineSnapshot, inventorySnapshot, occupationSnapshot, previousSnapshot] =
+        await transaction.getAll(
+          userRef, lineRef, inventoryRef, occupationRef, idempotencyRef
+        );
+      if (!userSnapshot || !lineSnapshot || !inventorySnapshot || !occupationSnapshot || !previousSnapshot) {
+        throw domainErrors.internal();
+      }
       const user = activeUser(userSnapshot);
       const role = captureRole(user);
       if (previousSnapshot.exists) {
@@ -251,6 +323,7 @@ export class RegisterDiscardService {
         if (previous.payloadHash !== payloadHash || !previous.resultado) throw domainErrors.idempotencyConflict();
         return previous.resultado;
       }
+      await rejectClosingJourneyForLine(transaction, this.firestore, request.lineaId);
       if (!lineSnapshot.exists) throw domainErrors.catalogLineNotFound();
       const line = lineSnapshot.data() as LineDocument;
       if (line.activa !== true) throw domainErrors.lineInactive();
@@ -268,6 +341,52 @@ export class RegisterDiscardService {
         total: request.hembras + request.machos + request.patrones
       };
       if (exceeds(submittedValues, currentValues)) throw domainErrors.discardExceedsInventory();
+
+      let journeyAssociation: {jornadaId: string; jornadaLineaId: string} | undefined;
+      let nextAssociatedDiscardVersion: number | undefined;
+      if (occupationSnapshot.exists) {
+        const occupation = occupationSnapshot.data() as OccupationDocument;
+        if (occupation.lineaId !== request.lineaId || typeof occupation.jornadaId !== "string") {
+          throw domainErrors.internal();
+        }
+        const journeyLineId = `${occupation.jornadaId}__${request.lineaId}`;
+        const [journeySnapshot, journeyLineSnapshot] = await transaction.getAll(
+          this.firestore.collection("jornadas").doc(occupation.jornadaId),
+          this.firestore.collection("jornadaLineas").doc(journeyLineId)
+        );
+        if (!journeySnapshot || !journeyLineSnapshot) throw domainErrors.internal();
+        if (!journeySnapshot.exists) throw domainErrors.internal();
+        const journey = journeySnapshot.data() as JourneyDocument;
+        if (journey.estadoAdministrativo === "CERRANDO") throw domainErrors.journeyCloseInProgress();
+        if (
+          journey.estadoAdministrativo === "ACTIVA" &&
+          journey.configuracionInformeInventario !== undefined &&
+          !hasValidInventoryReportConfiguration(journey.configuracionInformeInventario)
+        ) {
+          throw domainErrors.inventoryReportConfigurationInvalid();
+        }
+        if (
+          journey.estadoAdministrativo === "ACTIVA" &&
+          hasValidInventoryReportConfiguration(journey.configuracionInformeInventario)
+        ) {
+          if (!journeyLineSnapshot.exists) throw domainErrors.internal();
+          const journeyLine = journeyLineSnapshot.data() as JourneyLineDocument;
+          if (
+            journeyLine.activa !== true ||
+            journeyLine.jornadaId !== occupation.jornadaId ||
+            journeyLine.lineaId !== request.lineaId
+          ) {
+            throw domainErrors.internal();
+          }
+          journeyAssociation = {jornadaId: occupation.jornadaId, jornadaLineaId: journeyLineId};
+          const currentDiscardVersion = occupation.versionDescartesAsociados ?? 0;
+          if (!Number.isSafeInteger(currentDiscardVersion) || (currentDiscardVersion as number) < 0 ||
+              currentDiscardVersion === Number.MAX_SAFE_INTEGER) {
+            throw domainErrors.internal();
+          }
+          nextAssociatedDiscardVersion = (currentDiscardVersion as number) + 1;
+        }
+      }
 
       const locationsSnapshot = await transaction.get(this.firestore.collection("ubicaciones"));
       const locations = new Map(locationsSnapshot.docs.map((snapshot) => [
@@ -287,8 +406,16 @@ export class RegisterDiscardService {
         totalUnico: submittedValues.total,
         causas: request.causas,
         versionInventarioObservada: request.versionInventarioObservada,
+        ...(journeyAssociation ?? {}),
         recibidoEn: receivedAt.toDate().toISOString()
       };
+      if (journeyAssociation !== undefined && nextAssociatedDiscardVersion !== undefined) {
+        transaction.update(occupationRef, {
+          versionDescartesAsociados: nextAssociatedDiscardVersion,
+          ultimoDescarteAsociadoId: discardId,
+          actualizadaEn: receivedAt
+        });
+      }
       transaction.create(this.firestore.collection("descartes").doc(discardId), {
         id: discardId,
         lineaId: request.lineaId,
@@ -308,7 +435,8 @@ export class RegisterDiscardService {
         claveIdempotencia: request.claveIdempotencia,
         timestampDispositivo: request.timestampDispositivo,
         recibidoEn: receivedAt,
-        capturaInmutable: true
+        capturaInmutable: true,
+        ...(journeyAssociation ?? {})
       });
       transaction.create(this.firestore.collection("auditoria").doc(auditId), {
         id: auditId,
@@ -321,7 +449,8 @@ export class RegisterDiscardService {
         metadatos: {
           lineaId: request.lineaId,
           totalUnico: submittedValues.total,
-          versionInventarioObservada: request.versionInventarioObservada
+          versionInventarioObservada: request.versionInventarioObservada,
+          ...(journeyAssociation ?? {})
         }
       });
       transaction.create(idempotencyRef, {
@@ -405,6 +534,8 @@ export class ApproveDiscardService {
         return previous.resultado;
       }
       const review = requirePendingReview(userSnapshot, discardSnapshot);
+      await rejectClosingJourney(transaction, this.firestore, review.discard.jornadaId);
+      await rejectClosingJourneyForLine(transaction, this.firestore, review.discard.lineaId as string);
       const selfReview = review.discard.autorUsuarioId === context.actorId;
       if (selfReview && review.role === "SUPERVISOR") throw domainErrors.selfApprovalForbidden();
       if (selfReview && review.role === "ADMINISTRADOR" && !request.motivoExcepcion) {
@@ -479,8 +610,8 @@ export class ApproveDiscardService {
       transaction.create(this.firestore.collection("movimientosInventario").doc(movementId), {
         id: movementId,
         tipo: "DESCARTE_APROBADO",
-        jornadaId: inventory.jornadaId ?? null,
-        jornadaLineaId: inventory.jornadaLineaId ?? null,
+        jornadaId: review.discard.jornadaId ?? inventory.jornadaId ?? null,
+        jornadaLineaId: review.discard.jornadaLineaId ?? inventory.jornadaLineaId ?? null,
         lineaId: review.discard.lineaId,
         descarteId: request.descarteId,
         decisionDescarteId: decisionId,
@@ -548,6 +679,8 @@ export class ReturnDiscardService {
         return previous.resultado;
       }
       const review = requirePendingReview(userSnapshot, discardSnapshot);
+      await rejectClosingJourney(transaction, this.firestore, review.discard.jornadaId);
+      await rejectClosingJourneyForLine(transaction, this.firestore, review.discard.lineaId as string);
       const now = Timestamp.now();
       const result: ReturnDiscardResult = {
         descarteId: request.descarteId,

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/retry-inventory-report-result.schema.json",
+  "title": "Resultado reintentarInformeInventario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["informeId", "jornadaId", "estado", "reintentadoEn"],
+  "properties": {
+    "informeId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "estado": {"const": "PENDIENTE"},
+    "reintentadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

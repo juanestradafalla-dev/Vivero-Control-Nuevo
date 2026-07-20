@@ -1,0 +1,20 @@
+{
+  "id": "JORNADA-ACTIVA-INFORME-26",
+  "jornadaId": "JORNADA-ACTIVA-INFORME-26",
+  "jornadaNombreVisible": "Inventario ficticio julio 2026",
+  "creadorJornadaUsuarioId": "USUARIO-SUPERVISOR-FICTICIO-26",
+  "solicitadoPorUsuarioId": "USUARIO-SUPERVISOR-FICTICIO-26",
+  "responsableUsuarioId": "USUARIO-SUPERVISOR-FICTICIO-26",
+  "responsableNombreVisible": "Supervisor ficticio",
+  "estado": "SUBIDO_A_DRIVE",
+  "mes": 7,
+  "anio": 2026,
+  "fuentePlantasMuertas": "CONTEO_FISICO",
+  "versionJornadaCierre": 6,
+  "activadaEn": "2026-07-01T13:30:00.000Z",
+  "cerradaEn": "2026-07-31T21:00:00.000Z",
+  "lineas": [],
+  "intentos": 1,
+  "creadoEn": "2026-07-31T21:00:00.000Z",
+  "actualizadoEn": "2026-07-31T21:00:03.000Z"
+}

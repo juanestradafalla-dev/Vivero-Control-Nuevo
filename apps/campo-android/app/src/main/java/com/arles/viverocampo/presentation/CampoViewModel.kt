@@ -20,6 +20,7 @@ import com.arles.viverocampo.domain.DiscardLine
 import com.arles.viverocampo.domain.JourneyLine
 import com.arles.viverocampo.domain.JourneySnapshot
 import com.arles.viverocampo.domain.InitiateCountCorrectionPayload
+import com.arles.viverocampo.domain.InventoryReportConfiguration
 import com.arles.viverocampo.domain.LocalCountDraft
 import com.arles.viverocampo.domain.LocalDiscardDraft
 import com.arles.viverocampo.domain.ReserveLinePayload
@@ -67,6 +68,7 @@ data class CampoUiState(
     val mode: CampoMode = CampoMode.CONTEOS,
     val activeJourneys: List<ActiveJourney> = emptyList(),
     val selectedJourneyId: String? = null,
+    val inventoryReportConfiguration: InventoryReportConfiguration? = null,
     val journey: JourneySnapshot? = null,
     val returnedCounts: List<ReturnedCount> = emptyList(),
     val connectionStatus: String = "DESCONECTADO",
@@ -93,7 +95,10 @@ data class CampoUiState(
     val showDiscardSummary: Boolean = false,
     val confirmingDiscard: Boolean = false,
     val message: String? = null,
-)
+) {
+    val requiresPhysicalDeadPlants: Boolean
+        get() = inventoryReportConfiguration?.requiresPhysicalDeadPlants == true
+}
 
 class CampoViewModel(
     private val repository: CampoRepository,
@@ -194,16 +199,23 @@ class CampoViewModel(
     }
 
     private suspend fun restoreAuthenticatedSession(user: UserProfile, status: SessionStatus) {
-            val journeys = runCatching { repository.listActiveJourneys() }.getOrDefault(emptyList())
+            val journeysResult = runCatching { repository.listActiveJourneys() }
+            val journeys = journeysResult.getOrDefault(emptyList())
             val reservation = repository.latestActiveReservation(user.id, deviceId)
             val discardLines = runCatching { repository.listDiscardLines() }.getOrDefault(emptyList())
             val pendingDiscard = repository.latestPendingDiscard(user.id, deviceId)
             val selectedJourneyId = reservation?.journeyId ?: journeys.singleOrNull()?.id
+            val listedInventoryReportConfiguration = journeys
+                .firstOrNull { it.id == selectedJourneyId }
+                ?.inventoryReportConfiguration
+            val inventoryReportConfiguration = listedInventoryReportConfiguration
+                ?: reservation?.inventoryReportConfiguration?.takeIf { journeysResult.isFailure }
             mutableState.value = mutableState.value.copy(
                 user = user,
                 sessionStatus = status,
                 activeJourneys = journeys,
                 selectedJourneyId = selectedJourneyId,
+                inventoryReportConfiguration = inventoryReportConfiguration,
                 confirmedReservation = reservation,
                 discardLines = discardLines,
                 discardDraft = pendingDiscard,
@@ -264,6 +276,9 @@ class CampoViewModel(
                 val discardLines = runCatching { repository.listDiscardLines() }.getOrDefault(emptyList())
                 val pendingDiscard = repository.latestPendingDiscard(user.id, deviceId)
                 val selectedJourneyId = reservation?.journeyId ?: journeys.singleOrNull()?.id
+                val inventoryReportConfiguration = journeys
+                    .firstOrNull { it.id == selectedJourneyId }
+                    ?.inventoryReportConfiguration
                 mutableState.value = mutableState.value.copy(
                     signingIn = false,
                     password = "",
@@ -271,6 +286,7 @@ class CampoViewModel(
                     sessionStatus = SessionStatus.RESTORED_VERIFIED,
                     activeJourneys = journeys,
                     selectedJourneyId = selectedJourneyId,
+                    inventoryReportConfiguration = inventoryReportConfiguration,
                     confirmedReservation = reservation,
                     discardLines = discardLines,
                     discardDraft = pendingDiscard,
@@ -647,6 +663,7 @@ class CampoViewModel(
         returnedCountsJob?.cancel()
         mutableState.value = state.copy(
             selectedJourneyId = journey.id,
+            inventoryReportConfiguration = journey.inventoryReportConfiguration,
             journey = null,
             returnedCounts = emptyList(),
             selectedLine = null,
@@ -667,6 +684,7 @@ class CampoViewModel(
         returnedCountsJob?.cancel()
         mutableState.value = state.copy(
             selectedJourneyId = null,
+            inventoryReportConfiguration = null,
             journey = null,
             returnedCounts = emptyList(),
             selectedLine = null,
@@ -692,6 +710,7 @@ class CampoViewModel(
                 val confirmation = repository.reserveLine(
                     ReserveLinePayload(line.id, deviceId, key),
                     user.id,
+                    state.inventoryReportConfiguration,
                 )
                 pendingReservationKeys.remove(line.id)
                 mutableState.value = mutableState.value.copy(
@@ -727,6 +746,7 @@ class CampoViewModel(
                     InitiateCountCorrectionPayload(returnedCount.countId, deviceId, key),
                     user.id,
                     returnedCount.input,
+                    state.inventoryReportConfiguration,
                 )
                 pendingCorrectionKeys.remove(returnedCount.countId)
                 mutableState.value = mutableState.value.copy(
@@ -752,6 +772,7 @@ class CampoViewModel(
     fun updateFemales(value: String) = updateCountInput(mutableState.value.countInput.copy(females = value))
     fun updateMales(value: String) = updateCountInput(mutableState.value.countInput.copy(males = value))
     fun updateRootstocks(value: String) = updateCountInput(mutableState.value.countInput.copy(rootstocks = value))
+    fun updateDeadPlants(value: String) = updateCountInput(mutableState.value.countInput.copy(deadPlants = value))
     fun updateObservations(value: String) = updateCountInput(mutableState.value.countInput.copy(observations = value))
 
     private fun updateCountInput(input: CountInput) {
@@ -763,7 +784,7 @@ class CampoViewModel(
         state.countDraft?.takeIf { it.syncState == SyncState.ERROR }?.frozenPayload?.let {
             cancelCountSchedule(reservation.reservationId, it.idempotencyKey)
         }
-        val validation = CountFormValidator.validate(input)
+        val validation = CountFormValidator.validate(input, state.requiresPhysicalDeadPlants)
         mutableState.value = state.copy(
             countInput = input,
             countErrors = CountFieldErrors(),
@@ -781,7 +802,10 @@ class CampoViewModel(
     fun requestCountConfirmation() {
         if (blockMutableOperation()) return
         if (mutableState.value.confirmedReservation?.state == "LIBERADA") return
-        val validation = CountFormValidator.validate(mutableState.value.countInput)
+        val validation = CountFormValidator.validate(
+            mutableState.value.countInput,
+            mutableState.value.requiresPhysicalDeadPlants,
+        )
         if (!validation.valid) {
             mutableState.value = mutableState.value.copy(
                 countErrors = validation.errors,
@@ -825,6 +849,7 @@ class CampoViewModel(
                     deviceId,
                     keyFactory(),
                     timestampFactory(),
+                    state.requiresPhysicalDeadPlants,
                 )
                 val frozen = requireNotNull(draft.frozenPayload)
                 scheduleCountOnce(reservation.reservationId, frozen.idempotencyKey)
@@ -889,7 +914,10 @@ class CampoViewModel(
                     } else if (draft.syncState == SyncState.ERROR && draft.frozenPayload != null) {
                         scheduledCountWork.remove(reservation.reservationId to draft.frozenPayload.idempotencyKey)
                     }
-                    val validation = CountFormValidator.validate(draft.input)
+                    val validation = CountFormValidator.validate(
+                        draft.input,
+                        mutableState.value.requiresPhysicalDeadPlants,
+                    )
                     mutableState.value = mutableState.value.copy(
                         countDraft = draft,
                         countInput = draft.input,
@@ -986,7 +1014,7 @@ class CampoViewModel(
             mutableState.value = current.copy(
                 activeJourneys = refreshedJourneys,
                 connectionStatus = "ERROR",
-                message = "La jornada fue cerrada. El trabajo local se conservó; consulta con supervisión.",
+                message = "La jornada se está cerrando o ya fue cerrada. El trabajo local se conservó; consulta con supervisión.",
             )
             return
         }
@@ -994,11 +1022,12 @@ class CampoViewModel(
         mutableState.value = current.copy(
             activeJourneys = refreshedJourneys,
             selectedJourneyId = null,
+            inventoryReportConfiguration = null,
             journey = null,
             returnedCounts = emptyList(),
             selectedLine = null,
             connectionStatus = "CONECTADO",
-            message = "La jornada fue cerrada y ya no está disponible. El historial local se conservó.",
+            message = "La jornada se está cerrando o ya fue cerrada y no está disponible. El historial local se conservó.",
         )
     }
 

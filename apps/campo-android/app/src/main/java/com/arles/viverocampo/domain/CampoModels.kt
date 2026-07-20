@@ -16,7 +16,23 @@ data class ActiveJourney(
     val effectiveRole: String,
     val canCount: Boolean,
     val lineCount: Int,
+    val inventoryReportConfiguration: InventoryReportConfiguration? = null,
 )
+
+enum class DeadPlantsSource {
+    CONTEO_FISICO,
+    DESCARTES_APROBADOS,
+}
+
+data class InventoryReportConfiguration(
+    val enabled: Boolean,
+    val month: Int,
+    val year: Int,
+    val deadPlantsSource: DeadPlantsSource,
+) {
+    val requiresPhysicalDeadPlants: Boolean
+        get() = enabled && deadPlantsSource == DeadPlantsSource.CONTEO_FISICO
+}
 
 data class VisibleLocation(
     val nursery: String,
@@ -77,6 +93,7 @@ data class ConfirmedReservation(
     val reservationType: String = "INICIAL",
     val previousCountId: String? = null,
     val nextCountVersion: Int = 1,
+    val inventoryReportConfiguration: InventoryReportConfiguration? = null,
 )
 
 data class ReturnedCount(
@@ -101,6 +118,7 @@ data class CountInput(
     val males: String = "",
     val rootstocks: String = "",
     val observations: String = "",
+    val deadPlants: String = "",
 )
 
 data class CountFieldErrors(
@@ -108,6 +126,7 @@ data class CountFieldErrors(
     val males: String? = null,
     val rootstocks: String? = null,
     val observations: String? = null,
+    val deadPlants: String? = null,
 )
 
 data class CountValidation(
@@ -115,6 +134,7 @@ data class CountValidation(
     val females: Long?,
     val males: Long?,
     val rootstocks: Long?,
+    val deadPlants: Long?,
     val total: Long?,
 ) {
     val valid: Boolean = errors == CountFieldErrors()
@@ -125,10 +145,11 @@ object CountFormValidator {
     const val MAX_SAFE_INTEGER: Long = 9_007_199_254_740_991L
     const val OBSERVATIONS_TRANSPORT_LIMIT = 4_000
 
-    fun validate(input: CountInput): CountValidation {
+    fun validate(input: CountInput, deadPlantsRequired: Boolean = false): CountValidation {
         val females = parseQuantity(input.females)
         val males = parseQuantity(input.males)
         val rootstocks = parseQuantity(input.rootstocks)
+        val deadPlants = if (deadPlantsRequired) parseQuantity(input.deadPlants) else null to null
         val values = listOfNotNull(females.first, males.first, rootstocks.first)
         val total = if (values.size == 3) values.sum().takeIf { it <= MAX_SAFE_INTEGER } else null
         val overflowMessage = if (values.size == 3 && total == null) "La suma supera el rango técnico permitido." else null
@@ -142,10 +163,12 @@ object CountFormValidator {
                 } else {
                     null
                 },
+                deadPlants = deadPlants.second,
             ),
             females = females.first,
             males = males.first,
             rootstocks = rootstocks.first,
+            deadPlants = deadPlants.first,
             total = total,
         )
     }
@@ -169,6 +192,7 @@ data class FrozenCountPayload(
     val observations: String,
     val deviceTimestamp: String,
     val idempotencyKey: String,
+    val deadPlants: Long? = null,
 ) {
     fun toWireMap(token: String): Map<String, Any> = buildMap {
         put("reservaId", reservationId)
@@ -177,6 +201,7 @@ data class FrozenCountPayload(
         put("hembras", females)
         put("machos", males)
         put("patrones", rootstocks)
+        deadPlants?.let { put("plantasMuertas", it) }
         if (observations.isNotEmpty()) put("observaciones", observations)
         put("timestampDispositivo", deviceTimestamp)
         put("claveIdempotencia", idempotencyKey)

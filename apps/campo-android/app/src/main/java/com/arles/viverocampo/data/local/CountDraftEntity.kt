@@ -32,4 +32,6 @@ data class CountDraftEntity(
     val centralState: String?,
     val serverReceivedAt: String?,
     val updatedAtEpochMillis: Long,
+    val deadPlantsInput: String = "",
+    val frozenDeadPlants: Long? = null,
 )

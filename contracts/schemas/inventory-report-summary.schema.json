@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/inventory-report-summary.schema.json",
+  "title": "Resumen de informe de inventario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["informeId", "jornadaId", "jornadaNombreVisible", "mes", "anio", "fuentePlantasMuertas", "estado", "intentos", "creadoEn", "actualizadoEn"],
+  "properties": {
+    "informeId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaNombreVisible": {"type": "string", "minLength": 1, "maxLength": 200},
+    "estado": {"$ref": "../enums/estados-informe-inventario.json"},
+    "mes": {"type": "integer", "minimum": 1, "maximum": 12},
+    "anio": {"type": "integer", "minimum": 2000, "maximum": 2100},
+    "fuentePlantasMuertas": {"enum": ["CONTEO_FISICO", "DESCARTES_APROBADOS"]},
+    "intentos": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "errorCodigo": {"type": "string", "minLength": 1, "maxLength": 120},
+    "errorMensaje": {"type": "string", "minLength": 1, "maxLength": 500},
+    "archivoNombre": {"type": "string", "minLength": 1, "maxLength": 240},
+    "archivoEnlace": {"type": "string", "format": "uri", "maxLength": 2000},
+    "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "actualizadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "finalizadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"estado": {"enum": ["PENDIENTE", "PROCESANDO"]}}, "required": ["estado"]},
+      "then": {
+        "properties": {
+          "errorCodigo": false,
+          "errorMensaje": false,
+          "archivoNombre": false,
+          "archivoEnlace": false,
+          "finalizadoEn": false
+        }
+      }
+    },
+    {
+      "if": {"properties": {"estado": {"const": "PROCESANDO"}}, "required": ["estado"]},
+      "then": {"properties": {"intentos": {"type": "integer", "minimum": 1}}}
+    },
+    {
+      "if": {"properties": {"estado": {"const": "COMPLETADO"}}, "required": ["estado"]},
+      "then": {
+        "properties": {
+          "intentos": {"type": "integer", "minimum": 1},
+          "errorCodigo": false,
+          "errorMensaje": false
+        },
+        "required": ["archivoNombre", "archivoEnlace", "finalizadoEn"]
+      }
+    },
+    {
+      "if": {"properties": {"estado": {"enum": ["ERROR_REINTENTABLE", "ERROR_PERMANENTE"]}}, "required": ["estado"]},
+      "then": {
+        "properties": {
+          "intentos": {"type": "integer", "minimum": 1},
+          "archivoNombre": false,
+          "archivoEnlace": false
+        },
+        "required": ["errorCodigo", "errorMensaje", "finalizadoEn"]
+      }
+    }
+  ]
+}

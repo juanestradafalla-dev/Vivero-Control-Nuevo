@@ -1,0 +1,10 @@
+{
+  "nombreVisible": "Inventario ficticio julio 2026",
+  "configuracionInformeInventario": {
+    "habilitado": true,
+    "mes": 7,
+    "anio": 2026,
+    "fuentePlantasMuertas": "CONTEO_FISICO"
+  },
+  "claveIdempotencia": "crear-borrador-informe-ficticio-2601"
+}

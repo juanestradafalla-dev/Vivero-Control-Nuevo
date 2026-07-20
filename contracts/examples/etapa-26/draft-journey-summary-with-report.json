@@ -1,0 +1,18 @@
+{
+  "jornadaId": "JORNADA-BORRADOR-INFORME-26",
+  "nombreVisible": "Inventario ficticio julio 2026",
+  "estado": "BORRADOR",
+  "creadorUsuarioId": "USUARIO-SUPERVISOR-FICTICIO-26",
+  "creadorNombreVisible": "Supervisor ficticio",
+  "version": 1,
+  "cantidadLineas": 1,
+  "lineaIds": ["LINEA-FICTICIA-26-01"],
+  "configuracionInformeInventario": {
+    "habilitado": true,
+    "mes": 7,
+    "anio": 2026,
+    "fuentePlantasMuertas": "CONTEO_FISICO"
+  },
+  "creadaEn": "2026-07-01T13:00:00.000Z",
+  "actualizadaEn": "2026-07-01T13:00:00.000Z"
+}

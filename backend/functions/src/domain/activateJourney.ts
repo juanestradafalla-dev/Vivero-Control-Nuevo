@@ -277,9 +277,11 @@ export class ActivateJourneyService {
         : await transaction.getAll(...membershipJourneyIds.map((journeyId) =>
             this.firestore.collection("jornadas").doc(journeyId)
           ));
-      if (membershipJourneys.some((snapshot) =>
-        snapshot.exists && (snapshot.data() as JourneyDocument).estadoAdministrativo === "ACTIVA"
-      )) {
+      if (membershipJourneys.some((snapshot) => {
+        if (!snapshot.exists) return false;
+        const state = (snapshot.data() as JourneyDocument).estadoAdministrativo;
+        return state === "ACTIVA" || state === "CERRANDO";
+      })) {
         throw domainErrors.activationLineOccupied();
       }
 

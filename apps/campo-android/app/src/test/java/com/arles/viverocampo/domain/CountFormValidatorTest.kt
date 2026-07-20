@@ -2,6 +2,7 @@ package com.arles.viverocampo.domain
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -32,5 +33,44 @@ class CountFormValidatorTest {
         val oversized = CountFormValidator.validate(CountInput("0", "0", "0", "x".repeat(4001)))
         assertFalse(oversized.valid)
         assertTrue(oversized.errors.observations != null)
+    }
+
+    @Test
+    fun `plantas muertas son obligatorias solo para conteo fisico y no alteran el total vivo`() {
+        val missing = CountFormValidator.validate(CountInput("10", "5", "2"), deadPlantsRequired = true)
+        assertFalse(missing.valid)
+        assertTrue(missing.errors.deadPlants != null)
+
+        val physical = CountFormValidator.validate(
+            CountInput(females = "10", males = "5", rootstocks = "2", deadPlants = "7"),
+            deadPlantsRequired = true,
+        )
+        assertTrue(physical.valid)
+        assertEquals(7L, physical.deadPlants)
+        assertEquals(17L, physical.total)
+
+        val omitted = CountFormValidator.validate(
+            CountInput(females = "10", males = "5", rootstocks = "2", deadPlants = "no-se-envia"),
+            deadPlantsRequired = false,
+        )
+        assertTrue(omitted.valid)
+        assertNull(omitted.deadPlants)
+        assertEquals(17L, omitted.total)
+    }
+
+    @Test
+    fun `payload congelado omite o incluye plantas muertas sin cambiar su identidad`() {
+        val base = FrozenCountPayload(
+            reservationId = "reserva-1",
+            deviceId = "dispositivo-1",
+            females = 10,
+            males = 5,
+            rootstocks = 2,
+            observations = "",
+            deviceTimestamp = "2026-07-18T12:00:00.000Z",
+            idempotencyKey = "clave-idempotente-1",
+        )
+        assertFalse(base.toWireMap("token").containsKey("plantasMuertas"))
+        assertEquals(7L, base.copy(deadPlants = 7).toWireMap("token")["plantasMuertas"])
     }
 }

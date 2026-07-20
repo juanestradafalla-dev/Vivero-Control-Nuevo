@@ -1,0 +1,13 @@
+{
+  "conteoId": "CONTEO-FICTICIO-26-01",
+  "jornadaLineaId": "JORNADA-ACTIVA-INFORME-26__LINEA-FICTICIA-26-01",
+  "estadoCentral": "PENDIENTE_REVISION",
+  "hembras": 18,
+  "machos": 4,
+  "patrones": 3,
+  "plantasMuertas": 2,
+  "total": 25,
+  "versionConteo": 1,
+  "versionLinea": 3,
+  "recibidoEn": "2026-07-15T14:00:05.000Z"
+}

@@ -238,7 +238,7 @@ GOOGLE_DRIVE_INVENTORY_TEMPLATE_FILE_ID=1zz1_ESUkKX_B7jD5oEkz08g_uCiq8YpU
 
 No deben entrar en payloads, Android ni variables `VITE_*`.
 
-La identidad efectiva prevista, confirmada mediante `firebase functions:list` sobre las revisiones actuales y la ausencia de un override de servicio en el código, es `107772600673-compute@developer.gserviceaccount.com`. El trigger `procesarInformeInventario` todavía no está desplegado; por tanto, debe reconfirmarse su revisión inmediatamente después del primer despliegue.
+La identidad efectiva prevista fue confirmada localmente mediante `firebase functions:list` sobre las revisiones actuales y la ausencia de un override de servicio en el código; su correo exacto debe mantenerse fuera del repositorio público. El trigger `procesarInformeInventario` todavía no está desplegado; por tanto, debe reconfirmarse su revisión inmediatamente después del primer despliegue.
 
 Permisos mínimos:
 

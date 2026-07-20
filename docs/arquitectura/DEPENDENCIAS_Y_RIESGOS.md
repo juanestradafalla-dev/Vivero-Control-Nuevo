@@ -135,7 +135,7 @@ El cierre ya no depende de una transacción proporcional al número total de lí
 Riesgos pendientes:
 
 - la plantilla real fue validada mediante una copia temporal: 271 líneas `76, 76, 76, 29, 14`, 8 páginas revisadas, estructura e impresión preservadas, `F8=112`, `F28=101`, 17 fórmulas y cero `#REF!`; el original conservó SHA-256 `307572F85D812EED3EFCD15DBDE3C9F4FBA6367636C9C2D184B1262AAFE959CC`;
-- Drive API todavía debe habilitarse y la carpeta/plantilla deben compartirse con la identidad prevista `107772600673-compute@developer.gserviceaccount.com`, confirmada en las revisiones actuales y sin override; el trigger aún no está desplegado y su identidad debe reconfirmarse después del despliegue;
+- Drive API todavía debe habilitarse y la carpeta/plantilla deben compartirse con la cuenta de servicio de ejecución confirmada localmente, cuyo correo exacto debe mantenerse fuera del repositorio público; el trigger aún no está desplegado y su identidad debe reconfirmarse después del despliegue;
 - la cuenta de servicio necesita lector sobre la plantilla, editor sobre la carpeta y `roles/datastore.user` sobre Firestore, sin llaves JSON descargadas;
 - cambios futuros en encabezados, nombres de hojas o filas de la plantilla producirán un error permanente hasta actualizar y volver a verificar el mapeo;
 - fórmulas históricas en celdas de datos solo son seguras cuando la celda se reconoce y se sobrescribe obligatoriamente; `MODULO 4!F8` y `MODULO 4!F28` permanecen como regresiones explícitas;

@@ -25,7 +25,7 @@ En Emulator Suite y CI el modo efectivo debe ser `fake` y no se permiten llamada
 El adaptador usa Application Default Credentials de Cloud Functions Gen 2. La revisión de solo lectura de las Functions actuales y la ausencia de un override de servicio confirman como identidad prevista:
 
 ```text
-107772600673-compute@developer.gserviceaccount.com
+<CUENTA_DE_SERVICIO_DE_EJECUCION_CONFIRMADA_LOCALMENTE>
 ```
 
 Permisos mínimos para esa identidad:

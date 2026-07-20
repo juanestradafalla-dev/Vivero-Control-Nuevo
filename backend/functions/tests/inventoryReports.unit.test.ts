@@ -22,8 +22,10 @@ import {
 import {
   createInventoryReportDriveGatewayFromEnvironment,
   FakeInventoryReportDriveGateway,
+  GoogleInventoryReportDriveGateway,
   InventoryReportDriveConfigurationError
 } from "../src/domain/inventoryReportDrive.js";
+import {DriveOAuthInvalidGrantError} from "../src/domain/driveOAuth.js";
 
 const HEADERS = [
   "FECHA", "CAMA", "LINEA", "PLANTAS PATRON", "PLANTAS HEMBRAS",
@@ -562,6 +564,22 @@ describe("generación XLSX del informe de inventario", () => {
 });
 
 describe("adaptador falso e aislamiento de red", () => {
+  it("conserva invalid_grant aunque falle la marca secundaria de reconexion", async () => {
+    const client = {
+      files: {
+        get: vi.fn().mockRejectedValue({response: {data: {error: "invalid_grant"}}})
+      }
+    } as unknown as ConstructorParameters<typeof GoogleInventoryReportDriveGateway>[0];
+    const markReconnect = vi.fn().mockRejectedValue(new Error("Firestore no disponible"));
+    const gateway = new GoogleInventoryReportDriveGateway(
+      client, "carpeta-ficticia", "plantilla-ficticia", markReconnect
+    );
+
+    await expect(gateway.getTemplateXlsx({lineas: []}))
+      .rejects.toBeInstanceOf(DriveOAuthInvalidGrantError);
+    expect(markReconnect).toHaveBeenCalledOnce();
+  });
+
   it("crea una plantilla fake con etiquetas y encabezados compatibles con el render", async () => {
     const gateway = new FakeInventoryReportDriveGateway();
     const template = await gateway.getTemplateXlsx({lineas: [reportLine()]});

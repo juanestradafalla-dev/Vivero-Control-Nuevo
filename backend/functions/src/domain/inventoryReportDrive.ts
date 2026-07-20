@@ -170,7 +170,11 @@ export class GoogleInventoryReportDriveGateway implements InventoryReportDriveGa
         "error" in error.response.data && typeof error.response.data.error === "string"
         ? error.response.data.error : undefined;
       if (responseError === "invalid_grant") {
-        await this.onInvalidGrant();
+        try {
+          await this.onInvalidGrant();
+        } catch {
+          // La marca de reconexion es best-effort; no debe ocultar la causa OAuth original.
+        }
         throw new DriveOAuthInvalidGrantError();
       }
       throw error;

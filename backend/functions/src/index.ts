@@ -882,7 +882,7 @@ export const obtenerEstadoConexionGoogleDrive = onCall(oauthWriterOptions, async
   }
 });
 
-export const revocarConexionGoogleDrive = onCall(oauthReaderOptions, async (request) => {
+export const revocarConexionGoogleDrive = onCall(oauthWriterOptions, async (request) => {
   try {
     assertRuntimeEnvironment();
     if (!request.auth?.uid) throw domainErrors.unauthenticated();

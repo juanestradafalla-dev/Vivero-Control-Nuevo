@@ -4,13 +4,16 @@
   "title": "Resultado idempotente de operación central",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "actorUsuarioId", "operacion", "claveHash", "payloadHash", "resultado", "creadoEn"],
+  "required": ["id", "actorUsuarioId", "operacion", "claveHash", "payloadHash", "creadoEn"],
   "properties": {
     "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "actorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
-    "operacion": {"enum": ["RESERVAR_LINEA", "ENVIAR_CONTEO", "APROBAR_CONTEO", "DEVOLVER_CONTEO", "INICIAR_CORRECCION_CONTEO", "REASIGNAR_CORRECCION_CONTEO", "LIBERAR_RESERVA_LINEA", "CREAR_JORNADA_BORRADOR", "ACTUALIZAR_LINEAS_JORNADA_BORRADOR", "ACTUALIZAR_PARTICIPANTES_JORNADA_BORRADOR", "ACTIVAR_JORNADA", "CERRAR_JORNADA", "CANCELAR_JORNADA_BORRADOR", "REABRIR_JORNADA_CANCELADA", "CREAR_USUARIO", "ACTUALIZAR_ESTADO_USUARIO", "ACTUALIZAR_ROL_USUARIO", "CREAR_UBICACION", "ACTUALIZAR_UBICACION", "CREAR_LINEA", "ACTUALIZAR_LINEA", "REGISTRAR_INVENTARIO_INICIAL", "IMPORTAR_PAQUETE_MIGRACION", "REVERTIR_IMPORTACION_MIGRACION"]},
+    "operacion": {"enum": ["RESERVAR_LINEA", "ENVIAR_CONTEO", "APROBAR_CONTEO", "DEVOLVER_CONTEO", "INICIAR_CORRECCION_CONTEO", "REASIGNAR_CORRECCION_CONTEO", "LIBERAR_RESERVA_LINEA", "CREAR_JORNADA_BORRADOR", "ACTUALIZAR_LINEAS_JORNADA_BORRADOR", "ACTUALIZAR_PARTICIPANTES_JORNADA_BORRADOR", "ACTIVAR_JORNADA", "CERRAR_JORNADA", "REINTENTAR_CIERRE_JORNADA", "CANCELAR_JORNADA_BORRADOR", "REABRIR_JORNADA_CANCELADA", "CREAR_USUARIO", "ACTUALIZAR_ESTADO_USUARIO", "ACTUALIZAR_ROL_USUARIO", "CREAR_UBICACION", "ACTUALIZAR_UBICACION", "CREAR_LINEA", "ACTUALIZAR_LINEA", "REGISTRAR_INVENTARIO_INICIAL", "IMPORTAR_PAQUETE_MIGRACION", "REVERTIR_IMPORTACION_MIGRACION", "REGISTRAR_DESCARTE", "APROBAR_DESCARTE", "DEVOLVER_DESCARTE", "REINTENTAR_INFORME_INVENTARIO"]},
     "claveHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "payloadHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "estado": {"enum": ["EN_PROCESO", "COMPLETADO"]},
+    "trabajoCierreId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"},
     "resultado": {
       "oneOf": [
         {"$ref": "reserve-line-result.schema.json"},
@@ -34,9 +37,51 @@
         {"$ref": "catalog-line-result.schema.json"},
         {"$ref": "register-initial-inventory-result.schema.json"},
         {"$ref": "import-migration-package-result.schema.json"},
-        {"$ref": "revert-migration-import-result.schema.json"}
+        {"$ref": "revert-migration-import-result.schema.json"},
+        {"$ref": "register-discard-result.schema.json"},
+        {"$ref": "approve-discard-result.schema.json"},
+        {"$ref": "return-discard-result.schema.json"},
+        {"$ref": "retry-inventory-report-result.schema.json"}
       ]
     },
-    "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
-  }
+    "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "completadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"estado": true}, "required": ["estado"]},
+      "then": {
+        "properties": {"trabajoCierreId": true, "resultado": true},
+        "required": ["trabajoCierreId", "resultado"],
+        "allOf": [
+          {
+            "if": {"properties": {"estado": {"const": "EN_PROCESO"}}, "required": ["estado"]},
+            "then": {
+              "properties": {
+                "resultado": {
+                  "allOf": [
+                    {"$ref": "close-journey-result.schema.json"},
+                    {
+                      "type": "object",
+                      "properties": {"estado": {"const": "CERRANDO"}},
+                      "required": ["estado"]
+                    }
+                  ]
+                },
+                "completadoEn": false
+              }
+            }
+          },
+          {
+            "if": {"properties": {"estado": {"const": "COMPLETADO"}}, "required": ["estado"]},
+            "then": {
+              "properties": {"resultado": true, "completadoEn": true},
+              "required": ["resultado", "completadoEn"]
+            }
+          }
+        ]
+      },
+      "else": {"properties": {"resultado": true}, "required": ["resultado"]}
+    }
+  ]
 }

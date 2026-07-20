@@ -4,11 +4,13 @@ import {Timestamp, type DocumentSnapshot, type Firestore} from "firebase-admin/f
 
 import type {
   CancelledDraftJourneySummary,
+  ClosingJourneySummary,
   CreateDraftJourneyRequest,
   CreateDraftJourneyResult,
   DraftCatalogLine,
   DraftJourneySummary,
   DraftParticipant,
+  InventoryReportConfiguration,
   ListManageableJourneysResult,
   TrustedOperationContext,
   UpdateDraftJourneyLinesRequest,
@@ -37,7 +39,28 @@ interface JourneyDocument {
   readonly canceladaPorNombreVisible?: string;
   readonly motivoCancelacion?: string;
   readonly canceladaEn?: unknown;
+  readonly configuracionInformeInventario?: InventoryReportConfiguration;
+  readonly trabajoCierreId?: unknown;
 }
+
+interface CloseJourneyWorkDocument {
+  readonly estado?: unknown;
+  readonly fase?: unknown;
+  readonly cursor?: unknown;
+  readonly cantidadLineas?: unknown;
+  readonly cantidadOcupaciones?: unknown;
+  readonly cantidadAutorizaciones?: unknown;
+  readonly lineasProcesadas?: unknown;
+  readonly ocupacionesProcesadas?: unknown;
+  readonly autorizacionesProcesadas?: unknown;
+  readonly intentos?: unknown;
+  readonly errorCodigo?: unknown;
+  readonly errorMensaje?: unknown;
+  readonly actualizadoEn?: unknown;
+  readonly procesandoEn?: unknown;
+}
+
+const CLOSE_JOB_LEASE_MS = 15 * 60 * 1000;
 
 interface LineDocument {
   readonly id?: string;
@@ -167,7 +190,10 @@ export class CreateDraftJourneyService {
     context: TrustedOperationContext
   ): Promise<CreateDraftJourneyResult> {
     const idempotencyId = sha256(`${context.actorId}:CREAR_JORNADA_BORRADOR:${request.claveIdempotencia}`);
-    const payloadHash = sha256(JSON.stringify({nombreVisible: request.nombreVisible}));
+    const payloadHash = sha256(JSON.stringify({
+      nombreVisible: request.nombreVisible,
+      configuracionInformeInventario: request.configuracionInformeInventario ?? null
+    }));
     const journeyId = randomUUID();
     const auditId = randomUUID();
 
@@ -197,7 +223,10 @@ export class CreateDraftJourneyService {
         cantidadLineas: 0,
         lineaIds: [],
         creadaEn: now.toDate().toISOString(),
-        actualizadaEn: now.toDate().toISOString()
+        actualizadaEn: now.toDate().toISOString(),
+        ...(request.configuracionInformeInventario === undefined ? {} : {
+          configuracionInformeInventario: request.configuracionInformeInventario
+        })
       };
       const journeyRef = this.firestore.collection("jornadas").doc(journeyId);
       const selectionRef = this.firestore.collection("seleccionesLineasJornada").doc(journeyId);
@@ -216,7 +245,10 @@ export class CreateDraftJourneyService {
         cantidadParticipantesSeleccionados: 0,
         entorno: "GESTION_CENTRAL",
         creadaEn: now,
-        actualizadaEn: now
+        actualizadaEn: now,
+        ...(request.configuracionInformeInventario === undefined ? {} : {
+          configuracionInformeInventario: request.configuracionInformeInventario
+        })
       });
       transaction.create(selectionRef, {
         id: journeyId,
@@ -315,9 +347,11 @@ export class UpdateDraftJourneyLinesService {
         : await transaction.getAll(...membershipJourneyIds.map((journeyId) =>
             this.firestore.collection("jornadas").doc(journeyId)
           ));
-      if (membershipJourneys.some((snapshot) =>
-        snapshot.exists && (snapshot.data() as JourneyDocument).estadoAdministrativo === "ACTIVA"
-      )) {
+      if (membershipJourneys.some((snapshot) => {
+        if (!snapshot.exists) return false;
+        const state = (snapshot.data() as JourneyDocument).estadoAdministrativo;
+        return state === "ACTIVA" || state === "CERRANDO";
+      })) {
         throw domainErrors.lineAlreadyInActiveJourney();
       }
 
@@ -381,13 +415,16 @@ export class ListManageableJourneysService {
     const role = administrativeRole(actor);
     let draftQuery = this.firestore.collection("jornadas").where("estadoAdministrativo", "==", "BORRADOR");
     let inactiveQuery = this.firestore.collection("jornadas").where("estadoAdministrativo", "==", "INACTIVA");
+    let closingQuery = this.firestore.collection("jornadas").where("estadoAdministrativo", "==", "CERRANDO");
     if (role === "SUPERVISOR") {
       draftQuery = draftQuery.where("creadaPorUsuarioId", "==", context.actorId);
       inactiveQuery = inactiveQuery.where("creadaPorUsuarioId", "==", context.actorId);
+      closingQuery = closingQuery.where("creadaPorUsuarioId", "==", context.actorId);
     }
     const [
       journeysSnapshot,
       inactiveJourneysSnapshot,
+      closingJourneysSnapshot,
       linesSnapshot,
       locationsSnapshot,
       activeJourneysSnapshot,
@@ -396,11 +433,20 @@ export class ListManageableJourneysService {
       await Promise.all([
         draftQuery.get(),
         inactiveQuery.get(),
+        closingQuery.get(),
         this.firestore.collection("lineas").get(),
         this.firestore.collection("ubicaciones").get(),
         this.firestore.collection("jornadas").where("estadoAdministrativo", "==", "ACTIVA").get(),
         this.firestore.collection("jornadaLineas").get()
       ]);
+    const closingJobSnapshots = closingJourneysSnapshot.empty
+      ? []
+      : await this.firestore.getAll(...closingJourneysSnapshot.docs.map((journeySnapshot) => {
+          const workId = (journeySnapshot.data() as JourneyDocument).trabajoCierreId;
+          if (typeof workId !== "string" || workId !== journeySnapshot.id) throw domainErrors.internal();
+          return this.firestore.collection("trabajosCierreJornada").doc(workId);
+        }));
+    const closingJobById = new Map(closingJobSnapshots.map((snapshot) => [snapshot.id, snapshot]));
     const cancelledJourneyDocuments = inactiveJourneysSnapshot.docs.filter((snapshot) =>
       (snapshot.data() as JourneyDocument).tipoInactivacion === "CANCELACION_BORRADOR"
     );
@@ -446,7 +492,10 @@ export class ListManageableJourneysService {
         cantidadLineas: lineIds.length,
         lineaIds: lineIds,
         creadaEn: journey.creadaEn.toDate().toISOString(),
-        actualizadaEn: journey.actualizadaEn.toDate().toISOString()
+        actualizadaEn: journey.actualizadaEn.toDate().toISOString(),
+        ...(journey.configuracionInformeInventario === undefined ? {} : {
+          configuracionInformeInventario: journey.configuracionInformeInventario
+        })
       };
       return {summary, createdAt: journey.creadaEn.toMillis()};
     });
@@ -490,9 +539,76 @@ export class ListManageableJourneysService {
         motivoCancelacion: journey.motivoCancelacion,
         canceladaEn: journey.canceladaEn.toDate().toISOString(),
         creadaEn: journey.creadaEn.toDate().toISOString(),
-        actualizadaEn: journey.actualizadaEn.toDate().toISOString()
+        actualizadaEn: journey.actualizadaEn.toDate().toISOString(),
+        ...(journey.configuracionInformeInventario === undefined ? {} : {
+          configuracionInformeInventario: journey.configuracionInformeInventario
+        })
       };
       return {summary, cancelledAt: journey.canceladaEn.toMillis()};
+    });
+    const closingJourneys = closingJourneysSnapshot.docs.map((snapshot) => {
+      const journey = snapshot.data() as JourneyDocument;
+      const workSnapshot = closingJobById.get(snapshot.id);
+      const work = workSnapshot?.data() as CloseJourneyWorkDocument | undefined;
+      const workState = work?.estado;
+      const phase = work?.fase;
+      const boundedCount = (value: unknown, maximum: number) =>
+        Number.isSafeInteger(value) && (value as number) >= 0 && (value as number) <= maximum;
+      if (
+        typeof journey.nombreVisible !== "string" ||
+        typeof journey.creadaPorUsuarioId !== "string" ||
+        typeof journey.creadorNombreVisible !== "string" ||
+        !isSafeVersion(journey.version) ||
+        typeof journey.trabajoCierreId !== "string" ||
+        journey.trabajoCierreId !== snapshot.id ||
+        !workSnapshot?.exists ||
+        !["PENDIENTE", "PROCESANDO", "ERROR"].includes(String(workState)) ||
+        !["LINEAS", "OCUPACIONES", "AUTORIZACIONES", "FINALIZAR"].includes(String(phase)) ||
+        !boundedCount(work?.cursor, Number.MAX_SAFE_INTEGER) ||
+        !boundedCount(work?.cantidadLineas, 400) ||
+        !boundedCount(work?.cantidadOcupaciones, 400) ||
+        !boundedCount(work?.cantidadAutorizaciones, 400) ||
+        !boundedCount(work?.lineasProcesadas, 400) ||
+        !boundedCount(work?.ocupacionesProcesadas, 400) ||
+        !boundedCount(work?.autorizacionesProcesadas, 400) ||
+        !boundedCount(work?.intentos, Number.MAX_SAFE_INTEGER) ||
+        !(work?.actualizadoEn instanceof Timestamp) ||
+        (workState === "ERROR" &&
+          (typeof work?.errorCodigo !== "string" || typeof work?.errorMensaje !== "string")) ||
+        (workState !== "ERROR" && (work?.errorCodigo !== undefined || work?.errorMensaje !== undefined))
+      ) {
+        throw domainErrors.internal();
+      }
+      const staleProcessingLease = workState === "PROCESANDO" && (
+        !(work.procesandoEn instanceof Timestamp) ||
+        Timestamp.now().toMillis() - work.procesandoEn.toMillis() >= CLOSE_JOB_LEASE_MS
+      );
+      const summary: ClosingJourneySummary = {
+        jornadaId: snapshot.id,
+        nombreVisible: journey.nombreVisible,
+        estado: "CERRANDO",
+        creadorUsuarioId: journey.creadaPorUsuarioId,
+        creadorNombreVisible: journey.creadorNombreVisible,
+        version: journey.version,
+        trabajoCierreId: journey.trabajoCierreId,
+        estadoTrabajo: workState as ClosingJourneySummary["estadoTrabajo"],
+        fase: phase as ClosingJourneySummary["fase"],
+        cursor: work.cursor as number,
+        cantidadLineas: work.cantidadLineas as number,
+        cantidadOcupaciones: work.cantidadOcupaciones as number,
+        cantidadAutorizaciones: work.cantidadAutorizaciones as number,
+        lineasProcesadas: work.lineasProcesadas as number,
+        ocupacionesProcesadas: work.ocupacionesProcesadas as number,
+        autorizacionesProcesadas: work.autorizacionesProcesadas as number,
+        intentos: work.intentos as number,
+        ...(workState === "ERROR" ? {
+          errorCodigo: work.errorCodigo as string,
+          errorMensaje: work.errorMensaje as string
+        } : {}),
+        actualizadaEn: work.actualizadoEn.toDate().toISOString(),
+        puedeReintentar: workState === "ERROR" || staleProcessingLease
+      };
+      return {summary, updatedAt: work.actualizadoEn.toMillis()};
     });
 
     const locations = new Map(locationsSnapshot.docs.map((snapshot) => [
@@ -500,24 +616,28 @@ export class ListManageableJourneysService {
       snapshot.data() as LocationDocument
     ]));
     const activeJourneyIds = new Set(activeJourneysSnapshot.docs.map((snapshot) => snapshot.id));
-    const linesInActiveJourneys = new Set(operationalLinesSnapshot.docs.flatMap((snapshot) => {
+    const closingJourneyIds = new Set(closingJourneysSnapshot.docs.map((snapshot) => snapshot.id));
+    const unavailableJourneyByLine = new Map<string, "JORNADA_ACTIVA" | "JORNADA_CERRANDO">();
+    operationalLinesSnapshot.docs.forEach((snapshot) => {
       const membership = snapshot.data() as JourneyLineDocument;
-      return typeof membership.jornadaId === "string" &&
-        activeJourneyIds.has(membership.jornadaId) &&
-        typeof membership.lineaId === "string"
-        ? [membership.lineaId]
-        : [];
-    }));
+      if (typeof membership.jornadaId !== "string" || typeof membership.lineaId !== "string") return;
+      if (closingJourneyIds.has(membership.jornadaId)) {
+        unavailableJourneyByLine.set(membership.lineaId, "JORNADA_CERRANDO");
+      } else if (activeJourneyIds.has(membership.jornadaId)) {
+        unavailableJourneyByLine.set(membership.lineaId, "JORNADA_ACTIVA");
+      }
+    });
     const catalogLines = linesSnapshot.docs.map((snapshot): DraftCatalogLine => {
       const line = snapshot.data() as LineDocument;
       const location = genericVisibleLocation(line, locations);
-      const selectable = line.activa === true && !linesInActiveJourneys.has(snapshot.id);
-      const reason = line.activa !== true ? "LINEA_INACTIVA" as const : "JORNADA_ACTIVA" as const;
+      const occupiedReason = unavailableJourneyByLine.get(snapshot.id);
+      const selectable = line.activa === true && occupiedReason === undefined;
+      const reason = line.activa !== true ? "LINEA_INACTIVA" as const : occupiedReason;
       return {
         lineaId: snapshot.id,
         nombreVisible: location.nombreVisible,
         seleccionable: selectable,
-        ...(selectable ? {} : {motivoNoSeleccionable: reason}),
+        ...(selectable ? {} : {motivoNoSeleccionable: reason as NonNullable<DraftCatalogLine["motivoNoSeleccionable"]>}),
         ubicacion: location
       };
     }).sort((left, right) =>
@@ -534,6 +654,10 @@ export class ListManageableJourneysService {
         .map((journey) => journey.summary),
       jornadasCanceladas: cancelledJourneys
         .sort((left, right) => right.cancelledAt - left.cancelledAt ||
+          left.summary.nombreVisible.localeCompare(right.summary.nombreVisible, "es"))
+        .map((journey) => journey.summary),
+      jornadasCerrando: closingJourneys
+        .sort((left, right) => right.updatedAt - left.updatedAt ||
           left.summary.nombreVisible.localeCompare(right.summary.nombreVisible, "es"))
         .map((journey) => journey.summary),
       lineasCatalogo: catalogLines

@@ -54,7 +54,7 @@ Se ejecutó `npm audit --omit=dev --audit-level=high`:
 |---|---|
 | Contratos | 0 vulnerabilidades |
 | Vivero Maestro | 0 vulnerabilidades |
-| Backend Functions | revalidación local con Node 24: 9 moderadas de producción y 12 en el árbol completo; 0 altas y 0 críticas |
+| Backend Functions | revalidación local con Node 22.23.1: 9 moderadas de producción; 0 altas y 0 críticas |
 
 Las alertas de producción del backend corresponden a paquetes de la cadena del advisory `uuid <11.1.1`, a través de dependencias de Firebase/Google (`gaxios`, `google-gax`, Firestore, Storage, `retry-request` y `teeny-request`). El árbol local completo añade el advisory de OpenTelemetry. La corrección automática completa exige `--force` y propone cambios mayores de dependencias; no se aplica sin una actualización compatible y pruebas completas. El código del proyecto usa `node:crypto.randomUUID` y no llama UUID v3, v5 o v6 con búfer, pero esto no elimina la necesidad de actualizar la cadena.
 
@@ -96,7 +96,7 @@ El bloqueo técnico y documental vigente es `BACKUP_PENDIENTE`. El propietario a
 - definir retención local, pérdida o invalidación de Keystore y reemplazo de dispositivos;
 - generar y custodiar una llave de firma Android real;
 - definir certificados, firma, distribución y actualizaciones de Vivero Maestro;
-- dividir el bundle de Maestro si las mediciones de arranque confirman impacto; Vite advierte actualmente un chunk minificado de 867,39 kB;
+- dividir el bundle de Maestro si las mediciones de arranque confirman impacto; Vite advierte actualmente un chunk minificado de 901,12 kB y 257,68 kB gzip;
 - producir APK e instalador únicamente después de validar Firebase y el plan de soporte.
 
 ### Operación
@@ -104,7 +104,7 @@ El bloqueo técnico y documental vigente es `BACKUP_PENDIENTE`. El propietario a
 - establecer monitoreo de Functions, sincronización, reservas, correcciones y costos;
 - definir responsables y tiempos de respuesta;
 - fijar retención de auditoría, backups y pruebas periódicas de restauración;
-- confirmar en la ejecución remota de CI la matriz con Node 22; la verificación local se ejecutó con Node 24.15.0 y JDK 21;
+- confirmar en la ejecución remota de CI la matriz; la verificación local usa Node 22.23.1, npm 10.9.4 y JDK 21, con `220/220` pruebas de Emulator Suite y `26/26` de Firestore Rules aprobadas;
 - resolver la cadena transitiva moderada del backend o documentar una aceptación formal con fecha de vencimiento.
 
 ### Preparación privada
@@ -125,3 +125,30 @@ El bloqueo técnico y documental vigente es `BACKUP_PENDIENTE`. El propietario a
 - Firestore Rules con denegación final;
 - aislamiento local entre emulator y production;
 - prohibición de secretos, despliegues y artefactos definitivos en CI.
+
+## Extensión ETAPA 26 — informes mensuales y Google Drive
+
+La generación de informes añade `exceljs` y el cliente mantenido de Google Drive al backend Node 22. Android y Maestro no reciben SDK, token ni credencial de Drive. La integración productiva usa Application Default Credentials de la identidad de ejecución de Functions y los IDs de carpeta/plantilla como variables exclusivas del backend.
+
+El cierre ya no depende de una transacción proporcional al número total de líneas. `cerrarJornada` crea un trabajo determinista y deja la jornada `CERRANDO`; `procesarCierreJornada` usa lotes de 100, cursor persistente y lease de 15 minutos hasta completar un máximo de 400 líneas. La transacción final es la única que confirma `INACTIVA`, auditoría, idempotencia e informe único.
+
+Riesgos pendientes:
+
+- la plantilla real fue validada mediante una copia temporal: 271 líneas `76, 76, 76, 29, 14`, 8 páginas revisadas, estructura e impresión preservadas, `F8=112`, `F28=101`, 17 fórmulas y cero `#REF!`; el original conservó SHA-256 `307572F85D812EED3EFCD15DBDE3C9F4FBA6367636C9C2D184B1262AAFE959CC`;
+- Drive API todavía debe habilitarse y la carpeta/plantilla deben compartirse con la identidad prevista `107772600673-compute@developer.gserviceaccount.com`, confirmada en las revisiones actuales y sin override; el trigger aún no está desplegado y su identidad debe reconfirmarse después del despliegue;
+- la cuenta de servicio necesita lector sobre la plantilla, editor sobre la carpeta y `roles/datastore.user` sobre Firestore, sin llaves JSON descargadas;
+- cambios futuros en encabezados, nombres de hojas o filas de la plantilla producirán un error permanente hasta actualizar y volver a verificar el mapeo;
+- fórmulas históricas en celdas de datos solo son seguras cuando la celda se reconoce y se sobrescribe obligatoriamente; `MODULO 4!F8` y `MODULO 4!F28` permanecen como regresiones explícitas;
+- deben conservarse las 17 fórmulas estructurales y de totales y rechazarse cualquier resultado con `#REF!`;
+- el archivo se deduplica por `appProperties`; duplicados preexistentes con la misma jornada/periodo deben resolverse manualmente, no seleccionarse de forma arbitraria;
+- una interrupción del cierre deja la jornada deliberadamente `CERRANDO`; requiere observabilidad del progreso y recuperación manual si queda en error o el lease vence, nunca una reactivación automática;
+- los bloqueos de catálogo, borradores y activación deben consultar también la membresía de una jornada `CERRANDO`, porque su ocupación puede haber sido eliminada en un lote anterior;
+- el cierre no depende de Drive: una interrupción externa posterior deja el informe reintentable y requiere monitoreo operativo;
+- el trabajo central usa un margen máximo de 750 KiB UTF-8 para evitar superar el límite de 1 MiB de Firestore; una jornada mayor debe rediseñarse en subdocumentos antes de intentar cerrarla, nunca truncarse;
+- el máximo documentado es 400 líneas; no debe aumentarse para ocultar límites de Firestore sin rediseñar fases, documentos y pruebas de concurrencia;
+- cargar `exceljs` y el cliente de Drive aumenta el tamaño del backend; deben medirse memoria y arranque en la revisión Gen 2 antes del corte;
+- `npm audit` reporta una cadena transitiva moderada de `uuid` sin corrección no disruptiva; no se aplicó `--force` porque propone una versión mayor incompatible de `exceljs`;
+- Emulator Suite y CI deben conservar el modo `fake`; cualquier intento de usar `google` con proyecto `demo-*` debe abortar antes de abrir red;
+- backups, PITR, protección contra borrado, presupuesto, alertas y procedimiento de rollback continúan siendo requisitos previos al uso con inventario real.
+
+La regresión dirigida de 271 líneas e interrupción tras cada lote aprobó `6/6`, la matriz integral aprobó `220/220` pruebas de Emulator Suite y `26/26` de Firestore Rules, y la revisión visual/estructural de la plantilla real fue completada. La ETAPA 26 permanece `NO-GO` hasta configurar Drive con autorización expresa, completar backup/monitoreo/rollback y desplegar de forma controlada. Esta sección no autoriza configurar Drive ni desplegar Functions.

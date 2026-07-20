@@ -10,6 +10,7 @@ import type {
   CreateManageableUserRequest,
   InitiateCountCorrectionRequest,
   ImportMigrationPackageRequest,
+  InventoryReportConfiguration,
   ListDraftJourneyParticipantsRequest,
   ReassignCountCorrectionRequest,
   RegisterInitialInventoryRequest,
@@ -20,6 +21,8 @@ import type {
   ReserveLineRequest,
   ReturnCountRequest,
   ReturnDiscardRequest,
+  RetryCloseJourneyRequest,
+  RetryInventoryReportRequest,
   SendCountRequest,
   UpdateCatalogLineRequest,
   UpdateCatalogLocationRequest,
@@ -40,6 +43,7 @@ const sendCountFields = new Set([
   "hembras",
   "machos",
   "patrones",
+  "plantasMuertas",
   "observaciones",
   "timestampDispositivo",
   "claveIdempotencia"
@@ -60,7 +64,13 @@ const returnDiscardFields = new Set(["descarteId", "motivo", "claveIdempotencia"
 const initiateCorrectionFields = new Set(["conteoId", "dispositivoId", "claveIdempotencia"]);
 const reassignCorrectionFields = new Set(["conteoId", "nuevoUsuarioId", "motivo", "claveIdempotencia"]);
 const releaseReservationFields = new Set(["reservaId", "motivo", "claveIdempotencia"]);
-const createDraftJourneyFields = new Set(["nombreVisible", "claveIdempotencia"]);
+const createDraftJourneyFields = new Set([
+  "nombreVisible", "configuracionInformeInventario", "claveIdempotencia"
+]);
+const inventoryReportConfigurationFields = new Set([
+  "habilitado", "mes", "anio", "fuentePlantasMuertas"
+]);
+const retryInventoryReportFields = new Set(["jornadaId", "claveIdempotencia"]);
 const updateDraftJourneyLinesFields = new Set(["jornadaId", "lineaIds", "claveIdempotencia"]);
 const listDraftJourneyParticipantsFields = new Set(["jornadaId"]);
 const updateDraftJourneyParticipantsFields = new Set(["jornadaId", "participantes", "claveIdempotencia"]);
@@ -107,6 +117,33 @@ const JOURNEY_NAME_LIMIT = 200;
 const DRAFT_LINE_LIMIT = 400;
 const DRAFT_PARTICIPANT_LIMIT = 200;
 
+function parseInventoryReportConfiguration(value: unknown): InventoryReportConfiguration {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw domainErrors.inventoryReportConfigurationInvalid();
+  }
+  const record = value as Record<string, unknown>;
+  if (
+    Object.keys(record).length !== inventoryReportConfigurationFields.size ||
+    Object.keys(record).some((field) => !inventoryReportConfigurationFields.has(field)) ||
+    record.habilitado !== true ||
+    !Number.isSafeInteger(record.mes) ||
+    (record.mes as number) < 1 ||
+    (record.mes as number) > 12 ||
+    !Number.isSafeInteger(record.anio) ||
+    (record.anio as number) < 2000 ||
+    (record.anio as number) > 2100 ||
+    !["CONTEO_FISICO", "DESCARTES_APROBADOS"].includes(record.fuentePlantasMuertas as string)
+  ) {
+    throw domainErrors.inventoryReportConfigurationInvalid();
+  }
+  return {
+    habilitado: true,
+    mes: record.mes as number,
+    anio: record.anio as number,
+    fuentePlantasMuertas: record.fuentePlantasMuertas as InventoryReportConfiguration["fuentePlantasMuertas"]
+  };
+}
+
 export function parseListActiveJourneysRequest(value: unknown): void {
   if (value === undefined || value === null) return;
   if (typeof value !== "object" || Array.isArray(value) || Object.keys(value as object).length > 0) {
@@ -116,6 +153,7 @@ export function parseListActiveJourneysRequest(value: unknown): void {
 
 export const parseListManageableJourneysRequest = parseListActiveJourneysRequest;
 export const parseListManageableUsersRequest = parseListActiveJourneysRequest;
+export const parseListInventoryReportsRequest = parseListActiveJourneysRequest;
 
 export function parseCreateManageableUserRequest(value: unknown): CreateManageableUserRequest {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -382,6 +420,9 @@ export function parseCreateDraftJourneyRequest(value: unknown): CreateDraftJourn
   }
   return {
     nombreVisible: record.nombreVisible.trim(),
+    ...(record.configuracionInformeInventario === undefined ? {} : {
+      configuracionInformeInventario: parseInventoryReportConfiguration(record.configuracionInformeInventario)
+    }),
     claveIdempotencia: record.claveIdempotencia
   };
 }
@@ -522,6 +563,10 @@ export function parseCloseJourneyRequest(value: unknown): CloseJourneyRequest {
     versionEsperada: record.versionEsperada as number,
     claveIdempotencia: record.claveIdempotencia
   };
+}
+
+export function parseRetryCloseJourneyRequest(value: unknown): RetryCloseJourneyRequest {
+  return parseCloseJourneyRequest(value);
 }
 
 export function parseCancelDraftJourneyRequest(value: unknown): CancelDraftJourneyRequest {
@@ -744,6 +789,12 @@ export function parseSendCountRequest(value: unknown): SendCountRequest {
   const total = (record.hembras as number) + (record.machos as number) + (record.patrones as number);
   if (!Number.isSafeInteger(total)) throw domainErrors.invalidArgument();
   if (
+    record.plantasMuertas !== undefined &&
+    (!Number.isSafeInteger(record.plantasMuertas) || (record.plantasMuertas as number) < 0)
+  ) {
+    throw domainErrors.invalidArgument();
+  }
+  if (
     record.observaciones !== undefined &&
     (typeof record.observaciones !== "string" || record.observaciones.length > 4000)
   ) {
@@ -757,6 +808,7 @@ export function parseSendCountRequest(value: unknown): SendCountRequest {
     hembras: record.hembras as number,
     machos: record.machos as number,
     patrones: record.patrones as number,
+    ...(record.plantasMuertas === undefined ? {} : {plantasMuertas: record.plantasMuertas as number}),
     ...(record.observaciones === undefined ? {} : {observaciones: record.observaciones as string}),
     timestampDispositivo: record.timestampDispositivo,
     claveIdempotencia: record.claveIdempotencia
@@ -857,4 +909,21 @@ export function parseReturnDiscardRequest(value: unknown): ReturnDiscardRequest 
     motivo: (record.motivo as string).trim(),
     claveIdempotencia: record.claveIdempotencia
   };
+}
+
+export function parseRetryInventoryReportRequest(value: unknown): RetryInventoryReportRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw domainErrors.invalidArgument();
+  }
+  const record = value as Record<string, unknown>;
+  if (
+    Object.keys(record).some((field) => !retryInventoryReportFields.has(field)) ||
+    typeof record.jornadaId !== "string" ||
+    !safeIdPattern.test(record.jornadaId) ||
+    typeof record.claveIdempotencia !== "string" ||
+    !idempotencyPattern.test(record.claveIdempotencia)
+  ) {
+    throw domainErrors.invalidArgument();
+  }
+  return {jornadaId: record.jornadaId, claveIdempotencia: record.claveIdempotencia};
 }

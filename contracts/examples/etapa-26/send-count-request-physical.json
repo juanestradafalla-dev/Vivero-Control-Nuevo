@@ -1,0 +1,12 @@
+{
+  "reservaId": "RESERVA-FICTICIA-26-01",
+  "tokenReserva": "TOKEN_FICTICIO_ETAPA_26_0123456789abcdef",
+  "dispositivoId": "ANDROID-FICTICIO-26-01",
+  "hembras": 18,
+  "machos": 4,
+  "patrones": 3,
+  "plantasMuertas": 2,
+  "observaciones": "Conteo fisico completamente ficticio.",
+  "timestampDispositivo": "2026-07-15T14:00:00.000Z",
+  "claveIdempotencia": "enviar-conteo-fisico-ficticio-2601"
+}

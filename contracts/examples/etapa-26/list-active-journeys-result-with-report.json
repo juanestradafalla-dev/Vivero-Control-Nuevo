@@ -1,0 +1,21 @@
+{
+  "jornadas": [
+    {
+      "jornadaId": "JORNADA-ACTIVA-INFORME-26",
+      "nombreVisible": "Inventario ficticio julio 2026",
+      "estado": "ACTIVA",
+      "rolEfectivo": "AUXILIAR",
+      "puedeContar": true,
+      "cantidadLineas": 1,
+      "version": 2,
+      "puedeCerrar": false,
+      "configuracionInformeInventario": {
+        "habilitado": true,
+        "mes": 7,
+        "anio": 2026,
+        "fuentePlantasMuertas": "CONTEO_FISICO"
+      },
+      "cantidadDescartesPendientes": 0
+    }
+  ]
+}

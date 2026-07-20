@@ -1,5 +1,6 @@
 import {logger} from "firebase-functions";
 import {HttpsError, onCall} from "firebase-functions/v2/https";
+import {onDocumentWritten} from "firebase-functions/v2/firestore";
 
 import type {ControlledErrorCode} from "./domain/contracts.js";
 import {ActivateJourneyService} from "./domain/activateJourney.js";
@@ -16,7 +17,11 @@ import {
   UpdateCatalogLineService,
   UpdateCatalogLocationService
 } from "./domain/catalog.js";
-import {CloseJourneyService} from "./domain/closeJourney.js";
+import {
+  CloseJourneyService,
+  ProcessCloseJourneyService,
+  RetryCloseJourneyService
+} from "./domain/closeJourney.js";
 import {
   CancelDraftJourneyService,
   ReopenCancelledJourneyService
@@ -64,6 +69,7 @@ import {
   parseInitiateCountCorrectionRequest,
   parseImportMigrationPackageRequest,
   parseListActiveJourneysRequest,
+  parseListInventoryReportsRequest,
   parseListDiscardLinesRequest,
   parseListDraftJourneyParticipantsRequest,
   parseListManageableJourneysRequest,
@@ -79,6 +85,8 @@ import {
   parseReserveLineRequest,
   parseReturnCountRequest,
   parseReturnDiscardRequest,
+  parseRetryInventoryReportRequest,
+  parseRetryCloseJourneyRequest,
   parseSendCountRequest,
   parseUpdateDraftJourneyLinesRequest,
   parseUpdateDraftJourneyParticipantsRequest,
@@ -98,7 +106,9 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
     "USER_PASSWORD_WEAK",
     "DISCARD_TOTAL_REQUIRED",
     "DISCARD_CAUSE_REQUIRED",
-    "DISCARD_CAUSE_EXCEEDS_TOTAL"
+    "DISCARD_CAUSE_EXCEEDS_TOTAL",
+    "COUNT_DEAD_PLANTS_REQUIRED",
+    "COUNT_DEAD_PLANTS_NOT_ALLOWED"
   ].includes(code)) return "invalid-argument";
   if (code === "LINE_NOT_AVAILABLE") return "failed-precondition";
   if ([
@@ -126,6 +136,11 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
     "JOURNEY_CLOSE_PENDING_CORRECTIONS",
     "JOURNEY_CLOSE_LIMIT_EXCEEDED",
     "JOURNEY_CLOSE_OCCUPATION_MISMATCH",
+    "JOURNEY_CLOSE_IN_PROGRESS",
+    "JOURNEY_CLOSE_SCOPE_CHANGED",
+    "JOURNEY_CLOSE_LEASE_LOST",
+    "JOURNEY_CLOSE_PROCESSING_FAILED",
+    "JOURNEY_CLOSE_NOT_RETRYABLE",
     "DRAFT_CANCELLATION_REASON_REQUIRED",
     "DRAFT_CANCELLATION_STALE_VERSION",
     "DRAFT_CANCELLATION_INVALID_STATE",
@@ -160,7 +175,11 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
     "MIGRATION_IMPORT_NOT_APPLIED",
     "MIGRATION_IMPORT_STALE_VERSION",
     "MIGRATION_REVERSAL_REASON_REQUIRED",
-    "MIGRATION_REVERSAL_BLOCKED"
+    "MIGRATION_REVERSAL_BLOCKED",
+    "INVENTORY_REPORT_PENDING_DISCARDS",
+    "INVENTORY_REPORT_COUNT_INCOMPATIBLE",
+    "INVENTORY_REPORT_CONFIGURATION_INVALID",
+    "INVENTORY_REPORT_NOT_RETRYABLE"
   ].includes(code)) return "failed-precondition";
   if (["RESERVATION_NOT_ACTIVE", "LINE_RESERVATION_MISMATCH", "LINE_NOT_IN_COUNT"].includes(code)) {
     return "failed-precondition";
@@ -199,7 +218,9 @@ function httpsCodeFor(code: ControlledErrorCode): ConstructorParameters<typeof H
     "DISCARD_NOT_FOUND",
     "CATALOG_LOCATION_NOT_FOUND",
     "CATALOG_LINE_NOT_FOUND",
-    "MIGRATION_IMPORT_NOT_FOUND"
+    "MIGRATION_IMPORT_NOT_FOUND",
+    "INVENTORY_REPORT_NOT_FOUND",
+    "JOURNEY_CLOSE_JOB_NOT_FOUND"
   ].includes(code)) {
     return "not-found";
   }
@@ -224,7 +245,9 @@ const listManageableJourneysService = new ListManageableJourneysService(firestor
 const listDraftJourneyParticipantsService = new ListDraftJourneyParticipantsService(firestore);
 const updateDraftJourneyParticipantsService = new UpdateDraftJourneyParticipantsService(firestore);
 const activateJourneyService = new ActivateJourneyService(firestore);
+const processCloseJourneyService = new ProcessCloseJourneyService(firestore);
 const closeJourneyService = new CloseJourneyService(firestore);
+const retryCloseJourneyService = new RetryCloseJourneyService(firestore);
 const cancelDraftJourneyService = new CancelDraftJourneyService(firestore);
 const reopenCancelledJourneyService = new ReopenCancelledJourneyService(firestore);
 const listManageableUsersService = new ListManageableUsersService(firestore);
@@ -245,7 +268,6 @@ const listDiscardLinesService = new ListDiscardLinesService(firestore);
 const registerDiscardService = new RegisterDiscardService(firestore);
 const approveDiscardService = new ApproveDiscardService(firestore);
 const returnDiscardService = new ReturnDiscardService(firestore);
-
 export const importarPaqueteMigracion = onCall({region: "us-central1"}, async (request) => {
   try {
     assertRuntimeEnvironment();
@@ -487,6 +509,21 @@ export const cerrarJornada = onCall({region: "us-central1"}, async (request) => 
   } catch (error) {
     if (error instanceof DomainError) throw toHttpsError(error);
     logger.error("Fallo interno en cerrarJornada", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const reintentarCierreJornada = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertRuntimeEnvironment();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    const payload = parseRetryCloseJourneyRequest(request.data);
+    return await retryCloseJourneyService.execute(payload, {actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en reintentarCierreJornada", {
       errorName: error instanceof Error ? error.name : "UnknownError"
     });
     throw toHttpsError(domainErrors.internal());
@@ -764,4 +801,68 @@ export const devolverDescarte = onCall({region: "us-central1"}, async (request) 
     });
     throw toHttpsError(domainErrors.internal());
   }
+});
+
+export const listarInformesInventario = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertRuntimeEnvironment();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    parseListInventoryReportsRequest(request.data);
+    const {ListInventoryReportsService} = await import("./domain/inventoryReports.js");
+    const listInventoryReportsService = new ListInventoryReportsService(firestore);
+    return await listInventoryReportsService.execute({actorId: request.auth.uid});
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en listarInformesInventario", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const reintentarInformeInventario = onCall({region: "us-central1"}, async (request) => {
+  try {
+    assertRuntimeEnvironment();
+    if (!request.auth?.uid) throw domainErrors.unauthenticated();
+    const {RetryInventoryReportService} = await import("./domain/inventoryReports.js");
+    const retryInventoryReportService = new RetryInventoryReportService(firestore);
+    return await retryInventoryReportService.execute(
+      parseRetryInventoryReportRequest(request.data), {actorId: request.auth.uid}
+    );
+  } catch (error) {
+    if (error instanceof DomainError) throw toHttpsError(error);
+    logger.error("Fallo interno en reintentarInformeInventario", {
+      errorName: error instanceof Error ? error.name : "UnknownError"
+    });
+    throw toHttpsError(domainErrors.internal());
+  }
+});
+
+export const procesarInformeInventario = onDocumentWritten({
+  region: "us-central1",
+  document: "informesInventario/{informeId}",
+  retry: true
+}, async (event) => {
+  assertRuntimeEnvironment();
+  const beforeState = event.data?.before.data()?.estado;
+  const afterState = event.data?.after.data()?.estado;
+  if (afterState !== "PENDIENTE" || beforeState === "PENDIENTE") return;
+  const {ProcessInventoryReportService} = await import("./domain/inventoryReports.js");
+  const processInventoryReportService = new ProcessInventoryReportService(firestore);
+  await processInventoryReportService.execute(event.params.informeId);
+});
+
+export const procesarCierreJornada = onDocumentWritten({
+  region: "us-central1",
+  document: "trabajosCierreJornada/{trabajoId}",
+  retry: true
+}, async (event) => {
+  assertRuntimeEnvironment();
+  const beforeState = event.data?.before.data()?.estado;
+  const afterState = event.data?.after.data()?.estado;
+  if (afterState !== "PENDIENTE" || beforeState === "PENDIENTE") return;
+  await processCloseJourneyService.processTriggered(
+    event.params.trabajoId,
+    event.data?.after.data()?.huellaAlcance
+  );
 });

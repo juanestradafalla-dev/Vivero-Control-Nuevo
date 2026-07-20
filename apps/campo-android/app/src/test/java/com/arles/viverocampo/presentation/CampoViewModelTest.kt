@@ -9,10 +9,12 @@ import com.arles.viverocampo.domain.ConfirmedReservation
 import com.arles.viverocampo.domain.CountFormValidator
 import com.arles.viverocampo.domain.CountInput
 import com.arles.viverocampo.domain.CountSyncOutcome
+import com.arles.viverocampo.domain.DeadPlantsSource
 import com.arles.viverocampo.domain.FrozenCountPayload
 import com.arles.viverocampo.domain.JourneyLine
 import com.arles.viverocampo.domain.JourneySnapshot
 import com.arles.viverocampo.domain.InitiateCountCorrectionPayload
+import com.arles.viverocampo.domain.InventoryReportConfiguration
 import com.arles.viverocampo.domain.LocalCountDraft
 import com.arles.viverocampo.domain.ReserveLinePayload
 import com.arles.viverocampo.domain.ReturnedCount
@@ -128,6 +130,7 @@ class CampoViewModelTest {
         advanceUntilIdle()
 
         assertEquals(secondJourneyLine.id, repository.reservePayloads.single().jornadaLineaId)
+        assertEquals(approvedDiscardsReportConfiguration, repository.reserveConfigurations.single())
         assertEquals(secondActiveJourney.id, viewModel.uiState.value.confirmedReservation?.journeyId)
         viewModel.selectJourney(activeJourney.id)
         assertEquals(secondActiveJourney.id, viewModel.uiState.value.selectedJourneyId)
@@ -169,6 +172,12 @@ class CampoViewModelTest {
         viewModel.updateRootstocks("0")
         advanceUntilIdle()
         viewModel.requestCountConfirmation()
+        assertFalse(viewModel.uiState.value.showCountSummary)
+        assertTrue(viewModel.uiState.value.countErrors.deadPlants != null)
+
+        viewModel.updateDeadPlants("0")
+        advanceUntilIdle()
+        viewModel.requestCountConfirmation()
         assertTrue(viewModel.uiState.value.showCountSummary)
         assertEquals(0L, viewModel.uiState.value.countTotal)
         assertTrue(viewModel.uiState.value.zeroWarning)
@@ -184,10 +193,37 @@ class CampoViewModelTest {
         advanceUntilIdle()
         val draft = requireNotNull(viewModel.uiState.value.countDraft)
         assertEquals(450L, draft.frozenPayload?.females)
+        assertEquals(14L, draft.frozenPayload?.deadPlants)
         assertEquals(980L, draft.frozenPayload?.let { it.females + it.males + it.rootstocks })
         assertEquals(1, scheduler.uniqueScheduled.size)
         assertEquals(SyncState.PENDIENTE, draft.syncState)
         assertFalse(draft.syncState == SyncState.ENVIADA)
+    }
+
+    @Test
+    fun `fuente descartes aprobados omite plantas muertas aun cuando el conteo se congela`() = runTest {
+        repository.activeJourneys = listOf(activeJourney, secondActiveJourney)
+        repository.reserveBehavior = { secondJourneyReservation }
+        login()
+        viewModel.selectJourney(secondActiveJourney.id)
+        viewModel.selectLine(secondJourneyLine)
+        viewModel.confirmReservation()
+        advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.requiresPhysicalDeadPlants)
+        viewModel.updateFemales("10")
+        viewModel.updateMales("5")
+        viewModel.updateRootstocks("2")
+        viewModel.updateDeadPlants("999")
+        advanceUntilIdle()
+        viewModel.requestCountConfirmation()
+        viewModel.confirmCountSubmission()
+        advanceUntilIdle()
+
+        val frozen = requireNotNull(viewModel.uiState.value.countDraft?.frozenPayload)
+        assertNull(frozen.deadPlants)
+        assertFalse(frozen.toWireMap("token").containsKey("plantasMuertas"))
+        assertEquals(17L, frozen.females + frozen.males + frozen.rootstocks)
     }
 
     @Test
@@ -198,6 +234,7 @@ class CampoViewModelTest {
         val restored = repository.observeCountDraft("reserva-prueba", "uid-auxiliar-1", DEVICE_ID)
             as MutableStateFlow<LocalCountDraft?>
         assertEquals("450", restored.value?.input?.females)
+        assertEquals("14", restored.value?.input?.deadPlants)
         assertNull(repository.draftFor("reserva-prueba", "uid-auxiliar-2", DEVICE_ID))
     }
 
@@ -315,12 +352,17 @@ class CampoViewModelTest {
         assertEquals(2, viewModel.uiState.value.confirmedReservation?.nextCountVersion)
         assertEquals(returnedCount.input, viewModel.uiState.value.countInput)
         assertEquals(returnedCount.countId, repository.correctionPayloads.single().conteoId)
+        assertEquals(physicalReportConfiguration, repository.correctionConfigurations.single())
 
         viewModel.signOut()
         advanceUntilIdle()
         login()
         assertEquals(correctionReservation.reservationId, viewModel.uiState.value.confirmedReservation?.reservationId)
         assertEquals(returnedCount.input, viewModel.uiState.value.countDraft?.input)
+        viewModel.requestCountConfirmation()
+        viewModel.confirmCountSubmission()
+        advanceUntilIdle()
+        assertEquals(11L, viewModel.uiState.value.countDraft?.frozenPayload?.deadPlants)
     }
 
     @Test
@@ -361,7 +403,7 @@ class CampoViewModelTest {
         assertEquals("LIBERADA", viewModel.uiState.value.confirmedReservation?.state)
         assertEquals(SyncState.ERROR, draft.syncState)
         assertEquals("RESERVATION_RELEASED", draft.errorCode)
-        assertEquals(CountInput("450", "320", "210", "Conteo ficticio"), draft.input)
+        assertEquals(CountInput("450", "320", "210", "Conteo ficticio", "14"), draft.input)
         assertFalse(draft.syncState == SyncState.ENVIADA)
         assertTrue(scheduler.cancelled.any { it.first == confirmedReservation.reservationId })
         assertTrue(viewModel.uiState.value.message?.contains("liberada por supervisión") == true)
@@ -389,9 +431,10 @@ class CampoViewModelTest {
         viewModel.updateFemales("450")
         viewModel.updateMales("320")
         viewModel.updateRootstocks("210")
+        viewModel.updateDeadPlants("14")
         viewModel.updateObservations("Conteo ficticio")
         advanceUntilIdle()
-        assertEquals(980L, CountFormValidator.validate(viewModel.uiState.value.countInput).total)
+        assertEquals(980L, CountFormValidator.validate(viewModel.uiState.value.countInput, true).total)
     }
 
     private class FakeScheduler : CountSyncScheduler {
@@ -423,7 +466,9 @@ class CampoViewModelTest {
         private val drafts = mutableMapOf<Triple<String, String, String>, MutableStateFlow<LocalCountDraft?>>()
         private val reservationStates = mutableMapOf<String, MutableStateFlow<String>>()
         val reservePayloads = mutableListOf<ReserveLinePayload>()
+        val reserveConfigurations = mutableListOf<InventoryReportConfiguration?>()
         val correctionPayloads = mutableListOf<InitiateCountCorrectionPayload>()
+        val correctionConfigurations = mutableListOf<InventoryReportConfiguration?>()
         var reserveBehavior: suspend () -> ConfirmedReservation = { confirmedReservation }
         var latestReservation: ConfirmedReservation? = null
         private val consumedReservations = mutableSetOf<String>()
@@ -446,19 +491,30 @@ class CampoViewModelTest {
             } else journey
         }
         override fun observeReturnedCounts(userId: String, journeyId: String): Flow<List<ReturnedCount>> = returnedCounts
-        override suspend fun reserveLine(payload: ReserveLinePayload, userId: String): ConfirmedReservation {
+        override suspend fun reserveLine(
+            payload: ReserveLinePayload,
+            userId: String,
+            inventoryReportConfiguration: InventoryReportConfiguration?,
+        ): ConfirmedReservation {
             reservePayloads += payload
-            return reserveBehavior().also { latestReservation = it }
+            reserveConfigurations += inventoryReportConfiguration
+            return reserveBehavior().copy(
+                inventoryReportConfiguration = inventoryReportConfiguration,
+            ).also { latestReservation = it }
         }
         override suspend fun initiateCountCorrection(
             payload: InitiateCountCorrectionPayload,
             userId: String,
             initialInput: CountInput,
+            inventoryReportConfiguration: InventoryReportConfiguration?,
         ): ConfirmedReservation {
             correctionPayloads += payload
-            latestReservation = correctionReservation
+            correctionConfigurations += inventoryReportConfiguration
+            latestReservation = correctionReservation.copy(
+                inventoryReportConfiguration = inventoryReportConfiguration,
+            )
             saveCountInput(correctionReservation.reservationId, userId, DEVICE_ID, initialInput)
-            return correctionReservation
+            return requireNotNull(latestReservation)
         }
         override suspend fun latestActiveReservation(userId: String, deviceId: String): ConfirmedReservation? = latestReservation?.takeIf {
             it.userId == userId && it.deviceId == deviceId && it.reservationId !in consumedReservations
@@ -497,11 +553,12 @@ class CampoViewModelTest {
             deviceId: String,
             idempotencyKey: String,
             deviceTimestamp: String,
+            deadPlantsRequired: Boolean,
         ): LocalCountDraft {
             val flow = drafts.getValue(Triple(reservationId, userId, deviceId))
             val current = requireNotNull(flow.value)
             current.frozenPayload?.let { return current }
-            val validation = CountFormValidator.validate(current.input)
+            val validation = CountFormValidator.validate(current.input, deadPlantsRequired)
             val frozen = current.copy(
                 frozenPayload = FrozenCountPayload(
                     reservationId,
@@ -512,6 +569,7 @@ class CampoViewModelTest {
                     current.input.observations,
                     deviceTimestamp,
                     idempotencyKey,
+                    validation.deadPlants,
                 ),
             )
             flow.value = frozen
@@ -545,11 +603,29 @@ class CampoViewModelTest {
         val secondLocation = location.copy(line = "LINEA-2", displayName = "Línea ficticia 2", order = 2)
         val secondAvailableLine = JourneyLine("jornada-linea-2", "DISPONIBLE", 0, secondLocation)
         val journeySnapshot = JourneySnapshot("jornada-prueba", "Jornada ficticia", listOf(availableLine, secondAvailableLine))
-        val activeJourney = ActiveJourney("jornada-prueba", "Jornada ficticia", "ACTIVA", "AUXILIAR", true, 2)
+        val physicalReportConfiguration = InventoryReportConfiguration(
+            enabled = true,
+            month = 7,
+            year = 2026,
+            deadPlantsSource = DeadPlantsSource.CONTEO_FISICO,
+        )
+        val approvedDiscardsReportConfiguration = InventoryReportConfiguration(
+            enabled = true,
+            month = 7,
+            year = 2026,
+            deadPlantsSource = DeadPlantsSource.DESCARTES_APROBADOS,
+        )
+        val activeJourney = ActiveJourney(
+            "jornada-prueba", "Jornada ficticia", "ACTIVA", "AUXILIAR", true, 2,
+            physicalReportConfiguration,
+        )
         val secondJourneyLocation = location.copy(module = "MODULO-2", line = "LINEA-B-1", displayName = "Línea B1")
         val secondJourneyLine = JourneyLine("jornada-prueba-2__linea-b-1", "DISPONIBLE", 0, secondJourneyLocation)
         val secondJourneySnapshot = JourneySnapshot("jornada-prueba-2", "Jornada ficticia 2", listOf(secondJourneyLine))
-        val secondActiveJourney = ActiveJourney("jornada-prueba-2", "Jornada ficticia 2", "ACTIVA", "AUXILIAR", true, 1)
+        val secondActiveJourney = ActiveJourney(
+            "jornada-prueba-2", "Jornada ficticia 2", "ACTIVA", "AUXILIAR", true, 1,
+            approvedDiscardsReportConfiguration,
+        )
         val confirmedReservation = ConfirmedReservation(
             "reserva-prueba", "uid-auxiliar-1", DEVICE_ID, "jornada-prueba", availableLine.id, "EN_CONTEO",
             "2026-07-13T12:00:00.000Z", 1, location,
@@ -567,7 +643,7 @@ class CampoViewModelTest {
             journeyLineId = availableLine.id,
             version = 1,
             reason = "Recontar la línea completa.",
-            input = CountInput("450", "320", "210", "Conteo original"),
+            input = CountInput("450", "320", "210", "Conteo original", "11"),
             location = location,
         )
         val correctionReservation = ConfirmedReservation(

@@ -20,6 +20,7 @@ export const CALLABLE_NAMES = Object.freeze([
   "cancelarJornadaBorrador",
   "reabrirJornadaCancelada",
   "cerrarJornada",
+  "reintentarCierreJornada",
   "activarJornada",
   "listarParticipantesJornadaBorrador",
   "actualizarParticipantesJornadaBorrador",
@@ -38,6 +39,8 @@ export const CALLABLE_NAMES = Object.freeze([
   "registrarDescarte",
   "aprobarDescarte",
   "devolverDescarte",
+  "listarInformesInventario",
+  "reintentarInformeInventario",
 ] as const);
 
 export type RuntimeEnvironment = "EMULATOR" | "PRODUCTION";

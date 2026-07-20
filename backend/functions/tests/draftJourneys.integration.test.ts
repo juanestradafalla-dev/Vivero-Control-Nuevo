@@ -215,6 +215,11 @@ describe("jornadas en borrador mediante Auth, Functions y Firestore Emulator", (
     );
     await expectRejectCode(updateLines(supervisor, DRAFT_JOURNEY_ID, ["LINEA-PRUEBA-1"]),
       "LINE_ALREADY_IN_ACTIVE_JOURNEY");
+    await adminDatabase().collection("jornadas").doc(ACTIVE_JOURNEY_ID).update({
+      estadoAdministrativo: "CERRANDO"
+    });
+    await expectRejectCode(updateLines(supervisor, DRAFT_JOURNEY_ID, ["LINEA-PRUEBA-1"]),
+      "LINE_ALREADY_IN_ACTIVE_JOURNEY");
   });
 
   it("rechaza editar una jornada activa y recupera actualizacion idempotente", async () => {

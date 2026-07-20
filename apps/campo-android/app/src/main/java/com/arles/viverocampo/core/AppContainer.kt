@@ -48,6 +48,7 @@ class AppContainer private constructor(
                     ViveroCampoDatabase.MIGRATION_1_2,
                     ViveroCampoDatabase.MIGRATION_2_3,
                     ViveroCampoDatabase.MIGRATION_3_4,
+                    ViveroCampoDatabase.MIGRATION_4_5,
                 ).build()
                 FirebaseCampoRepository(
                     services,

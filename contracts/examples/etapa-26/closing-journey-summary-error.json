@@ -1,0 +1,23 @@
+{
+  "jornadaId": "JORNADA-CIERRE-DURABLE-26",
+  "nombreVisible": "Cierre durable ficticio",
+  "estado": "CERRANDO",
+  "creadorUsuarioId": "uid-supervisor",
+  "creadorNombreVisible": "Supervisor ficticio",
+  "version": 8,
+  "trabajoCierreId": "JORNADA-CIERRE-DURABLE-26",
+  "estadoTrabajo": "ERROR",
+  "fase": "OCUPACIONES",
+  "cursor": 100,
+  "cantidadLineas": 271,
+  "cantidadOcupaciones": 271,
+  "cantidadAutorizaciones": 3,
+  "lineasProcesadas": 271,
+  "ocupacionesProcesadas": 100,
+  "autorizacionesProcesadas": 0,
+  "intentos": 5,
+  "puedeReintentar": true,
+  "errorCodigo": "JOURNEY_CLOSE_PROCESSING_FAILED",
+  "errorMensaje": "El lote no pudo completarse; puede reanudarse de forma segura.",
+  "actualizadaEn": "2026-07-31T21:05:00.000Z"
+}

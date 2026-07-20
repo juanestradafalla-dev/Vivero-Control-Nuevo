@@ -20,7 +20,9 @@
           "puedeContar": {"type": "boolean"},
           "cantidadLineas": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
           "version": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
-          "puedeCerrar": {"type": "boolean"}
+          "puedeCerrar": {"type": "boolean"},
+          "configuracionInformeInventario": {"$ref": "inventory-report-configuration.schema.json"},
+          "cantidadDescartesPendientes": {"type": "integer", "minimum": 0, "maximum": 9007199254740991}
         }
       }
     }

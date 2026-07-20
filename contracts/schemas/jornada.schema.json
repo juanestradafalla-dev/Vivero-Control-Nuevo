@@ -18,11 +18,17 @@
     "cantidadParticipantesSeleccionados": {"type": "integer", "minimum": 0, "maximum": 200},
     "creadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
     "actualizadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "configuracionInformeInventario": {"$ref": "inventory-report-configuration.schema.json"},
+    "informeInventarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "activadaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "activadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
     "entorno": {"type": "string", "minLength": 1, "maxLength": 120},
     "cerradaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
     "cerradaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "trabajoCierreId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "huellaCierre": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "cierreIniciadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "cierreIniciadoPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "tipoInactivacion": {"type": ["string", "null"], "enum": ["CANCELACION_BORRADOR", null]},
     "cancelacionVigenteId": {"oneOf": [{"$ref": "comun.schema.json#/$defs/idGlobal"}, {"type": "null"}]},
     "ultimaCancelacionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
@@ -33,5 +39,22 @@
     "reabiertaPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "reabiertaPorNombreVisible": {"type": "string", "minLength": 1, "maxLength": 200},
     "reabiertaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"estadoAdministrativo": {"const": "CERRANDO"}},
+        "required": ["estadoAdministrativo"]
+      },
+      "then": {
+        "properties": {
+          "trabajoCierreId": true,
+          "huellaCierre": true,
+          "cierreIniciadoEn": true,
+          "cierreIniciadoPorUsuarioId": true
+        },
+        "required": ["trabajoCierreId", "huellaCierre", "cierreIniciadoEn", "cierreIniciadoPorUsuarioId"]
+      }
+    }
+  ]
 }

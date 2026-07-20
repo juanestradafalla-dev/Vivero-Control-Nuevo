@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/inventory-report-configuration.schema.json",
+  "title": "Configuracion de informe de inventario",
+  "type": "object",
+  "minProperties": 4,
+  "maxProperties": 4,
+  "additionalProperties": false,
+  "required": ["habilitado", "mes", "anio", "fuentePlantasMuertas"],
+  "properties": {
+    "habilitado": {"const": true},
+    "mes": {"type": "integer", "minimum": 1, "maximum": 12},
+    "anio": {"type": "integer", "minimum": 2000, "maximum": 2100},
+    "fuentePlantasMuertas": {"enum": ["CONTEO_FISICO", "DESCARTES_APROBADOS"]}
+  }
+}

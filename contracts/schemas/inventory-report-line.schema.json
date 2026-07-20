@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/inventory-report-line.schema.json",
+  "title": "Linea congelada para informe de inventario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["jornadaLineaId", "lineaId", "conteoId", "ubicacion", "hembras", "machos", "patrones", "total", "plantasMuertas", "conteoRecibidoEn"],
+  "properties": {
+    "jornadaLineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "lineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "conteoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "ubicacion": {"$ref": "comun.schema.json#/$defs/ubicacionVisible"},
+    "hembras": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "machos": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "patrones": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "total": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "plantasMuertas": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "conteoRecibidoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "observaciones": {"type": "string", "maxLength": 4000}
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/descarte.schema.json",
+  "title": "Descarte inmutable pendiente o revisado",
+  "type": "object",
+  "additionalProperties": false,
+  "dependentRequired": {
+    "jornadaId": ["jornadaLineaId"],
+    "jornadaLineaId": ["jornadaId"]
+  },
+  "required": ["id", "lineaId", "ubicacion", "autorUsuarioId", "autorNombreVisible", "rolEfectivo", "dispositivoId", "hembras", "machos", "patrones", "totalUnico", "causas", "versionInventarioObservada", "estado", "claveIdempotencia", "timestampDispositivo", "recibidoEn", "capturaInmutable"],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "lineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaLineaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "ubicacion": {"$ref": "comun.schema.json#/$defs/ubicacionVisible"},
+    "autorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "autorNombreVisible": {"type": "string", "minLength": 1, "maxLength": 240},
+    "rolEfectivo": {"$ref": "../enums/roles.json"},
+    "dispositivoId": {"type": "string", "minLength": 3, "maxLength": 200},
+    "hembras": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "machos": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "patrones": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "totalUnico": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "causas": {"$ref": "register-discard-request.schema.json#/$defs/causas"},
+    "observaciones": {"type": "string", "maxLength": 4000},
+    "versionInventarioObservada": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "estado": {"enum": ["PENDIENTE_REVISION", "APROBADO", "DEVUELTO"]},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"},
+    "timestampDispositivo": {"type": "string", "format": "date-time"},
+    "recibidoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "capturaInmutable": {"const": true},
+    "decisionId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "movimientoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "motivoDevolucion": {"type": "string", "minLength": 1, "maxLength": 2000},
+    "revisadoPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "revisadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

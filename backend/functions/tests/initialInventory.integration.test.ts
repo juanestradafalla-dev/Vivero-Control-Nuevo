@@ -165,14 +165,17 @@ describe("registrarInventarioInicial mediante emuladores reales", () => {
     expect((await db.collection("cargasInventarioInicial").doc(FREE_CATALOG_LINE_ID).get()).exists).toBe(false);
   });
 
-  it("recupera idempotencia, detecta conflicto y dos claves concurrentes tienen un ganador", async () => {
+  it("recupera idempotencia y detecta conflicto de payload", async () => {
     const admin = await client("administrador@prueba.local", "idempotency");
-    const db = database();
     const request = {lineaId: FREE_CATALOG_LINE_ID, claveIdempotencia: "inventario-idempotente-etapa-17-0001"};
     const first = await register(admin.functions, request);
     expect(await register(admin.functions, request)).toEqual(first);
     await expectCode(register(admin.functions, {...request, hembras: 101}), "IDEMPOTENCY_CONFLICT");
+  });
 
+  it("serializa dos administradores concurrentes con un solo ganador", async () => {
+    const admin = await client("administrador@prueba.local", "first-concurrent-admin");
+    const db = database();
     await db.collection("usuarios").doc("uid-supervisor-2").update({roles: ["ADMINISTRADOR"]});
     const secondAdmin = await client("supervisor2@prueba.local", "second-concurrent-admin");
     const attempts = await Promise.allSettled([

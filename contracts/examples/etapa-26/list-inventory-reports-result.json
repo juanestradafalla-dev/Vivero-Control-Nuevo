@@ -1,0 +1,19 @@
+{
+  "informes": [
+    {
+      "informeId": "JORNADA-ACTIVA-INFORME-26",
+      "jornadaId": "JORNADA-ACTIVA-INFORME-26",
+      "jornadaNombreVisible": "Inventario ficticio julio 2026",
+      "mes": 7,
+      "anio": 2026,
+      "fuentePlantasMuertas": "CONTEO_FISICO",
+      "estado": "COMPLETADO",
+      "intentos": 1,
+      "archivoNombre": "INVENTARIO JULIO 2026.xlsx",
+      "archivoEnlace": "https://drive.example.invalid/archivo-ficticio-26",
+      "creadoEn": "2026-07-31T21:00:00.000Z",
+      "actualizadoEn": "2026-07-31T21:00:03.000Z",
+      "finalizadoEn": "2026-07-31T21:00:03.000Z"
+    }
+  ]
+}

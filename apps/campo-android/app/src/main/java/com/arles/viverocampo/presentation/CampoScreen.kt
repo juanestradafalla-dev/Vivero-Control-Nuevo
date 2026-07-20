@@ -32,6 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.arles.viverocampo.domain.JourneyLine
 import com.arles.viverocampo.domain.ActiveJourney
 import com.arles.viverocampo.domain.CampoEnvironment
+import com.arles.viverocampo.domain.DeadPlantsSource
 import com.arles.viverocampo.domain.ReturnedCount
 import com.arles.viverocampo.domain.SyncState
 
@@ -71,6 +72,7 @@ fun CampoRoute(viewModel: CampoViewModel) {
         onFemalesChange = viewModel::updateFemales,
         onMalesChange = viewModel::updateMales,
         onRootstocksChange = viewModel::updateRootstocks,
+        onDeadPlantsChange = viewModel::updateDeadPlants,
         onObservationsChange = viewModel::updateObservations,
         onRequestCountConfirmation = viewModel::requestCountConfirmation,
         onCancelCountConfirmation = viewModel::cancelCountConfirmation,
@@ -116,6 +118,7 @@ private fun CampoScreen(
     onFemalesChange: (String) -> Unit,
     onMalesChange: (String) -> Unit,
     onRootstocksChange: (String) -> Unit,
+    onDeadPlantsChange: (String) -> Unit,
     onObservationsChange: (String) -> Unit,
     onRequestCountConfirmation: () -> Unit,
     onCancelCountConfirmation: () -> Unit,
@@ -195,6 +198,7 @@ private fun CampoScreen(
                     onFemalesChange,
                     onMalesChange,
                     onRootstocksChange,
+                    onDeadPlantsChange,
                     onObservationsChange,
                     onRequestCountConfirmation,
                     onRetry,
@@ -242,6 +246,9 @@ private fun CampoScreen(
                     Text("Hembras: ${state.countInput.females}")
                     Text("Machos: ${state.countInput.males}")
                     Text("Patrones: ${state.countInput.rootstocks}")
+                    if (state.requiresPhysicalDeadPlants) {
+                        Text("Plantas muertas: ${state.countInput.deadPlants}")
+                    }
                     Text("Total: ${state.countTotal ?: 0}", fontWeight = FontWeight.Bold)
                     Text("Observaciones: ${state.countInput.observations.ifBlank { "Sin observaciones" }}")
                     Text("Responsable: ${state.user?.name.orEmpty()}")
@@ -572,6 +579,7 @@ private fun CountContent(
     onFemalesChange: (String) -> Unit,
     onMalesChange: (String) -> Unit,
     onRootstocksChange: (String) -> Unit,
+    onDeadPlantsChange: (String) -> Unit,
     onObservationsChange: (String) -> Unit,
     onRequestCountConfirmation: () -> Unit,
     onRetry: () -> Unit,
@@ -620,6 +628,23 @@ private fun CountContent(
         item { QuantityField("Hembras", state.countInput.females, state.countErrors.females, editable, onFemalesChange) }
         item { QuantityField("Machos", state.countInput.males, state.countErrors.males, editable, onMalesChange) }
         item { QuantityField("Patrones", state.countInput.rootstocks, state.countErrors.rootstocks, editable, onRootstocksChange) }
+        if (state.requiresPhysicalDeadPlants) {
+            item {
+                QuantityField(
+                    "Plantas muertas",
+                    state.countInput.deadPlants,
+                    state.countErrors.deadPlants,
+                    editable,
+                    onDeadPlantsChange,
+                )
+                Text(
+                    "Las plantas muertas se registran para el informe y no forman parte del total vivo.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        } else {
+            item { DeadPlantsSourceNotice(state) }
+        }
         item {
             OutlinedTextField(
                 value = state.countInput.observations,
@@ -681,6 +706,27 @@ private fun CountContent(
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text(if (state.countDraft?.frozenPayload == null) "Revisar y confirmar" else "Esperando conexión") }
             }
+        }
+    }
+}
+
+@Composable
+private fun DeadPlantsSourceNotice(state: CampoUiState) {
+    val configuration = state.inventoryReportConfiguration
+    val message = when {
+        configuration == null ->
+            "Esta jornada no tiene configuración de informe; plantas muertas no se capturan ni se envían."
+        !configuration.enabled ->
+            "El informe de inventario no está habilitado; plantas muertas no se capturan ni se envían."
+        configuration.deadPlantsSource == DeadPlantsSource.DESCARTES_APROBADOS ->
+            "Plantas muertas se calcularán desde descartes aprobados; no se capturan en este conteo."
+        else -> ""
+    }
+    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD))) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Informe de inventario", fontWeight = FontWeight.Bold)
+            if (configuration != null) Text("Periodo: ${configuration.month}/${configuration.year}")
+            Text(message)
         }
     }
 }
@@ -774,6 +820,9 @@ private fun JourneyContent(
                             "Referencia editable · H ${returned.input.females} · M ${returned.input.males} · " +
                                 "P ${returned.input.rootstocks}",
                         )
+                        if (state.requiresPhysicalDeadPlants && returned.input.deadPlants.isNotBlank()) {
+                            Text("Plantas muertas: ${returned.input.deadPlants}")
+                        }
                         if (returned.canCorrect) {
                             Button(
                             onClick = { onCorrectCount(returned) },

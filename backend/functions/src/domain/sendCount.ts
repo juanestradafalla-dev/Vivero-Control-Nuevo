@@ -3,6 +3,7 @@ import {createHash, randomUUID, timingSafeEqual} from "node:crypto";
 import {Timestamp, type Firestore} from "firebase-admin/firestore";
 
 import type {
+  InventoryReportConfiguration,
   SendCountRequest,
   SendCountResult,
   TrustedOperationContext,
@@ -41,6 +42,7 @@ interface CountDocument {
 
 interface JourneyDocument {
   readonly estadoAdministrativo?: string;
+  readonly configuracionInformeInventario?: unknown;
 }
 
 interface AuthorizationDocument {
@@ -75,6 +77,30 @@ function isRole(value: unknown): value is UserRole {
   return typeof value === "string" && allowedRoles.has(value as UserRole);
 }
 
+function inventoryReportConfiguration(value: unknown): InventoryReportConfiguration | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw domainErrors.inventoryReportConfigurationInvalid();
+  }
+  const configuration = value as Record<string, unknown>;
+  if (
+    Object.keys(configuration).length !== 4 ||
+    Object.keys(configuration).some((field) =>
+      !["habilitado", "mes", "anio", "fuentePlantasMuertas"].includes(field)
+    ) ||
+    configuration.habilitado !== true ||
+    !Number.isSafeInteger(configuration.mes) || (configuration.mes as number) < 1 ||
+    (configuration.mes as number) > 12 ||
+    !Number.isSafeInteger(configuration.anio) || (configuration.anio as number) < 2000 ||
+    (configuration.anio as number) > 2100 ||
+    (configuration.fuentePlantasMuertas !== "CONTEO_FISICO" &&
+      configuration.fuentePlantasMuertas !== "DESCARTES_APROBADOS")
+  ) {
+    throw domainErrors.inventoryReportConfigurationInvalid();
+  }
+  return configuration as unknown as InventoryReportConfiguration;
+}
+
 function isLocation(value: unknown): value is VisibleLocation {
   if (typeof value !== "object" || value === null) return false;
   const location = value as Record<string, unknown>;
@@ -98,6 +124,7 @@ function hashPayload(request: SendCountRequest): string {
     machos: request.machos,
     observaciones: request.observaciones ?? null,
     patrones: request.patrones,
+    plantasMuertas: request.plantasMuertas ?? null,
     reservaId: request.reservaId,
     timestampDispositivo: request.timestampDispositivo,
     tokenReservaHash: sha256(request.tokenReserva)
@@ -157,8 +184,15 @@ export class SendCountService {
       const lineSnapshot = centralSnapshots[2];
       if (!journeySnapshot || !authorizationSnapshot || !lineSnapshot) throw domainErrors.internal();
       if (!journeySnapshot.exists) throw domainErrors.journeyNotFound();
-      if ((journeySnapshot.data() as JourneyDocument).estadoAdministrativo !== "ACTIVA") {
+      const journey = journeySnapshot.data() as JourneyDocument;
+      if (journey.estadoAdministrativo !== "ACTIVA") {
         throw domainErrors.journeyNotActive();
+      }
+      const reportConfiguration = inventoryReportConfiguration(journey.configuracionInformeInventario);
+      if (reportConfiguration?.fuentePlantasMuertas === "CONTEO_FISICO") {
+        if (request.plantasMuertas === undefined) throw domainErrors.countDeadPlantsRequired();
+      } else if (request.plantasMuertas !== undefined) {
+        throw domainErrors.countDeadPlantsNotAllowed();
       }
       if (!authorizationSnapshot.exists) throw domainErrors.journeyAccessDenied();
       const authorization = authorizationSnapshot.data() as AuthorizationDocument;
@@ -227,6 +261,7 @@ export class SendCountService {
         hembras: request.hembras,
         machos: request.machos,
         patrones: request.patrones,
+        ...(request.plantasMuertas === undefined ? {} : {plantasMuertas: request.plantasMuertas}),
         total,
         versionConteo: countVersion,
         versionLinea: nextLineVersion,
@@ -248,6 +283,7 @@ export class SendCountService {
         hembras: request.hembras,
         machos: request.machos,
         patrones: request.patrones,
+        ...(request.plantasMuertas === undefined ? {} : {plantasMuertas: request.plantasMuertas}),
         total,
         ...(request.observaciones === undefined ? {} : {observaciones: request.observaciones}),
         versionNumero: countVersion,

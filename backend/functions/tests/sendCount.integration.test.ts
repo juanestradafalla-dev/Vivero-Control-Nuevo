@@ -160,6 +160,58 @@ describe("enviarConteo mediante Auth, Functions y Firestore Emulator", () => {
     expect(result.total).toBe(0);
   });
 
+  it("exige y congela plantas muertas solo para CONTEO_FISICO sin alterar el total vivo", async () => {
+    const client = await authenticatedClient();
+    await adminDatabase().collection("jornadas").doc(ACTIVE_JOURNEY_ID).update({
+      configuracionInformeInventario: {
+        habilitado: true,
+        mes: 7,
+        anio: 2026,
+        fuentePlantasMuertas: "CONTEO_FISICO"
+      }
+    });
+    const reservation = await reserve(client.functions);
+    await expectRejectCode(send(client.functions, payload(
+      reservation, "enviar-fisico-sin-muertas-0001"
+    )), "COUNT_DEAD_PLANTS_REQUIRED");
+
+    const result = await send(client.functions, {
+      ...payload(reservation, "enviar-fisico-con-muertas-0001"),
+      plantasMuertas: 27
+    });
+    const count = await adminDatabase().collection("conteos").doc(result.conteoId).get();
+    expect(result).toMatchObject({plantasMuertas: 27, total: 980});
+    expect(count.data()).toMatchObject({plantasMuertas: 27, total: 980, inmutable: true});
+  });
+
+  it("rechaza plantas muertas para DESCARTES_APROBADOS y jornadas antiguas", async () => {
+    const client = await authenticatedClient();
+    const database = adminDatabase();
+    await database.collection("jornadas").doc(ACTIVE_JOURNEY_ID).update({
+      configuracionInformeInventario: {
+        habilitado: true,
+        mes: 7,
+        anio: 2026,
+        fuentePlantasMuertas: "DESCARTES_APROBADOS"
+      }
+    });
+    let reservation = await reserve(client.functions);
+    await expectRejectCode(send(client.functions, {
+      ...payload(reservation, "enviar-descartes-con-muertas-0001"),
+      plantasMuertas: 1
+    }), "COUNT_DEAD_PLANTS_NOT_ALLOWED");
+    await expect(send(client.functions, payload(
+      reservation, "enviar-descartes-sin-muertas-0001"
+    ))).resolves.not.toHaveProperty("plantasMuertas");
+
+    await seedEmulator();
+    reservation = await reserve(client.functions);
+    await expectRejectCode(send(client.functions, {
+      ...payload(reservation, "enviar-antigua-con-muertas-0001"),
+      plantasMuertas: 1
+    }), "COUNT_DEAD_PLANTS_NOT_ALLOWED");
+  });
+
   it.each([
     ["negativos", {hembras: -1}],
     ["decimales", {machos: 1.5}],

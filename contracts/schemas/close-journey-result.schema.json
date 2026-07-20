@@ -1,25 +1,80 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vivero-control.local/contracts/schemas/close-journey-result.schema.json",
-  "title": "Resultado cerrarJornada",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "jornadaId",
-    "estado",
-    "version",
-    "cantidadLineas",
-    "cantidadAutorizaciones",
-    "ocupacionesLiberadas",
-    "cerradaEn"
+  "title": "Resultado compatible de cerrarJornada",
+  "description": "Los cierres durables nuevos devuelven CERRANDO. INACTIVA se conserva para resultados historicos ya persistidos.",
+  "oneOf": [
+    {"$ref": "#/$defs/cerrando"},
+    {"$ref": "#/$defs/inactivaHistorica"}
   ],
-  "properties": {
-    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
-    "estado": {"const": "INACTIVA"},
-    "version": {"type": "integer", "minimum": 2, "maximum": 9007199254740991},
-    "cantidadLineas": {"type": "integer", "minimum": 0, "maximum": 200},
-    "cantidadAutorizaciones": {"type": "integer", "minimum": 0, "maximum": 200},
-    "ocupacionesLiberadas": {"type": "integer", "minimum": 0, "maximum": 200},
-    "cerradaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  "$defs": {
+    "cerrando": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "jornadaId",
+        "estado",
+        "version",
+        "trabajoCierreId",
+        "huellaAlcance",
+        "cantidadLineas",
+        "cantidadAutorizaciones",
+        "cantidadOcupaciones",
+        "fase",
+        "cursor",
+        "lineasProcesadas",
+        "ocupacionesProcesadas",
+        "autorizacionesProcesadas",
+        "intentos",
+        "iniciadoEn",
+        "actualizadoEn"
+      ],
+      "properties": {
+        "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+        "estado": {"const": "CERRANDO"},
+        "version": {"type": "integer", "minimum": 2, "maximum": 9007199254740991},
+        "trabajoCierreId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+        "huellaAlcance": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "cantidadLineas": {"type": "integer", "minimum": 0, "maximum": 400},
+        "cantidadAutorizaciones": {"type": "integer", "minimum": 0, "maximum": 400},
+        "cantidadOcupaciones": {"type": "integer", "minimum": 0, "maximum": 400},
+        "fase": {"enum": ["LINEAS", "OCUPACIONES", "AUTORIZACIONES", "FINALIZAR"]},
+        "cursor": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+        "lineasProcesadas": {"type": "integer", "minimum": 0, "maximum": 400},
+        "ocupacionesProcesadas": {"type": "integer", "minimum": 0, "maximum": 400},
+        "autorizacionesProcesadas": {"type": "integer", "minimum": 0, "maximum": 400},
+        "intentos": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+        "iniciadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+        "actualizadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+      }
+    },
+    "inactivaHistorica": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "jornadaId",
+        "estado",
+        "version",
+        "cantidadLineas",
+        "cantidadAutorizaciones",
+        "ocupacionesLiberadas",
+        "cerradaEn"
+      ],
+      "properties": {
+        "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+        "estado": {"const": "INACTIVA"},
+        "version": {"type": "integer", "minimum": 2, "maximum": 9007199254740991},
+        "cantidadLineas": {"type": "integer", "minimum": 0, "maximum": 400},
+        "cantidadAutorizaciones": {"type": "integer", "minimum": 0, "maximum": 400},
+        "ocupacionesLiberadas": {"type": "integer", "minimum": 0, "maximum": 400},
+        "cerradaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+        "informeInventario": {
+          "allOf": [
+            {"$ref": "inventory-report-summary.schema.json"},
+            {"type": "object", "properties": {"estado": {"const": "PENDIENTE"}}, "required": ["estado"]}
+          ]
+        }
+      }
+    }
   }
 }

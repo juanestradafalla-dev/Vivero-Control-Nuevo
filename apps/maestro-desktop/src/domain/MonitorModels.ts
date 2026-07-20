@@ -1,5 +1,42 @@
 export type MonitorRole = "AUXILIAR" | "SUPERVISOR" | "ADMINISTRADOR";
 
+export interface InventoryReportConfiguration {
+  readonly habilitado: boolean;
+  readonly mes: number;
+  readonly anio: number;
+  readonly fuentePlantasMuertas: "CONTEO_FISICO" | "DESCARTES_APROBADOS";
+}
+
+export type InventoryReportStatus =
+  | "PENDIENTE"
+  | "PROCESANDO"
+  | "COMPLETADO"
+  | "ERROR_REINTENTABLE"
+  | "ERROR_PERMANENTE";
+
+export interface InventoryReportSummary {
+  readonly informeId: string;
+  readonly jornadaId: string;
+  readonly jornadaNombreVisible: string;
+  readonly mes: number;
+  readonly anio: number;
+  readonly fuentePlantasMuertas: InventoryReportConfiguration["fuentePlantasMuertas"];
+  readonly estado: InventoryReportStatus;
+  readonly intentos: number;
+  readonly errorCodigo?: string;
+  readonly errorMensaje?: string;
+  readonly archivoNombre?: string;
+  readonly archivoEnlace?: string;
+  readonly creadoEn: string;
+  readonly actualizadoEn: string;
+  readonly finalizadoEn?: string;
+}
+
+export interface RetryInventoryReportRequest {
+  readonly jornadaId: string;
+  readonly claveIdempotencia: string;
+}
+
 export interface MonitorUser {
   readonly id: string;
   readonly displayName: string;
@@ -21,6 +58,8 @@ export interface MonitorJourney {
   readonly lineCount: number;
   readonly version: number;
   readonly canClose: boolean;
+  readonly configuracionInformeInventario?: InventoryReportConfiguration;
+  readonly cantidadDescartesPendientes?: number;
 }
 
 export interface MonitorLocation {
@@ -49,6 +88,7 @@ export interface MonitorCount {
   readonly females: number;
   readonly males: number;
   readonly rootstocks: number;
+  readonly deadPlants?: number;
   readonly total: number;
   readonly observations?: string;
   readonly deviceTimestamp: string;
@@ -144,21 +184,54 @@ export interface ManageableDraftJourney {
   readonly lineIds: readonly string[];
   readonly createdAt: string;
   readonly updatedAt: string;
+  readonly configuracionInformeInventario?: InventoryReportConfiguration;
 }
 
 export interface DraftCatalogLine {
   readonly id: string;
   readonly displayName: string;
   readonly selectable: boolean;
-  readonly unavailableReason?: "JORNADA_ACTIVA" | "LINEA_INACTIVA";
+  readonly unavailableReason?: "JORNADA_ACTIVA" | "JORNADA_CERRANDO" | "LINEA_INACTIVA";
   readonly location: MonitorLocation;
 }
 
 export interface ManageableJourneysData {
   readonly journeys: readonly ManageableDraftJourney[];
+  readonly closingJourneys: readonly ClosingJourney[];
   readonly cancelledJourneys: readonly CancelledDraftJourney[];
   readonly catalogLines: readonly DraftCatalogLine[];
 }
+
+export type CloseWorkStatus = "PENDIENTE" | "PROCESANDO" | "ERROR";
+export type CloseWorkPhase = "LINEAS" | "OCUPACIONES" | "AUTORIZACIONES" | "FINALIZAR";
+
+export interface ClosingJourney {
+  readonly id: string;
+  readonly displayName: string;
+  readonly state: "CERRANDO";
+  readonly creatorUserId: string;
+  readonly creatorDisplayName: string;
+  readonly version: number;
+  readonly closeWorkId: string;
+  readonly closeWorkStatus: CloseWorkStatus;
+  readonly closeWorkPhase: CloseWorkPhase;
+  readonly cursor: number;
+  readonly lineCount: number;
+  readonly occupationCount: number;
+  readonly authorizationCount: number;
+  readonly processedLines: number;
+  readonly processedOccupations: number;
+  readonly processedAuthorizations: number;
+  readonly attempts: number;
+  readonly canRetry: boolean;
+  readonly errorCode?: string;
+  readonly errorMessage?: string;
+  readonly updatedAt: string;
+}
+
+export type CloseJourneyOutcome =
+  | {readonly state: "CERRANDO"; readonly version: number}
+  | {readonly state: "INACTIVA"; readonly version: number};
 
 export interface DraftParticipantCandidate {
   readonly id: string;
@@ -187,6 +260,7 @@ export interface CancelledDraftJourney {
   readonly cancelledAt: string;
   readonly createdAt: string;
   readonly updatedAt: string;
+  readonly configuracionInformeInventario?: InventoryReportConfiguration;
 }
 
 export interface DraftParticipantsData {
@@ -383,7 +457,11 @@ export interface MonitorRepository {
   ): MonitorUnsubscribe;
   listActiveJourneys(): Promise<readonly MonitorJourney[]>;
   listManageableJourneys(): Promise<ManageableJourneysData>;
-  createDraftJourney(displayName: string, idempotencyKey: string): Promise<ManageableDraftJourney>;
+  createDraftJourney(
+    displayName: string,
+    configuracionInformeInventario: InventoryReportConfiguration | undefined,
+    idempotencyKey: string,
+  ): Promise<ManageableDraftJourney>;
   updateDraftJourneyLines(
     journeyId: string,
     lineIds: readonly string[],
@@ -481,7 +559,18 @@ export interface MonitorRepository {
     reason: string,
     idempotencyKey: string,
   ): Promise<MigrationReversalResult>;
-  closeJourney(journeyId: string, expectedVersion: number, idempotencyKey: string): Promise<void>;
+  closeJourney(
+    journeyId: string,
+    expectedVersion: number,
+    idempotencyKey: string,
+  ): Promise<CloseJourneyOutcome>;
+  retryClosingJourney(
+    journeyId: string,
+    expectedVersion: number,
+    idempotencyKey: string,
+  ): Promise<CloseJourneyOutcome & {readonly state: "CERRANDO"}>;
+  listInventoryReports(): Promise<{readonly informes: readonly InventoryReportSummary[]}>;
+  retryInventoryReport(request: RetryInventoryReportRequest): Promise<void>;
   approveCount(countId: string, idempotencyKey: string, exceptionReason?: string): Promise<void>;
   returnCount(countId: string, reason: string, idempotencyKey: string): Promise<void>;
   approveDiscard(discardId: string, idempotencyKey: string, exceptionReason?: string): Promise<void>;

@@ -7,6 +7,7 @@
   "required": ["nombreVisible", "claveIdempotencia"],
   "properties": {
     "nombreVisible": {"type": "string", "minLength": 1, "maxLength": 200, "pattern": ".*\\S.*"},
+    "configuracionInformeInventario": {"$ref": "inventory-report-configuration.schema.json"},
     "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}
   }
 }

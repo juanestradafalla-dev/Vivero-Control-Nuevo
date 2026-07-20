@@ -11,6 +11,7 @@ import type {
 import {sortMonitorLines} from "../domain/MonitorModels";
 import {CatalogSection} from "./CatalogSection";
 import {DraftJourneysSection} from "./DraftJourneysSection";
+import {InventoryReportsSection} from "./InventoryReportsSection";
 import {DiscardsSection} from "./DiscardsSection";
 import {MigrationValidationSection} from "./MigrationValidationSection";
 import {UsersSection} from "./UsersSection";
@@ -70,7 +71,7 @@ export function App({repository}: AppProps) {
   const [password, setPassword] = useState("");
   const [user, setUser] = useState<MonitorUser>();
   const [activeSection, setActiveSection] = useState<
-    "MONITOR" | "DISCARDS" | "JOURNEYS" | "USERS" | "CATALOG" | "MIGRATION"
+    "MONITOR" | "DISCARDS" | "JOURNEYS" | "REPORTS" | "USERS" | "CATALOG" | "MIGRATION"
   >("MONITOR");
   const [journeys, setJourneys] = useState<readonly MonitorJourney[]>([]);
   const [selectedJourneyId, setSelectedJourneyId] = useState<string>();
@@ -372,6 +373,10 @@ export function App({repository}: AppProps) {
         ...(pendingCount > 0 ? [`${pendingCount} línea(s) todavía no tienen estado APROBADA.`] : []),
         ...(activeReservationCount > 0 ? [`${activeReservationCount} reserva(s) activa(s).`] : []),
         ...(pendingCorrectionCount > 0 ? [`${pendingCorrectionCount} corrección(es) o reasignación(es) pendiente(s).`] : []),
+        ...(selectedJourney?.configuracionInformeInventario?.fuentePlantasMuertas === "DESCARTES_APROBADOS" &&
+          (selectedJourney.cantidadDescartesPendientes ?? 0) > 0
+          ? [`${selectedJourney.cantidadDescartesPendientes} descarte(s) pendiente(s) de revisión.`]
+          : []),
       ];
 
   const submitCloseJourney = async () => {
@@ -380,14 +385,22 @@ export function App({repository}: AppProps) {
     setError(undefined);
     setCloseDialog({...closeDialog, attempted: true});
     try {
-      await repository.closeJourney(selectedJourney.id, selectedJourney.version, closeDialog.idempotencyKey);
+      const closeOutcome = await repository.closeJourney(
+        selectedJourney.id,
+        selectedJourney.version,
+        closeDialog.idempotencyKey,
+      );
       unsubscribeRef.current?.();
       unsubscribeRef.current = undefined;
       setSelectedJourneyId(undefined);
       setSnapshot(undefined);
       setCloseDialog(undefined);
       setDraftRefreshVersion((version) => version + 1);
-      setNotice("Jornada cerrada. Ya no está disponible en Campo y sus líneas quedaron liberadas.");
+      setNotice(closeOutcome.state === "CERRANDO"
+        ? "Cierre iniciado. La jornada quedó bloqueada para trabajo nuevo y se procesará por fases. Consulta Jornadas para ver el progreso o recuperarla."
+        : selectedJourney.configuracionInformeInventario?.habilitado
+          ? "Jornada cerrada. Ya no está disponible en Campo y sus líneas quedaron liberadas. El informe de inventario quedó pendiente de procesamiento central."
+          : "Jornada cerrada. Ya no está disponible en Campo y sus líneas quedaron liberadas.");
       try {
         setJourneys(await repository.listActiveJourneys());
       } catch {
@@ -395,7 +408,24 @@ export function App({repository}: AppProps) {
         setError("La jornada se cerró, pero no fue posible refrescar la lista activa.");
       }
     } catch (closeError) {
-      setError(closeError instanceof Error ? closeError.message : "No fue posible cerrar la jornada.");
+      const closeMessage = closeError instanceof Error ? closeError.message : "No fue posible cerrar la jornada.";
+      try {
+        const refreshed = await repository.listActiveJourneys();
+        setJourneys(refreshed);
+        if (!refreshed.some((journey) => journey.id === selectedJourney.id)) {
+          unsubscribeRef.current?.();
+          unsubscribeRef.current = undefined;
+          setSelectedJourneyId(undefined);
+          setSnapshot(undefined);
+          setCloseDialog(undefined);
+          setDraftRefreshVersion((version) => version + 1);
+          setError(`${closeMessage} La jornada quedó CERRANDO; consulta Jornadas para ver el progreso o recuperarla.`);
+        } else {
+          setError(closeMessage);
+        }
+      } catch {
+        setError(closeMessage);
+      }
     } finally {
       setClosing(false);
     }
@@ -476,6 +506,20 @@ export function App({repository}: AppProps) {
           >
             Jornadas
           </button>
+          {user.canReview && (
+            <button
+              className={activeSection === "REPORTS" ? "workspace-tab workspace-tab--active" : "workspace-tab"}
+              type="button"
+              onClick={() => {
+                setReviewDialog(undefined);
+                setReassignmentDialog(undefined);
+                setReleaseDialog(undefined);
+                setActiveSection("REPORTS");
+              }}
+            >
+              Informes
+            </button>
+          )}
           {user.canManageUsers && (
             <button
               className={activeSection === "USERS" ? "workspace-tab workspace-tab--active" : "workspace-tab"}
@@ -549,6 +593,8 @@ export function App({repository}: AppProps) {
         <DiscardsSection repository={repository} user={user} />
       ) : activeSection === "USERS" && user.canManageUsers ? (
         <UsersSection repository={repository} currentUser={user} />
+      ) : activeSection === "REPORTS" && user.canReview ? (
+        <InventoryReportsSection repository={repository} />
       ) : activeSection === "CATALOG" && user.canManageCatalog ? (
         <CatalogSection
           repository={repository}
@@ -690,6 +736,7 @@ export function App({repository}: AppProps) {
                             <div><dt>Hembras</dt><dd>{count.females}</dd></div>
                             <div><dt>Machos</dt><dd>{count.males}</dd></div>
                             <div><dt>Patrones</dt><dd>{count.rootstocks}</dd></div>
+                            {count.deadPlants !== undefined && <div><dt>Plantas muertas</dt><dd>{count.deadPlants}</dd></div>}
                             <div><dt>Total</dt><dd><strong>{count.total}</strong></dd></div>
                             <div><dt>Observaciones</dt><dd>{count.observations ?? "Sin observaciones"}</dd></div>
                             <div><dt>Hora dispositivo</dt><dd>{formatTime(count.deviceTimestamp)}</dd></div>
@@ -752,6 +799,7 @@ export function App({repository}: AppProps) {
                             <span>
                               Hembras {version.females} · Machos {version.males} · Patrones {version.rootstocks} · Total {version.total}
                             </span>
+                            {version.deadPlants !== undefined && <span>Plantas muertas {version.deadPlants} · No forman parte del total vivo</span>}
                             <span>Observaciones: {version.observations ?? "Sin observaciones"}</span>
                             {version.returnReason && <span>Motivo de devolución: {version.returnReason}</span>}
                           </article>
@@ -946,6 +994,26 @@ export function App({repository}: AppProps) {
             <h2 id="close-journey-title">Cerrar jornada</h2>
             <div className="inventory-summary" aria-label="Resumen del cierre">
               <strong>{selectedJourney.displayName}</strong>
+              {selectedJourney.configuracionInformeInventario ? (
+                <>
+                  <strong>Informe de inventario</strong>
+                  <span>
+                    {selectedJourney.configuracionInformeInventario.habilitado ? "Habilitado" : "Deshabilitado"}
+                    {selectedJourney.configuracionInformeInventario.habilitado
+                      ? ` · ${selectedJourney.configuracionInformeInventario.mes}/${selectedJourney.configuracionInformeInventario.anio}`
+                      : ""}
+                  </span>
+                  <span>
+                    Fuente de plantas muertas: {selectedJourney.configuracionInformeInventario.fuentePlantasMuertas === "CONTEO_FISICO"
+                      ? "Conteo físico"
+                      : "Descartes aprobados"}
+                  </span>
+                  <span>Al cerrar se creará el trabajo central para generar y subir el informe.</span>
+                  {selectedJourney.configuracionInformeInventario.fuentePlantasMuertas === "DESCARTES_APROBADOS" && (
+                    <span>Descartes pendientes: {selectedJourney.cantidadDescartesPendientes ?? 0}</span>
+                  )}
+                </>
+              ) : <span>Informe de inventario: sin configuración.</span>}
               <span>Líneas aprobadas: {approvedCount}</span>
               <span>Líneas pendientes: {pendingCount}</span>
               <span>Reservas activas: {activeReservationCount}</span>

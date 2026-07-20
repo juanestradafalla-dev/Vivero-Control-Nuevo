@@ -244,6 +244,26 @@ input:focus { outline: 3px solid #9ccca8; border-color: #1b6f3b; }
   padding: 20px;
 }
 
+.report-configuration-fields {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(150px, 1fr));
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #c8d8cc;
+  border-radius: 12px;
+}
+.report-configuration-fields legend { padding: 0 6px; color: #164c32; font-weight: 800; }
+.report-configuration-fields .can-count-toggle, .report-configuration-fields small { grid-column: 1 / -1; }
+.report-grid { display: grid; gap: 14px; }
+.report-card { display: grid; gap: 14px; padding: 18px; border: 1px solid #d6e5d8; border-radius: 14px; background: #fff; }
+.report-card-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.report-card-heading > div { display: grid; gap: 8px; }
+.report-card-heading h2 { margin: 0; color: #164c32; }
+.report-state--pendiente, .report-state--procesando { color: #725514; background: #fff0b8; }
+.report-state--completado { color: #15592b; background: #dff2e4; }
+.report-state--error_reintentable, .report-state--error_permanente { color: #7c2020; background: #fde5e5; }
+
 .draft-layout { display: grid; grid-template-columns: minmax(240px, .34fr) minmax(0, 1fr); gap: 20px; }
 .draft-list, .draft-editor { padding: 20px; border: 1px solid #d6e5d8; border-radius: 18px; background: #fff; }
 .draft-list { display: grid; align-content: start; gap: 10px; }
@@ -352,6 +372,7 @@ input:focus { outline: 3px solid #9ccca8; border-color: #1b6f3b; }
   .monitor-filters { grid-template-columns: 1fr; }
   .workspace-nav { width: min(100% - 28px, 1120px); }
   .draft-create-form, .draft-layout { grid-template-columns: 1fr; }
+  .report-configuration-fields { grid-template-columns: 1fr; }
   .draft-editor-heading { align-items: stretch; flex-direction: column; }
   .draft-heading-actions { justify-content: stretch; }
   .draft-heading-actions .button { flex: 1; }

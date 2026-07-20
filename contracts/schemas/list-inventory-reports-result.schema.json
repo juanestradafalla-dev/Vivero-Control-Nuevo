@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/list-inventory-reports-result.schema.json",
+  "title": "Resultado listarInformesInventario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["informes"],
+  "properties": {
+    "informes": {"type": "array", "items": {"$ref": "inventory-report-summary.schema.json"}}
+  }
+}

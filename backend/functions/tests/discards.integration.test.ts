@@ -114,6 +114,58 @@ afterEach(async () => {
 });
 
 describe("descartes mediante emuladores reales", () => {
+  it("bloquea capturas y decisiones vinculadas mientras la jornada esta CERRANDO", async () => {
+    const auxiliary = await authenticatedClient("auxiliar1@prueba.local", "discard-closing-author");
+    const administrator = await authenticatedClient("administrador@prueba.local", "discard-closing-reviewer");
+    const unassociatedPending = await register(
+      auxiliary.functions,
+      request("registrar-descarte-no-asociado-antes-cierre-0001")
+    );
+    await adminDatabase().collection("jornadas").doc("JORNADA-PRUEBA-ETAPA-3").update({
+      configuracionInformeInventario: {
+        habilitado: true,
+        mes: 7,
+        anio: 2026,
+        fuentePlantasMuertas: "DESCARTES_APROBADOS"
+      }
+    });
+    const associatedPending = await register(auxiliary.functions, request("registrar-descarte-antes-cierre-0001"));
+    const database = adminDatabase();
+    await database.collection("jornadas").doc("JORNADA-PRUEBA-ETAPA-3").update({
+      estadoAdministrativo: "CERRANDO"
+    });
+    await database.collection("trabajosCierreJornada").doc("JORNADA-PRUEBA-ETAPA-3").set({
+      jornadaId: "JORNADA-PRUEBA-ETAPA-3",
+      lineaIds: ["LINEA-PRUEBA-1"],
+      estado: "ERROR"
+    });
+    await database.collection("ocupacionesLineasActivas").doc("LINEA-PRUEBA-1").delete();
+    await database.collection("jornadaLineas")
+      .doc("JORNADA-PRUEBA-ETAPA-3__LINEA-PRUEBA-1").update({activa: false});
+
+    await expectRejectCode(
+      register(auxiliary.functions, request("registrar-descarte-durante-cierre-0001")),
+      "JOURNEY_CLOSE_IN_PROGRESS"
+    );
+    await expectRejectCode(approve(administrator.functions, {
+      descarteId: associatedPending.descarteId,
+      claveIdempotencia: "aprobar-descarte-durante-cierre-0001"
+    }), "JOURNEY_CLOSE_IN_PROGRESS");
+    await expectRejectCode(returnDiscard(administrator.functions, {
+      descarteId: associatedPending.descarteId,
+      motivo: "No debe cambiar durante el cierre durable.",
+      claveIdempotencia: "devolver-descarte-durante-cierre-0001"
+    }), "JOURNEY_CLOSE_IN_PROGRESS");
+    await expectRejectCode(approve(administrator.functions, {
+      descarteId: unassociatedPending.descarteId,
+      claveIdempotencia: "aprobar-descarte-no-asociado-durante-cierre-0001"
+    }), "JOURNEY_CLOSE_IN_PROGRESS");
+    await expectRejectCode(returnDiscard(administrator.functions, {
+      descarteId: unassociatedPending.descarteId,
+      motivo: "La linea sigue congelada aunque el descarte sea anterior.",
+      claveIdempotencia: "devolver-descarte-no-asociado-durante-cierre-0001"
+    }), "JOURNEY_CLOSE_IN_PROGRESS");
+  });
   it("lista líneas con inventario y acepta una captura multicausa", async () => {
     const auxiliary = await authenticatedClient("auxiliar1@prueba.local", "discard-list");
     const listed = (await httpsCallable<Record<string, never>, ListDiscardLinesResult>(
@@ -220,5 +272,47 @@ describe("descartes mediante emuladores reales", () => {
       claveIdempotencia: "aprobar-descarte-self-con-motivo"
     });
     expect(result.estado).toBe("APROBADO");
+  });
+
+  it("deriva la jornada configurada desde la ocupacion activa y nunca desde el cliente", async () => {
+    const auxiliary = await authenticatedClient("auxiliar1@prueba.local", "discard-association");
+    const database = adminDatabase();
+    await database.collection("jornadas").doc("JORNADA-PRUEBA-ETAPA-3").update({
+      configuracionInformeInventario: {
+        habilitado: true,
+        mes: 7,
+        anio: 2026,
+        fuentePlantasMuertas: "DESCARTES_APROBADOS"
+      }
+    });
+
+    const result = await register(auxiliary.functions, request("registrar-descarte-asociado-0001"));
+    const stored = await database.collection("descartes").doc(result.descarteId).get();
+    expect(result).toMatchObject({
+      jornadaId: "JORNADA-PRUEBA-ETAPA-3",
+      jornadaLineaId: "JORNADA-PRUEBA-ETAPA-3__LINEA-PRUEBA-1"
+    });
+    expect(stored.data()).toMatchObject({
+      jornadaId: "JORNADA-PRUEBA-ETAPA-3",
+      jornadaLineaId: "JORNADA-PRUEBA-ETAPA-3__LINEA-PRUEBA-1",
+      capturaInmutable: true
+    });
+    expect((await database.collection("ocupacionesLineasActivas").doc("LINEA-PRUEBA-1").get()).data())
+      .toMatchObject({
+        versionDescartesAsociados: 1,
+        ultimoDescarteAsociadoId: result.descarteId
+      });
+
+    await expectRejectCode(register(auxiliary.functions, {
+      ...request("registrar-descarte-cliente-intenta-asociar-0001"),
+      jornadaId: "JORNADA-FALSA"
+    } as RegisterDiscardRequest), "INVALID_ARGUMENT");
+
+    await database.collection("jornadaLineas")
+      .doc("JORNADA-PRUEBA-ETAPA-3__LINEA-PRUEBA-1").update({activa: false});
+    await expectRejectCode(register(
+      auxiliary.functions,
+      request("registrar-descarte-asociacion-inconsistente-0001")
+    ), "INTERNAL_ERROR");
   });
 });

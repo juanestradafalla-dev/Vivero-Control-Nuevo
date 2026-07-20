@@ -12,7 +12,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         DiscardLineEntity::class,
         DiscardDraftEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class ViveroCampoDatabase : RoomDatabase() {
@@ -148,6 +148,17 @@ abstract class ViveroCampoDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS index_discard_drafts_syncState ON discard_drafts (syncState)",
                 )
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE confirmed_reservations ADD COLUMN inventoryReportEnabled INTEGER")
+                db.execSQL("ALTER TABLE confirmed_reservations ADD COLUMN inventoryReportMonth INTEGER")
+                db.execSQL("ALTER TABLE confirmed_reservations ADD COLUMN inventoryReportYear INTEGER")
+                db.execSQL("ALTER TABLE confirmed_reservations ADD COLUMN inventoryReportDeadPlantsSource TEXT")
+                db.execSQL("ALTER TABLE count_drafts ADD COLUMN deadPlantsInput TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE count_drafts ADD COLUMN frozenDeadPlants INTEGER")
             }
         }
     }

@@ -7,6 +7,7 @@ import com.arles.viverocampo.domain.CampoRepositoryException
 import com.arles.viverocampo.domain.ConfirmedReservation
 import com.arles.viverocampo.domain.JourneySnapshot
 import com.arles.viverocampo.domain.InitiateCountCorrectionPayload
+import com.arles.viverocampo.domain.InventoryReportConfiguration
 import com.arles.viverocampo.domain.ReserveLinePayload
 import com.arles.viverocampo.domain.UserProfile
 import com.arles.viverocampo.domain.CountInput
@@ -37,12 +38,14 @@ class DisabledCampoRepository(
     override suspend fun reserveLine(
         payload: ReserveLinePayload,
         userId: String,
+        inventoryReportConfiguration: InventoryReportConfiguration?,
     ): ConfirmedReservation = unavailable()
 
     override suspend fun initiateCountCorrection(
         payload: InitiateCountCorrectionPayload,
         userId: String,
         initialInput: CountInput,
+        inventoryReportConfiguration: InventoryReportConfiguration?,
     ): ConfirmedReservation = unavailable()
 
     override suspend fun latestActiveReservation(userId: String, deviceId: String): ConfirmedReservation? = null
@@ -61,6 +64,7 @@ class DisabledCampoRepository(
         deviceId: String,
         idempotencyKey: String,
         deviceTimestamp: String,
+        deadPlantsRequired: Boolean,
     ): LocalCountDraft = unavailable()
 
     override suspend fun synchronizeCount(reservationId: String): CountSyncOutcome = unavailable()

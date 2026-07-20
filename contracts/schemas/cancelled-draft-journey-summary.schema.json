@@ -22,6 +22,7 @@
     "motivoCancelacion": {"type": "string", "minLength": 1, "maxLength": 2000},
     "canceladaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
     "creadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
-    "actualizadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+    "actualizadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "configuracionInformeInventario": {"$ref": "inventory-report-configuration.schema.json"}
   }
 }

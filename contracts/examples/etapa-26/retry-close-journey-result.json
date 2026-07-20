@@ -1,0 +1,18 @@
+{
+  "jornadaId": "JORNADA-CIERRE-DURABLE-26",
+  "estado": "CERRANDO",
+  "version": 7,
+  "trabajoCierreId": "JORNADA-CIERRE-DURABLE-26",
+  "huellaAlcance": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "cantidadLineas": 271,
+  "cantidadAutorizaciones": 3,
+  "cantidadOcupaciones": 271,
+  "fase": "OCUPACIONES",
+  "cursor": 200,
+  "lineasProcesadas": 271,
+  "ocupacionesProcesadas": 200,
+  "autorizacionesProcesadas": 0,
+  "intentos": 3,
+  "iniciadoEn": "2026-07-31T21:00:00.000Z",
+  "actualizadoEn": "2026-07-31T21:05:00.000Z"
+}

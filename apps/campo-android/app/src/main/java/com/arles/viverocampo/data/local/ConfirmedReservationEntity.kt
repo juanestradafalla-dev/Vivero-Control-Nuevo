@@ -28,4 +28,8 @@ data class ConfirmedReservationEntity(
     val reservationType: String = "INICIAL",
     val previousCountId: String? = null,
     val nextCountVersion: Int = 1,
+    val inventoryReportEnabled: Boolean? = null,
+    val inventoryReportMonth: Int? = null,
+    val inventoryReportYear: Int? = null,
+    val inventoryReportDeadPlantsSource: String? = null,
 )

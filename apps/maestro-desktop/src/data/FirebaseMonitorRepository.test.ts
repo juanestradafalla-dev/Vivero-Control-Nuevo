@@ -81,6 +81,173 @@ describe("conexión Firebase de Maestro", () => {
     expect(firebase.getFunctions).toHaveBeenCalledWith(firebase.app, "us-central1");
   });
 
+  it("envía la configuración del informe al crear el borrador y la conserva en el resultado", async () => {
+    const configuration = {
+      habilitado: true,
+      mes: 7,
+      anio: 2026,
+      fuentePlantasMuertas: "CONTEO_FISICO" as const,
+    };
+    const invoke = vi.fn().mockResolvedValue({
+      data: {
+        jornadaId: "JORNADA-BORRADOR-INFORME-1",
+        nombreVisible: "Jornada con informe",
+        estado: "BORRADOR",
+        creadorUsuarioId: "uid-supervisor",
+        creadorNombreVisible: "Supervisor Pruebas",
+        version: 1,
+        lineaIds: [],
+        creadaEn: "2026-07-18T12:00:00.000Z",
+        actualizadaEn: "2026-07-18T12:00:00.000Z",
+        configuracionInformeInventario: configuration,
+      },
+    });
+    firebase.httpsCallable.mockReturnValue(invoke);
+    const repository = FirebaseMonitorRepository.create(config("EMULATOR"));
+
+    await expect(repository.createDraftJourney(
+      "Jornada con informe",
+      configuration,
+      "idempotencia-informe-0001",
+    )).resolves.toMatchObject({configuracionInformeInventario: configuration});
+    expect(firebase.httpsCallable).toHaveBeenCalledWith(firebase.functions, "crearJornadaBorrador");
+    expect(invoke).toHaveBeenCalledWith({
+      nombreVisible: "Jornada con informe",
+      configuracionInformeInventario: configuration,
+      claveIdempotencia: "idempotencia-informe-0001",
+    });
+  });
+
+  it("lista informes y solicita un reintento con el contrato central", async () => {
+    const listInvoke = vi.fn().mockResolvedValue({
+      data: {
+        informes: [{
+          informeId: "INFORME-1",
+          jornadaId: "JORNADA-1",
+          jornadaNombreVisible: "Jornada cerrada",
+          mes: 7,
+          anio: 2026,
+          fuentePlantasMuertas: "DESCARTES_APROBADOS",
+          estado: "ERROR_REINTENTABLE",
+          intentos: 1,
+          errorCodigo: "DRIVE_TEMPORAL",
+          errorMensaje: "Error temporal de prueba",
+          creadoEn: "2026-07-18T12:00:00.000Z",
+          actualizadoEn: "2026-07-18T12:01:00.000Z",
+        }],
+      },
+    });
+    const retryInvoke = vi.fn().mockResolvedValue({data: {}});
+    firebase.httpsCallable.mockImplementation((_functions: unknown, name: string) =>
+      name === "listarInformesInventario" ? listInvoke : retryInvoke
+    );
+    const repository = FirebaseMonitorRepository.create(config("PRODUCTION"));
+
+    await expect(repository.listInventoryReports()).resolves.toMatchObject({
+      informes: [{estado: "ERROR_REINTENTABLE", fuentePlantasMuertas: "DESCARTES_APROBADOS"}],
+    });
+    await repository.retryInventoryReport({
+      jornadaId: "JORNADA-1",
+      claveIdempotencia: "idempotencia-reintento-0001",
+    });
+    expect(listInvoke).toHaveBeenCalledWith({});
+    expect(retryInvoke).toHaveBeenCalledWith({
+      jornadaId: "JORNADA-1",
+      claveIdempotencia: "idempotencia-reintento-0001",
+    });
+  });
+
+  it("convierte cierres administrables y reanuda solo por Callable", async () => {
+    const listInvoke = vi.fn().mockResolvedValue({
+      data: {
+        jornadas: [],
+        jornadasCerrando: [{
+          jornadaId: "JORNADA-CERRANDO-1",
+          nombreVisible: "Jornada cerrando",
+          estado: "CERRANDO",
+          creadorUsuarioId: "uid-supervisor",
+          creadorNombreVisible: "Supervisor Pruebas",
+          version: 8,
+          trabajoCierreId: "JORNADA-CERRANDO-1",
+          estadoTrabajo: "ERROR",
+          fase: "OCUPACIONES",
+          cursor: 100,
+          cantidadLineas: 271,
+          cantidadOcupaciones: 271,
+          cantidadAutorizaciones: 3,
+          lineasProcesadas: 271,
+          ocupacionesProcesadas: 100,
+          autorizacionesProcesadas: 0,
+          intentos: 5,
+          puedeReintentar: true,
+          errorCodigo: "JOURNEY_CLOSE_PROCESSING_FAILED",
+          errorMensaje: "Error sanitizado de prueba.",
+          actualizadaEn: "2026-07-31T21:05:00.000Z",
+        }],
+        jornadasCanceladas: [],
+        lineasCatalogo: [{
+          lineaId: "LINEA-CERRANDO-1",
+          nombreVisible: "Línea retenida por cierre",
+          seleccionable: false,
+          motivoNoSeleccionable: "JORNADA_CERRANDO",
+          ubicacion: {
+            vivero: "Vivero ficticio",
+            modulo: "MODULO 4",
+            cama: "Cama 1",
+            linea: "Línea 1",
+            nombreVisible: "Línea retenida por cierre",
+            orden: 1,
+          },
+        }],
+      },
+    });
+    const retryInvoke = vi.fn().mockResolvedValue({
+      data: {
+        jornadaId: "JORNADA-CERRANDO-1",
+        estado: "CERRANDO",
+        version: 8,
+        trabajoCierreId: "JORNADA-CERRANDO-1",
+        huellaAlcance: "a".repeat(64),
+        cantidadLineas: 271,
+        cantidadAutorizaciones: 3,
+        cantidadOcupaciones: 271,
+        fase: "OCUPACIONES",
+        cursor: 100,
+        lineasProcesadas: 271,
+        ocupacionesProcesadas: 100,
+        autorizacionesProcesadas: 0,
+        intentos: 6,
+        iniciadoEn: "2026-07-31T21:00:00.000Z",
+        actualizadoEn: "2026-07-31T21:06:00.000Z",
+      },
+    });
+    firebase.httpsCallable.mockImplementation((_functions: unknown, name: string) =>
+      name === "listarJornadasAdministrables" ? listInvoke : retryInvoke
+    );
+    const repository = FirebaseMonitorRepository.create(config("PRODUCTION"));
+
+    await expect(repository.listManageableJourneys()).resolves.toMatchObject({
+      closingJourneys: [{
+        state: "CERRANDO",
+        closeWorkStatus: "ERROR",
+        lineCount: 271,
+        processedOccupations: 100,
+        canRetry: true,
+      }],
+      catalogLines: [{selectable: false, unavailableReason: "JORNADA_CERRANDO"}],
+    });
+    await expect(repository.retryClosingJourney(
+      "JORNADA-CERRANDO-1",
+      8,
+      "reintentar-cierre-ficticio-0001",
+    )).resolves.toMatchObject({state: "CERRANDO", version: 8});
+    expect(retryInvoke).toHaveBeenCalledWith({
+      jornadaId: "JORNADA-CERRANDO-1",
+      versionEsperada: 8,
+      claveIdempotencia: "reintentar-cierre-ficticio-0001",
+    });
+  });
+
   it("crea un usuario mediante la Callable administrativa y convierte el resultado", async () => {
     const invoke = vi.fn().mockResolvedValue({
       data: {

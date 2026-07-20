@@ -3,5 +3,5 @@
   "$id": "https://vivero-control.local/contracts/enums/estados-jornada.json",
   "title": "Estado administrativo de jornada usado en la ETAPA 3",
   "type": "string",
-  "enum": ["BORRADOR", "ACTIVA", "INACTIVA"]
+  "enum": ["BORRADOR", "ACTIVA", "CERRANDO", "INACTIVA"]
 }

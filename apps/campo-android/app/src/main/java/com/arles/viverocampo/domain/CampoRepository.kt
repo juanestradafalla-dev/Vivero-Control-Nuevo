@@ -35,12 +35,14 @@ interface CampoRepository {
     suspend fun reserveLine(
         payload: ReserveLinePayload,
         userId: String,
+        inventoryReportConfiguration: InventoryReportConfiguration?,
     ): ConfirmedReservation
 
     suspend fun initiateCountCorrection(
         payload: InitiateCountCorrectionPayload,
         userId: String,
         initialInput: CountInput,
+        inventoryReportConfiguration: InventoryReportConfiguration?,
     ): ConfirmedReservation
 
     suspend fun latestActiveReservation(userId: String, deviceId: String): ConfirmedReservation?
@@ -59,6 +61,7 @@ interface CampoRepository {
         deviceId: String,
         idempotencyKey: String,
         deviceTimestamp: String,
+        deadPlantsRequired: Boolean,
     ): LocalCountDraft
 
     suspend fun synchronizeCount(reservationId: String): CountSyncOutcome

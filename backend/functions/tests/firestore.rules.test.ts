@@ -116,6 +116,17 @@ beforeAll(async () => {
       id: "DECISION-DESCARTE-1", descarteId: "DESCARTE-AUXILIAR-1",
       lineaId: "LINEA-PRUEBA-1", autorUsuarioId: "uid-auxiliar-1", decision: "APROBAR"
     });
+    await setDoc(doc(database, "informesInventario/JORNADA-INFORME-REGLAS"), {
+      id: "JORNADA-INFORME-REGLAS",
+      jornadaId: "JORNADA-INFORME-REGLAS",
+      estado: "COMPLETADO"
+    });
+    await setDoc(doc(database, "trabajosCierreJornada/JORNADA-CIERRE-REGLAS"), {
+      id: "JORNADA-CIERRE-REGLAS",
+      jornadaId: "JORNADA-CIERRE-REGLAS",
+      estado: "ERROR",
+      fase: "LINEAS"
+    });
   });
 });
 
@@ -183,6 +194,19 @@ describe("lecturas mínimas y escrituras críticas cerradas en la ETAPA 5", () =
     const database = testEnvironment.authenticatedContext("uid-administrador").firestore();
     await assertFails(getDoc(doc(database, "auditoria/evento-cualquiera")));
     await assertFails(getDoc(doc(database, "idempotencia/resultado-cualquiera")));
+  });
+
+  it("rechaza lectura y escritura directa de trabajos de cierre", async () => {
+    for (const uid of ["uid-auxiliar-1", "uid-supervisor", "uid-administrador"]) {
+      const database = testEnvironment.authenticatedContext(uid).firestore();
+      const reference = doc(database, "trabajosCierreJornada/JORNADA-CIERRE-REGLAS");
+      await assertFails(getDoc(reference));
+      await assertFails(updateDoc(reference, {estado: "PENDIENTE"}));
+      await assertFails(setDoc(doc(database, `trabajosCierreJornada/DIRECTO-${uid}`), {
+        estado: "PENDIENTE"
+      }));
+      await assertFails(deleteDoc(reference));
+    }
   });
 
   it("permite al autor leer y consultar únicamente sus conteos", async () => {
@@ -405,6 +429,21 @@ describe("lecturas mínimas y escrituras críticas cerradas en la ETAPA 5", () =
         lineaId: "LINEA-DIRECTA",
         jornadaId: DRAFT_JOURNEY_ID
       }));
+    }
+  });
+
+  it("niega toda lectura y escritura directa de informes de inventario", async () => {
+    for (const uid of ["uid-auxiliar-1", "uid-supervisor", "uid-administrador"]) {
+      const database = testEnvironment.authenticatedContext(uid).firestore();
+      await assertFails(getDoc(doc(database, "informesInventario/JORNADA-INFORME-REGLAS")));
+      await assertFails(getDocs(collection(database, "informesInventario")));
+      await assertFails(setDoc(doc(database, "informesInventario/JORNADA-INFORME-DIRECTO"), {
+        estado: "PENDIENTE"
+      }));
+      await assertFails(updateDoc(doc(database, "informesInventario/JORNADA-INFORME-REGLAS"), {
+        estado: "PENDIENTE"
+      }));
+      await assertFails(deleteDoc(doc(database, "informesInventario/JORNADA-INFORME-REGLAS")));
     }
   });
 });

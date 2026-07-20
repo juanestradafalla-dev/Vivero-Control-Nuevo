@@ -13,6 +13,7 @@
     "hembras": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
     "machos": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
     "patrones": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
+    "plantasMuertas": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
     "total": {"$ref": "comun.schema.json#/$defs/enteroNoNegativo"},
     "versionConteo": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
     "versionLinea": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},

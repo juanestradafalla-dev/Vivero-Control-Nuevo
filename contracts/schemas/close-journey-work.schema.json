@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/close-journey-work.schema.json",
+  "title": "Trabajo durable e idempotente de cierre de jornada",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "jornadaId",
+    "estado",
+    "fase",
+    "cursor",
+    "cantidadLineas",
+    "cantidadOcupaciones",
+    "cantidadAutorizaciones",
+    "lineasProcesadas",
+    "ocupacionesProcesadas",
+    "autorizacionesProcesadas",
+    "intentos",
+    "huellaAlcance",
+    "versionInicio",
+    "versionFinal",
+    "actorUsuarioId",
+    "claveIdempotencia",
+    "idempotenciaId",
+    "payloadHash",
+    "lineaDocumentoIds",
+    "lineaIds",
+    "autorizacionIds",
+    "creadoEn",
+    "actualizadoEn"
+  ],
+  "properties": {
+    "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "estado": {"enum": ["PENDIENTE", "PROCESANDO", "ERROR", "COMPLETADO"]},
+    "fase": {"enum": ["LINEAS", "OCUPACIONES", "AUTORIZACIONES", "FINALIZAR", "COMPLETADO"]},
+    "cursor": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "cantidadLineas": {"type": "integer", "minimum": 0, "maximum": 400},
+    "cantidadOcupaciones": {"type": "integer", "minimum": 0, "maximum": 400},
+    "cantidadAutorizaciones": {"type": "integer", "minimum": 0, "maximum": 400},
+    "lineasProcesadas": {"type": "integer", "minimum": 0, "maximum": 400},
+    "ocupacionesProcesadas": {"type": "integer", "minimum": 0, "maximum": 400},
+    "autorizacionesProcesadas": {"type": "integer", "minimum": 0, "maximum": 400},
+    "intentos": {"type": "integer", "minimum": 0, "maximum": 9007199254740991},
+    "huellaAlcance": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "versionInicio": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "versionFinal": {"type": "integer", "minimum": 2, "maximum": 9007199254740991},
+    "actorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"},
+    "idempotenciaId": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "payloadHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "lineaDocumentoIds": {
+      "type": "array",
+      "maxItems": 400,
+      "uniqueItems": true,
+      "items": {"$ref": "comun.schema.json#/$defs/idRutaSegura"}
+    },
+    "lineaIds": {
+      "type": "array",
+      "maxItems": 400,
+      "uniqueItems": true,
+      "items": {"$ref": "comun.schema.json#/$defs/idRutaSegura"}
+    },
+    "autorizacionIds": {
+      "type": "array",
+      "maxItems": 400,
+      "uniqueItems": true,
+      "items": {"$ref": "comun.schema.json#/$defs/idRutaSegura"}
+    },
+    "informeCongelado": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "jornadaId",
+        "jornadaNombreVisible",
+        "creadorJornadaUsuarioId",
+        "solicitadoPorUsuarioId",
+        "responsableUsuarioId",
+        "responsableNombreVisible",
+        "mes",
+        "anio",
+        "fuentePlantasMuertas",
+        "activadaEn",
+        "lineas"
+      ],
+      "properties": {
+        "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+        "jornadaId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+        "jornadaNombreVisible": {"type": "string", "minLength": 1, "maxLength": 200},
+        "creadorJornadaUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+        "solicitadoPorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+        "responsableUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+        "responsableNombreVisible": {"type": "string", "minLength": 1, "maxLength": 240},
+        "mes": {"type": "integer", "minimum": 1, "maximum": 12},
+        "anio": {"type": "integer", "minimum": 2000, "maximum": 2100},
+        "fuentePlantasMuertas": {"enum": ["CONTEO_FISICO", "DESCARTES_APROBADOS"]},
+        "activadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+        "lineas": {"type": "array", "minItems": 1, "maxItems": 400, "items": {"$ref": "inventory-report-line.schema.json"}}
+      }
+    },
+    "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "actualizadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "procesamientoId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
+    "procesandoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},
+    "errorCodigo": {"type": "string", "minLength": 1, "maxLength": 120},
+    "errorMensaje": {"type": "string", "minLength": 1, "maxLength": 500},
+    "finalizadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"estado": {"const": "ERROR"}}, "required": ["estado"]},
+      "then": {
+        "properties": {
+          "procesamientoId": false,
+          "procesandoEn": false,
+          "finalizadoEn": false,
+          "errorCodigo": true,
+          "errorMensaje": true
+        },
+        "required": ["errorCodigo", "errorMensaje"]
+      },
+      "else": {"properties": {"errorCodigo": false, "errorMensaje": false}}
+    },
+    {
+      "if": {"properties": {"estado": {"const": "COMPLETADO"}}, "required": ["estado"]},
+      "then": {
+        "properties": {
+          "fase": {"const": "COMPLETADO"},
+          "procesamientoId": false,
+          "procesandoEn": false,
+          "finalizadoEn": true
+        },
+        "required": ["finalizadoEn"]
+      },
+      "else": {"properties": {"finalizadoEn": false}}
+    },
+    {
+      "if": {"properties": {"estado": {"const": "PROCESANDO"}}, "required": ["estado"]},
+      "then": {
+        "properties": {"procesamientoId": true, "procesandoEn": true},
+        "required": ["procesamientoId", "procesandoEn"]
+      }
+    },
+    {
+      "if": {"properties": {"estado": {"const": "PENDIENTE"}}, "required": ["estado"]},
+      "then": {"properties": {"procesamientoId": false, "procesandoEn": false}}
+    }
+  ]
+}

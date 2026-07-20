@@ -1,0 +1,14 @@
+{
+  "id": "IDEMPOTENCIA-REINTENTAR-INFORME-26",
+  "actorUsuarioId": "USUARIO-SUPERVISOR-FICTICIO-26",
+  "operacion": "REINTENTAR_INFORME_INVENTARIO",
+  "claveHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "payloadHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "resultado": {
+    "informeId": "JORNADA-ACTIVA-INFORME-26",
+    "jornadaId": "JORNADA-ACTIVA-INFORME-26",
+    "estado": "PENDIENTE",
+    "reintentadoEn": "2026-07-31T22:00:00.000Z"
+  },
+  "creadoEn": "2026-07-31T22:00:00.000Z"
+}

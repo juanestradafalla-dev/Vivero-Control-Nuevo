@@ -1,5 +1,21 @@
 export type UserRole = "AUXILIAR" | "SUPERVISOR" | "ADMINISTRADOR";
 
+export type InventoryDeadPlantsSource = "CONTEO_FISICO" | "DESCARTES_APROBADOS";
+
+export interface InventoryReportConfiguration {
+  readonly habilitado: true;
+  readonly mes: number;
+  readonly anio: number;
+  readonly fuentePlantasMuertas: InventoryDeadPlantsSource;
+}
+
+export type InventoryReportStatus =
+  | "PENDIENTE"
+  | "PROCESANDO"
+  | "COMPLETADO"
+  | "ERROR_REINTENTABLE"
+  | "ERROR_PERMANENTE";
+
 export type CentralLineState =
   | "DISPONIBLE"
   | "EN_CONTEO"
@@ -46,6 +62,12 @@ export type ControlledErrorCode =
   | "JOURNEY_CLOSE_PENDING_CORRECTIONS"
   | "JOURNEY_CLOSE_LIMIT_EXCEEDED"
   | "JOURNEY_CLOSE_OCCUPATION_MISMATCH"
+  | "JOURNEY_CLOSE_IN_PROGRESS"
+  | "JOURNEY_CLOSE_JOB_NOT_FOUND"
+  | "JOURNEY_CLOSE_SCOPE_CHANGED"
+  | "JOURNEY_CLOSE_LEASE_LOST"
+  | "JOURNEY_CLOSE_PROCESSING_FAILED"
+  | "JOURNEY_CLOSE_NOT_RETRYABLE"
   | "DRAFT_CANCELLATION_REASON_REQUIRED"
   | "DRAFT_CANCELLATION_STALE_VERSION"
   | "DRAFT_CANCELLATION_INVALID_STATE"
@@ -123,6 +145,14 @@ export type ControlledErrorCode =
   | "DISCARD_TOTAL_REQUIRED"
   | "DISCARD_CAUSE_REQUIRED"
   | "DISCARD_CAUSE_EXCEEDS_TOTAL"
+  | "COUNT_DEAD_PLANTS_REQUIRED"
+  | "COUNT_DEAD_PLANTS_NOT_ALLOWED"
+  | "INVENTORY_REPORT_NOT_FOUND"
+  | "INVENTORY_REPORT_ACCESS_DENIED"
+  | "INVENTORY_REPORT_NOT_RETRYABLE"
+  | "INVENTORY_REPORT_PENDING_DISCARDS"
+  | "INVENTORY_REPORT_COUNT_INCOMPATIBLE"
+  | "INVENTORY_REPORT_CONFIGURATION_INVALID"
   | "ACTIVE_RESERVATION_EXISTS"
   | "IDEMPOTENCY_CONFLICT"
   | "ENVIRONMENT_NOT_ALLOWED"
@@ -201,6 +231,7 @@ export interface SendCountRequest {
   readonly hembras: number;
   readonly machos: number;
   readonly patrones: number;
+  readonly plantasMuertas?: number;
   readonly observaciones?: string;
   readonly timestampDispositivo: string;
   readonly claveIdempotencia: string;
@@ -213,6 +244,7 @@ export interface SendCountResult {
   readonly hembras: number;
   readonly machos: number;
   readonly patrones: number;
+  readonly plantasMuertas?: number;
   readonly total: number;
   readonly versionConteo: number;
   readonly versionLinea: number;
@@ -233,6 +265,8 @@ export interface ActiveJourneySummary {
   readonly cantidadLineas: number;
   readonly version: number;
   readonly puedeCerrar: boolean;
+  readonly configuracionInformeInventario?: InventoryReportConfiguration;
+  readonly cantidadDescartesPendientes?: number;
 }
 
 export interface ListActiveJourneysResult {
@@ -241,6 +275,7 @@ export interface ListActiveJourneysResult {
 
 export interface CreateDraftJourneyRequest {
   readonly nombreVisible: string;
+  readonly configuracionInformeInventario?: InventoryReportConfiguration;
   readonly claveIdempotencia: string;
 }
 
@@ -255,6 +290,7 @@ export interface DraftJourneySummary {
   readonly lineaIds: readonly string[];
   readonly creadaEn: string;
   readonly actualizadaEn: string;
+  readonly configuracionInformeInventario?: InventoryReportConfiguration;
 }
 
 export interface CancelledDraftJourneySummary {
@@ -275,6 +311,31 @@ export interface CancelledDraftJourneySummary {
   readonly canceladaEn: string;
   readonly creadaEn: string;
   readonly actualizadaEn: string;
+  readonly configuracionInformeInventario?: InventoryReportConfiguration;
+}
+
+export interface ClosingJourneySummary {
+  readonly jornadaId: string;
+  readonly nombreVisible: string;
+  readonly estado: "CERRANDO";
+  readonly creadorUsuarioId: string;
+  readonly creadorNombreVisible: string;
+  readonly version: number;
+  readonly trabajoCierreId: string;
+  readonly estadoTrabajo: "PENDIENTE" | "PROCESANDO" | "ERROR" | "COMPLETADO";
+  readonly fase: "LINEAS" | "OCUPACIONES" | "AUTORIZACIONES" | "FINALIZAR" | "COMPLETADO";
+  readonly cursor: number;
+  readonly cantidadLineas: number;
+  readonly cantidadOcupaciones: number;
+  readonly cantidadAutorizaciones: number;
+  readonly lineasProcesadas: number;
+  readonly ocupacionesProcesadas: number;
+  readonly autorizacionesProcesadas: number;
+  readonly intentos: number;
+  readonly errorCodigo?: string;
+  readonly errorMensaje?: string;
+  readonly actualizadaEn: string;
+  readonly puedeReintentar: boolean;
 }
 
 export type CreateDraftJourneyResult = DraftJourneySummary;
@@ -298,13 +359,14 @@ export interface DraftCatalogLine {
   readonly lineaId: string;
   readonly nombreVisible: string;
   readonly seleccionable: boolean;
-  readonly motivoNoSeleccionable?: "JORNADA_ACTIVA" | "LINEA_INACTIVA";
+  readonly motivoNoSeleccionable?: "JORNADA_ACTIVA" | "JORNADA_CERRANDO" | "LINEA_INACTIVA";
   readonly ubicacion: VisibleLocation;
 }
 
 export interface ListManageableJourneysResult {
   readonly jornadas: readonly DraftJourneySummary[];
   readonly jornadasCanceladas: readonly CancelledDraftJourneySummary[];
+  readonly jornadasCerrando: readonly ClosingJourneySummary[];
   readonly lineasCatalogo: readonly DraftCatalogLine[];
 }
 
@@ -372,13 +434,50 @@ export interface ActivateJourneyResult {
   readonly activadaEn: string;
 }
 
+export interface InventoryReportSummary {
+  readonly informeId: string;
+  readonly jornadaId: string;
+  readonly jornadaNombreVisible: string;
+  readonly estado: InventoryReportStatus;
+  readonly mes: number;
+  readonly anio: number;
+  readonly fuentePlantasMuertas: InventoryDeadPlantsSource;
+  readonly intentos: number;
+  readonly errorCodigo?: string;
+  readonly errorMensaje?: string;
+  readonly archivoNombre?: string;
+  readonly archivoEnlace?: string;
+  readonly creadoEn: string;
+  readonly actualizadoEn: string;
+  readonly finalizadoEn?: string;
+}
+
 export interface CloseJourneyRequest {
   readonly jornadaId: string;
   readonly versionEsperada: number;
   readonly claveIdempotencia: string;
 }
 
-export interface CloseJourneyResult {
+export interface ClosingJourneyResult {
+  readonly jornadaId: string;
+  readonly estado: "CERRANDO";
+  readonly version: number;
+  readonly trabajoCierreId: string;
+  readonly huellaAlcance: string;
+  readonly cantidadLineas: number;
+  readonly cantidadAutorizaciones: number;
+  readonly cantidadOcupaciones: number;
+  readonly fase: "LINEAS" | "OCUPACIONES" | "AUTORIZACIONES" | "FINALIZAR";
+  readonly cursor: number;
+  readonly lineasProcesadas: number;
+  readonly ocupacionesProcesadas: number;
+  readonly autorizacionesProcesadas: number;
+  readonly intentos: number;
+  readonly iniciadoEn: string;
+  readonly actualizadoEn: string;
+}
+
+export interface ClosedJourneyResult {
   readonly jornadaId: string;
   readonly estado: "INACTIVA";
   readonly version: number;
@@ -386,6 +485,15 @@ export interface CloseJourneyResult {
   readonly cantidadAutorizaciones: number;
   readonly ocupacionesLiberadas: number;
   readonly cerradaEn: string;
+  readonly informeInventario?: InventoryReportSummary;
+}
+
+export type CloseJourneyResult = ClosingJourneyResult | ClosedJourneyResult;
+
+export interface RetryCloseJourneyRequest {
+  readonly jornadaId: string;
+  readonly versionEsperada: number;
+  readonly claveIdempotencia: string;
 }
 
 export interface CancelDraftJourneyRequest {
@@ -869,6 +977,8 @@ export interface RegisterDiscardResult {
   readonly totalUnico: number;
   readonly causas: DiscardCauses;
   readonly versionInventarioObservada: number;
+  readonly jornadaId?: string;
+  readonly jornadaLineaId?: string;
   readonly recibidoEn: string;
 }
 
@@ -902,6 +1012,22 @@ export interface ReturnDiscardResult {
   readonly decisionId: string;
   readonly estado: "DEVUELTO";
   readonly devueltoEn: string;
+}
+
+export interface ListInventoryReportsResult {
+  readonly informes: readonly InventoryReportSummary[];
+}
+
+export interface RetryInventoryReportRequest {
+  readonly jornadaId: string;
+  readonly claveIdempotencia: string;
+}
+
+export interface RetryInventoryReportResult {
+  readonly informeId: string;
+  readonly jornadaId: string;
+  readonly estado: "PENDIENTE";
+  readonly reintentadoEn: string;
 }
 
 export interface OperationResult {

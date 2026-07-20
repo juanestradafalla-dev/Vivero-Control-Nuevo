@@ -15,7 +15,13 @@ import type {
   UpdateCatalogLineRequest,
   UpdateCatalogLocationRequest
 } from "../src/domain/contracts.js";
-import {DEMO_PASSWORD, DRAFT_JOURNEY_ID, FREE_CATALOG_LINE_ID, journeyLineId} from "../scripts/demoData.mjs";
+import {
+  ACTIVE_JOURNEY_ID,
+  DEMO_PASSWORD,
+  DRAFT_JOURNEY_ID,
+  FREE_CATALOG_LINE_ID,
+  journeyLineId
+} from "../scripts/demoData.mjs";
 import {seedEmulator} from "../scripts/seedEmulator.mjs";
 
 const projectId = "demo-vivero-control-etapa3";
@@ -134,17 +140,20 @@ beforeEach(async () => { await seedEmulator(); });
 afterEach(async () => { await Promise.all(clientApps.splice(0).map((app) => deleteApp(app))); });
 
 describe("administración central del catálogo", () => {
-  it("permite listar, crear y actualizar solo al administrador", async () => {
-    const admin = await authenticatedClient("administrador@prueba.local", "valid-admin");
+  it("rechaza listar o crear a supervisor y auxiliar", async () => {
     const supervisor = await authenticatedClient("supervisor@prueba.local", "denied-supervisor");
     const auxiliary = await authenticatedClient("auxiliar1@prueba.local", "denied-auxiliary");
+    await expectRejectCode(listCatalog(supervisor), "PERMISSION_DENIED");
+    await expectRejectCode(createLocation(auxiliary, "DENEGADA"), "PERMISSION_DENIED");
+  });
+
+  it("permite listar, crear y actualizar al administrador", async () => {
+    const admin = await authenticatedClient("administrador@prueba.local", "valid-admin");
     const initial = await listCatalog(admin);
     expect(initial.ubicaciones.length).toBeGreaterThan(0);
     expect(initial.lineas.find((line) => line.lineaId === "LINEA-PRUEBA-1")).toMatchObject({
       ocupadaEnJornadaActiva: true, version: 1
     });
-    await expectRejectCode(listCatalog(supervisor), "PERMISSION_DENIED");
-    await expectRejectCode(createLocation(auxiliary, "DENEGADA"), "PERMISSION_DENIED");
 
     const root = await createLocation(admin, " sector á ");
     expect(root).toMatchObject({codigo: "SECTOR-A", ubicacionPadreId: null, activa: true, version: 1});
@@ -222,6 +231,15 @@ describe("administración central del catálogo", () => {
     expect(occupied).toBeDefined();
     await expectRejectCode(
       updateLine(admin, occupied!, {nombreVisible: "No debe cambiar"}),
+      "CATALOG_LINE_OCCUPIED"
+    );
+    expect((await db.collection("jornadaLineas").doc(journeyLineId(1)).get()).data()).toEqual(historicalBefore);
+    await db.collection("jornadas").doc(ACTIVE_JOURNEY_ID).update({
+      estadoAdministrativo: "CERRANDO"
+    });
+    await db.collection("ocupacionesLineasActivas").doc("LINEA-PRUEBA-1").delete();
+    await expectRejectCode(
+      updateLine(admin, occupied!, {nombreVisible: "Tampoco durante el cierre"}),
       "CATALOG_LINE_OCCUPIED"
     );
     expect((await db.collection("jornadaLineas").doc(journeyLineId(1)).get()).data()).toEqual(historicalBefore);

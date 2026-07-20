@@ -1,0 +1,20 @@
+{
+  "descarteId": "DESCARTE-FICTICIO-26-01",
+  "lineaId": "LINEA-FICTICIA-26-01",
+  "jornadaId": "JORNADA-ACTIVA-INFORME-26",
+  "jornadaLineaId": "JORNADA-ACTIVA-INFORME-26__LINEA-FICTICIA-26-01",
+  "estado": "PENDIENTE_REVISION",
+  "hembras": 2,
+  "machos": 0,
+  "patrones": 0,
+  "totalUnico": 2,
+  "causas": {
+    "muertos": 2,
+    "nematodos": 0,
+    "cuelloGanso": 0,
+    "raicesBifurcadas": 0,
+    "dobleInjertacion": 0
+  },
+  "versionInventarioObservada": 2,
+  "recibidoEn": "2026-08-10T15:00:05.000Z"
+}

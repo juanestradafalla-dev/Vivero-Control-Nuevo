@@ -18,6 +18,7 @@ import com.arles.viverocampo.domain.ConfirmedReservation
 import com.arles.viverocampo.domain.CountFormValidator
 import com.arles.viverocampo.domain.CountInput
 import com.arles.viverocampo.domain.CountSyncOutcome
+import com.arles.viverocampo.domain.DeadPlantsSource
 import com.arles.viverocampo.domain.DiscardFormValidator
 import com.arles.viverocampo.domain.DiscardInput
 import com.arles.viverocampo.domain.DiscardLine
@@ -30,6 +31,7 @@ import com.arles.viverocampo.domain.JourneySnapshot
 import com.arles.viverocampo.domain.LocalCountDraft
 import com.arles.viverocampo.domain.LocalDiscardDraft
 import com.arles.viverocampo.domain.InventoryValues
+import com.arles.viverocampo.domain.InventoryReportConfiguration
 import com.arles.viverocampo.domain.ReserveLinePayload
 import com.arles.viverocampo.domain.RELEASED_RESERVATION_MESSAGE
 import com.arles.viverocampo.domain.ReturnedCount
@@ -49,6 +51,62 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
+
+internal fun parseActiveJourneySummary(value: Any?): ActiveJourney {
+    val journey = value as? Map<*, *>
+        ?: throw CampoRepositoryException("INVALID_RESPONSE", "Una jornada no tiene formato válido.")
+    return ActiveJourney(
+        id = journey["jornadaId"] as? String
+            ?: throw CampoRepositoryException("INVALID_RESPONSE", "Falta jornadaId."),
+        displayName = journey["nombreVisible"] as? String
+            ?: throw CampoRepositoryException("INVALID_RESPONSE", "Falta nombreVisible."),
+        state = (journey["estado"] as? String)?.takeIf { it == "ACTIVA" }
+            ?: throw CampoRepositoryException(
+                "INVALID_RESPONSE",
+                "Campo solo admite jornadas en estado ACTIVA.",
+            ),
+        effectiveRole = journey["rolEfectivo"] as? String
+            ?: throw CampoRepositoryException("INVALID_RESPONSE", "Falta rolEfectivo."),
+        canCount = journey["puedeContar"] as? Boolean
+            ?: throw CampoRepositoryException("INVALID_RESPONSE", "Falta puedeContar."),
+        lineCount = parseWireInteger(journey["cantidadLineas"], "cantidadLineas", 0..Int.MAX_VALUE),
+        inventoryReportConfiguration = parseInventoryReportConfiguration(
+            journey["configuracionInformeInventario"],
+        ),
+    )
+}
+
+internal fun parseInventoryReportConfiguration(value: Any?): InventoryReportConfiguration? {
+    if (value == null) return null
+    val configuration = value as? Map<*, *>
+        ?: throw CampoRepositoryException(
+            "INVALID_RESPONSE",
+            "La configuración del informe de inventario no tiene formato válido.",
+        )
+    val enabled = configuration["habilitado"] as? Boolean
+        ?: throw CampoRepositoryException("INVALID_RESPONSE", "Falta habilitado en el informe de inventario.")
+    if (!enabled) return null
+    val source = configuration["fuentePlantasMuertas"] as? String
+        ?: throw CampoRepositoryException("INVALID_RESPONSE", "Falta fuentePlantasMuertas.")
+    return InventoryReportConfiguration(
+        enabled = true,
+        month = parseWireInteger(configuration["mes"], "mes", 1..12),
+        year = parseWireInteger(configuration["anio"], "anio", 2000..2100),
+        deadPlantsSource = runCatching { DeadPlantsSource.valueOf(source) }.getOrElse {
+            throw CampoRepositoryException("INVALID_RESPONSE", "fuentePlantasMuertas no es reconocida.")
+        },
+    )
+}
+
+private fun parseWireInteger(value: Any?, field: String, range: IntRange): Int {
+    val number = value as? Number
+        ?: throw CampoRepositoryException("INVALID_RESPONSE", "Falta $field.")
+    val asDouble = number.toDouble()
+    if (!asDouble.isFinite() || asDouble % 1.0 != 0.0 || asDouble < range.first || asDouble > range.last) {
+        throw CampoRepositoryException("INVALID_RESPONSE", "$field no es un entero válido.")
+    }
+    return number.toInt()
+}
 
 class FirebaseCampoRepository(
     private val services: FirebaseServices,
@@ -165,19 +223,7 @@ class FirebaseCampoRepository(
                 ?: throw CampoRepositoryException("INVALID_RESPONSE", "El backend devolvió una lista de jornadas inválida.")
             val journeys = response["jornadas"] as? List<*>
                 ?: throw CampoRepositoryException("INVALID_RESPONSE", "La respuesta no contiene jornadas.")
-            return journeys.map { value ->
-                val journey = value as? Map<*, *>
-                    ?: throw CampoRepositoryException("INVALID_RESPONSE", "Una jornada no tiene formato válido.")
-                ActiveJourney(
-                    id = journey["jornadaId"] as? String ?: invalidResponse("Falta jornadaId."),
-                    displayName = journey["nombreVisible"] as? String ?: invalidResponse("Falta nombreVisible."),
-                    state = journey["estado"] as? String ?: invalidResponse("Falta estado."),
-                    effectiveRole = journey["rolEfectivo"] as? String ?: invalidResponse("Falta rolEfectivo."),
-                    canCount = journey["puedeContar"] as? Boolean ?: invalidResponse("Falta puedeContar."),
-                    lineCount = (journey["cantidadLineas"] as? Number)?.toInt()
-                        ?: invalidResponse("Falta cantidadLineas."),
-                )
-            }
+            return journeys.map(::parseActiveJourneySummary)
         } catch (error: CampoRepositoryException) {
             throw error
         } catch (error: FirebaseFunctionsException) {
@@ -204,7 +250,7 @@ class FirebaseCampoRepository(
                     if (snapshot.getString("estadoAdministrativo") != "ACTIVA") {
                         close(CampoRepositoryException(
                             "JOURNEY_NOT_ACTIVE",
-                            "La jornada fue cerrada por supervisión.",
+                            "La jornada se está cerrando o ya fue cerrada por supervisión.",
                         ))
                         return@addSnapshotListener
                     }
@@ -318,6 +364,7 @@ class FirebaseCampoRepository(
                                 males = males.toString(),
                                 rootstocks = rootstocks.toString(),
                                 observations = document.getString("observaciones").orEmpty(),
+                                deadPlants = (document.get("plantasMuertas") as? Number)?.toLong()?.toString().orEmpty(),
                             ),
                             location = location,
                             originalAuthorUserId = authorId,
@@ -355,6 +402,7 @@ class FirebaseCampoRepository(
                                 males = males.toString(),
                                 rootstocks = rootstocks.toString(),
                                 observations = reference["observaciones"] as? String ?: "",
+                                deadPlants = (reference["plantasMuertas"] as? Number)?.toLong()?.toString().orEmpty(),
                             ),
                             location = location,
                             originalAuthorUserId = originalAuthorId,
@@ -393,14 +441,20 @@ class FirebaseCampoRepository(
         }
     }
 
-    override suspend fun reserveLine(payload: ReserveLinePayload, userId: String): ConfirmedReservation {
+    override suspend fun reserveLine(
+        payload: ReserveLinePayload,
+        userId: String,
+        inventoryReportConfiguration: InventoryReportConfiguration?,
+    ): ConfirmedReservation {
         assertMutableOperationsEnabled()
         try {
             val response = services.functions.getHttpsCallable("reservarLinea").call(payload.toWireMap()).await().data
                 as? Map<*, *> ?: throw CampoRepositoryException("INVALID_RESPONSE", "El backend devolvió una respuesta inválida.")
             val token = response["tokenReserva"] as? String
                 ?: throw CampoRepositoryException("INVALID_RESPONSE", "La confirmación no contiene un token opaco válido.")
-            val reservation = parseReservation(response, userId, payload.dispositivoId)
+            val reservation = parseReservation(response, userId, payload.dispositivoId).copy(
+                inventoryReportConfiguration = inventoryReportConfiguration,
+            )
             val encrypted = try {
                 tokenVault.encrypt(token)
             } catch (error: Exception) {
@@ -430,6 +484,7 @@ class FirebaseCampoRepository(
         payload: InitiateCountCorrectionPayload,
         userId: String,
         initialInput: CountInput,
+        inventoryReportConfiguration: InventoryReportConfiguration?,
     ): ConfirmedReservation {
         assertMutableOperationsEnabled()
         try {
@@ -438,7 +493,9 @@ class FirebaseCampoRepository(
                 ?: throw CampoRepositoryException("INVALID_RESPONSE", "El backend devolvió una respuesta inválida.")
             val token = response["tokenReserva"] as? String
                 ?: throw CampoRepositoryException("INVALID_RESPONSE", "La corrección no contiene un token opaco válido.")
-            val reservation = parseReservation(response, userId, payload.dispositivoId)
+            val reservation = parseReservation(response, userId, payload.dispositivoId).copy(
+                inventoryReportConfiguration = inventoryReportConfiguration,
+            )
             val encrypted = try {
                 tokenVault.encrypt(token)
             } catch (error: Exception) {
@@ -456,6 +513,7 @@ class FirebaseCampoRepository(
                         malesInput = initialInput.males,
                         rootstocksInput = initialInput.rootstocks,
                         observationsInput = initialInput.observations,
+                        deadPlantsInput = initialInput.deadPlants,
                     ),
                 )
             }
@@ -528,10 +586,12 @@ class FirebaseCampoRepository(
                 malesInput = input.males,
                 rootstocksInput = input.rootstocks,
                 observationsInput = input.observations,
+                deadPlantsInput = input.deadPlants,
                 syncState = if (changedAfterError) SyncState.PENDIENTE.name else existing?.syncState ?: SyncState.PENDIENTE.name,
                 frozenFemales = if (changedAfterError) null else existing?.frozenFemales,
                 frozenMales = if (changedAfterError) null else existing?.frozenMales,
                 frozenRootstocks = if (changedAfterError) null else existing?.frozenRootstocks,
+                frozenDeadPlants = if (changedAfterError) null else existing?.frozenDeadPlants,
                 frozenObservations = if (changedAfterError) null else existing?.frozenObservations,
                 frozenDeviceTimestamp = if (changedAfterError) null else existing?.frozenDeviceTimestamp,
                 idempotencyKey = if (changedAfterError) null else existing?.idempotencyKey,
@@ -548,6 +608,7 @@ class FirebaseCampoRepository(
         deviceId: String,
         idempotencyKey: String,
         deviceTimestamp: String,
+        deadPlantsRequired: Boolean,
     ): LocalCountDraft = database.withTransaction {
         assertMutableOperationsEnabled()
         val existing = draftDao.byReservationId(reservationId)
@@ -556,13 +617,14 @@ class FirebaseCampoRepository(
             throw CampoRepositoryException("DRAFT_ACCESS_DENIED", "El borrador pertenece a otra cuenta o dispositivo.")
         }
         if (existing.idempotencyKey != null) return@withTransaction existing.toDomain()
-        val validation = CountFormValidator.validate(existing.input())
+        val validation = CountFormValidator.validate(existing.input(), deadPlantsRequired)
         if (!validation.valid) throw CampoRepositoryException("INVALID_ARGUMENT", "Corrige los campos marcados antes de confirmar.")
         val frozen = existing.copy(
             syncState = SyncState.PENDIENTE.name,
             frozenFemales = requireNotNull(validation.females),
             frozenMales = requireNotNull(validation.males),
             frozenRootstocks = requireNotNull(validation.rootstocks),
+            frozenDeadPlants = validation.deadPlants,
             frozenObservations = existing.observationsInput,
             frozenDeviceTimestamp = deviceTimestamp,
             idempotencyKey = idempotencyKey,
@@ -921,6 +983,10 @@ class FirebaseCampoRepository(
         reservationType = reservationType,
         previousCountId = previousCountId,
         nextCountVersion = nextCountVersion,
+        inventoryReportEnabled = inventoryReportConfiguration?.enabled,
+        inventoryReportMonth = inventoryReportConfiguration?.month,
+        inventoryReportYear = inventoryReportConfiguration?.year,
+        inventoryReportDeadPlantsSource = inventoryReportConfiguration?.deadPlantsSource?.name,
     )
 
     private fun ConfirmedReservationEntity.toDomain() = ConfirmedReservation(
@@ -936,9 +1002,27 @@ class FirebaseCampoRepository(
         reservationType = reservationType,
         previousCountId = previousCountId,
         nextCountVersion = nextCountVersion,
+        inventoryReportConfiguration = inventoryReportConfigurationSnapshot(),
     )
 
-    private fun CountDraftEntity.input() = CountInput(femalesInput, malesInput, rootstocksInput, observationsInput)
+    private fun ConfirmedReservationEntity.inventoryReportConfigurationSnapshot(): InventoryReportConfiguration? {
+        val enabled = inventoryReportEnabled ?: return null
+        val month = inventoryReportMonth?.takeIf { it in 1..12 } ?: return null
+        val year = inventoryReportYear?.takeIf { it in 2000..2100 } ?: return null
+        val source = inventoryReportDeadPlantsSource?.let {
+            runCatching { DeadPlantsSource.valueOf(it) }.getOrNull()
+        } ?: return null
+        if (!enabled) return null
+        return InventoryReportConfiguration(true, month, year, source)
+    }
+
+    private fun CountDraftEntity.input() = CountInput(
+        females = femalesInput,
+        males = malesInput,
+        rootstocks = rootstocksInput,
+        observations = observationsInput,
+        deadPlants = deadPlantsInput,
+    )
 
     private fun CountDraftEntity.toDomain() = LocalCountDraft(
         reservationId = reservationId,
@@ -951,14 +1035,15 @@ class FirebaseCampoRepository(
             frozenObservations != null && frozenDeviceTimestamp != null && idempotencyKey != null
         ) {
             FrozenCountPayload(
-                reservationId,
-                deviceId,
-                frozenFemales,
-                frozenMales,
-                frozenRootstocks,
-                frozenObservations,
-                frozenDeviceTimestamp,
-                idempotencyKey,
+                reservationId = reservationId,
+                deviceId = deviceId,
+                females = frozenFemales,
+                males = frozenMales,
+                rootstocks = frozenRootstocks,
+                observations = frozenObservations,
+                deviceTimestamp = frozenDeviceTimestamp,
+                idempotencyKey = idempotencyKey,
+                deadPlants = frozenDeadPlants,
             )
         } else {
             null

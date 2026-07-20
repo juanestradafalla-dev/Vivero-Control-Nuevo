@@ -371,6 +371,14 @@ describe("conexión Firebase de Maestro", () => {
       desafioCodigo: "a".repeat(43),
       claveIdempotencia: "oauth-inicio-ficticio-0001",
     });
+    expect(invocations.get("completarConexionGoogleDrive")).toHaveBeenCalledWith({
+      estado: `00000000-0000-4000-8000-000000000000.${"b".repeat(43)}.${"c".repeat(43)}`,
+      codigoAutorizacion: "codigo-ficticio",
+      verificadorCodigo: "v".repeat(64),
+      uriRedireccion: startRequest.redirectUri,
+      idsSeleccionados: ["plantilla-ficticia"],
+      alcanceConcedido: "https://www.googleapis.com/auth/drive.file",
+    });
     const serialized = JSON.stringify(Array.from(invocations.values()).flatMap((call) => call.mock.calls));
     expect(serialized).not.toMatch(/refresh[_-]?token/iu);
   });

@@ -3,6 +3,7 @@ import type {
   ApproveDiscardRequest,
   ApproveCountRequest,
   CancelDraftJourneyRequest,
+  CompleteGoogleDriveOAuthRequest,
   CreateDraftJourneyRequest,
   CloseJourneyRequest,
   CreateCatalogLineRequest,
@@ -23,7 +24,9 @@ import type {
   ReturnDiscardRequest,
   RetryCloseJourneyRequest,
   RetryInventoryReportRequest,
+  RevokeGoogleDriveOAuthRequest,
   SendCountRequest,
+  StartGoogleDriveOAuthRequest,
   UpdateCatalogLineRequest,
   UpdateCatalogLocationRequest,
   UpdateUserRoleRequest,
@@ -71,6 +74,13 @@ const inventoryReportConfigurationFields = new Set([
   "habilitado", "mes", "anio", "fuentePlantasMuertas"
 ]);
 const retryInventoryReportFields = new Set(["jornadaId", "claveIdempotencia"]);
+const startGoogleDriveOAuthFields = new Set([
+  "tipoSeleccion", "uriRedireccion", "desafioCodigo", "claveIdempotencia"
+]);
+const completeGoogleDriveOAuthFields = new Set([
+  "estado", "codigoAutorizacion", "verificadorCodigo", "uriRedireccion", "idsSeleccionados", "alcanceConcedido"
+]);
+const revokeGoogleDriveOAuthFields = new Set(["claveIdempotencia"]);
 const updateDraftJourneyLinesFields = new Set(["jornadaId", "lineaIds", "claveIdempotencia"]);
 const listDraftJourneyParticipantsFields = new Set(["jornadaId"]);
 const updateDraftJourneyParticipantsFields = new Set(["jornadaId", "participantes", "claveIdempotencia"]);
@@ -154,6 +164,7 @@ export function parseListActiveJourneysRequest(value: unknown): void {
 export const parseListManageableJourneysRequest = parseListActiveJourneysRequest;
 export const parseListManageableUsersRequest = parseListActiveJourneysRequest;
 export const parseListInventoryReportsRequest = parseListActiveJourneysRequest;
+export const parseGoogleDriveConnectionStatusRequest = parseListActiveJourneysRequest;
 
 export function parseCreateManageableUserRequest(value: unknown): CreateManageableUserRequest {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -926,4 +937,72 @@ export function parseRetryInventoryReportRequest(value: unknown): RetryInventory
     throw domainErrors.invalidArgument();
   }
   return {jornadaId: record.jornadaId, claveIdempotencia: record.claveIdempotencia};
+}
+
+function isLoopbackOAuthRedirect(value: unknown): value is string {
+  if (typeof value !== "string" || value.length > 180) return false;
+  try {
+    const url = new URL(value);
+    const port = Number(url.port);
+    return url.protocol === "http:" && url.hostname === "127.0.0.1" &&
+      Number.isInteger(port) && port >= 1024 && port <= 65535 &&
+      url.pathname === "/" && url.search === "" && url.hash === "" &&
+      url.username === "" && url.password === "";
+  } catch {
+    return false;
+  }
+}
+
+export function parseStartGoogleDriveOAuthRequest(value: unknown): StartGoogleDriveOAuthRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw domainErrors.invalidArgument();
+  const record = value as Record<string, unknown>;
+  if (
+    Object.keys(record).some((field) => !startGoogleDriveOAuthFields.has(field)) ||
+    !["PLANTILLA", "CARPETA_SALIDA"].includes(record.tipoSeleccion as string) ||
+    !isLoopbackOAuthRedirect(record.uriRedireccion) ||
+    typeof record.desafioCodigo !== "string" || !/^[A-Za-z0-9_-]{43}$/u.test(record.desafioCodigo) ||
+    typeof record.claveIdempotencia !== "string" || !idempotencyPattern.test(record.claveIdempotencia)
+  ) throw domainErrors.invalidArgument();
+  return {
+    tipoSeleccion: record.tipoSeleccion as StartGoogleDriveOAuthRequest["tipoSeleccion"],
+    uriRedireccion: record.uriRedireccion,
+    desafioCodigo: record.desafioCodigo,
+    claveIdempotencia: record.claveIdempotencia
+  };
+}
+
+export function parseCompleteGoogleDriveOAuthRequest(value: unknown): CompleteGoogleDriveOAuthRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw domainErrors.invalidArgument();
+  const record = value as Record<string, unknown>;
+  const ids = record.idsSeleccionados;
+  if (
+    Object.keys(record).some((field) => !completeGoogleDriveOAuthFields.has(field)) ||
+    typeof record.estado !== "string" || record.estado.length < 70 || record.estado.length > 300 ||
+    typeof record.codigoAutorizacion !== "string" || record.codigoAutorizacion.length < 8 ||
+    record.codigoAutorizacion.length > 2048 ||
+    typeof record.verificadorCodigo !== "string" ||
+    !/^[A-Za-z0-9._~-]{43,128}$/u.test(record.verificadorCodigo) ||
+    !isLoopbackOAuthRedirect(record.uriRedireccion) ||
+    !Array.isArray(ids) || ids.length !== 1 || typeof ids[0] !== "string" ||
+    ids[0].length < 1 || ids[0].length > 240 ||
+    record.alcanceConcedido !== "https://www.googleapis.com/auth/drive.file"
+  ) throw domainErrors.invalidArgument();
+  return {
+    estado: record.estado,
+    codigoAutorizacion: record.codigoAutorizacion,
+    verificadorCodigo: record.verificadorCodigo,
+    uriRedireccion: record.uriRedireccion,
+    idsSeleccionados: [ids[0]],
+    alcanceConcedido: record.alcanceConcedido
+  };
+}
+
+export function parseRevokeGoogleDriveOAuthRequest(value: unknown): RevokeGoogleDriveOAuthRequest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) throw domainErrors.invalidArgument();
+  const record = value as Record<string, unknown>;
+  if (
+    Object.keys(record).some((field) => !revokeGoogleDriveOAuthFields.has(field)) ||
+    typeof record.claveIdempotencia !== "string" || !idempotencyPattern.test(record.claveIdempotencia)
+  ) throw domainErrors.invalidArgument();
+  return {claveIdempotencia: record.claveIdempotencia};
 }

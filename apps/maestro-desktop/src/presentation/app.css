@@ -256,6 +256,21 @@ input:focus { outline: 3px solid #9ccca8; border-color: #1b6f3b; }
 .report-configuration-fields legend { padding: 0 6px; color: #164c32; font-weight: 800; }
 .report-configuration-fields .can-count-toggle, .report-configuration-fields small { grid-column: 1 / -1; }
 .report-grid { display: grid; gap: 14px; }
+.drive-connection-panel {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(280px, .8fr);
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 18px;
+  border: 1px solid #b9d7c0;
+  border-radius: 14px;
+  background: #f3faf5;
+}
+.drive-connection-panel > div:first-child { display: grid; gap: 6px; }
+.drive-connection-panel h2 { margin: 0; color: #164c32; }
+.drive-connection-panel small { color: #52695b; }
+.drive-connection-panel .review-actions { flex-wrap: wrap; }
 .report-card { display: grid; gap: 14px; padding: 18px; border: 1px solid #d6e5d8; border-radius: 14px; background: #fff; }
 .report-card-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
 .report-card-heading > div { display: grid; gap: 8px; }

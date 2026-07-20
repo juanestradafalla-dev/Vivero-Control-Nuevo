@@ -128,15 +128,16 @@ El bloqueo técnico y documental vigente es `BACKUP_PENDIENTE`. El propietario a
 
 ## Extensión ETAPA 26 — informes mensuales y Google Drive
 
-La generación de informes añade `exceljs` y el cliente mantenido de Google Drive al backend Node 22. Android y Maestro no reciben SDK, token ni credencial de Drive. La integración productiva usa Application Default Credentials de la identidad de ejecución de Functions y los IDs de carpeta/plantilla como variables exclusivas del backend.
+La generación de informes añade `exceljs` y el cliente mantenido de Google Drive al backend Node 22. Desde la ETAPA 27B, Maestro solo coordina Authorization Code con PKCE y Google Picker; no recibe el refresh token. La integración productiva usa OAuth de usuario con `drive.file`, selección central de plantilla y carpeta y Secret Manager.
 
 El cierre ya no depende de una transacción proporcional al número total de líneas. `cerrarJornada` crea un trabajo determinista y deja la jornada `CERRANDO`; `procesarCierreJornada` usa lotes de 100, cursor persistente y lease de 15 minutos hasta completar un máximo de 400 líneas. La transacción final es la única que confirma `INACTIVA`, auditoría, idempotencia e informe único.
 
 Riesgos pendientes:
 
 - la plantilla real fue validada mediante una copia temporal: 271 líneas `76, 76, 76, 29, 14`, 8 páginas revisadas, estructura e impresión preservadas, `F8=112`, `F28=101`, 17 fórmulas y cero `#REF!`; el original conservó SHA-256 `307572F85D812EED3EFCD15DBDE3C9F4FBA6367636C9C2D184B1262AAFE959CC`;
-- Drive API todavía debe habilitarse y la carpeta/plantilla deben compartirse con la cuenta de servicio de ejecución confirmada localmente, cuyo correo exacto debe mantenerse fuera del repositorio público; el trigger aún no está desplegado y su identidad debe reconfirmarse después del despliegue;
-- la cuenta de servicio necesita lector sobre la plantilla, editor sobre la carpeta y `roles/datastore.user` sobre Firestore, sin llaves JSON descargadas;
+- Drive, Picker y Secret Manager todavía deben habilitarse; la pantalla de consentimiento debe publicarse fuera de Testing y el cliente OAuth debe ser Desktop;
+- el acceso a Drive procede exclusivamente del usuario configurado y de los recursos elegidos con Picker; la cuenta de servicio no recibe permisos de Drive ni llaves JSON;
+- dos identidades dedicadas y distintas separan `secretVersionAdder` de `secretAccessor`; ambas conservan solo el acceso Firestore y técnico necesario para sus revisiones Gen 2;
 - cambios futuros en encabezados, nombres de hojas o filas de la plantilla producirán un error permanente hasta actualizar y volver a verificar el mapeo;
 - fórmulas históricas en celdas de datos solo son seguras cuando la celda se reconoce y se sobrescribe obligatoriamente; `MODULO 4!F8` y `MODULO 4!F28` permanecen como regresiones explícitas;
 - deben conservarse las 17 fórmulas estructurales y de totales y rechazarse cualquier resultado con `#REF!`;
@@ -148,7 +149,23 @@ Riesgos pendientes:
 - el máximo documentado es 400 líneas; no debe aumentarse para ocultar límites de Firestore sin rediseñar fases, documentos y pruebas de concurrencia;
 - cargar `exceljs` y el cliente de Drive aumenta el tamaño del backend; deben medirse memoria y arranque en la revisión Gen 2 antes del corte;
 - `npm audit` reporta una cadena transitiva moderada de `uuid` sin corrección no disruptiva; no se aplicó `--force` porque propone una versión mayor incompatible de `exceljs`;
-- Emulator Suite y CI deben conservar el modo `fake`; cualquier intento de usar `google` con proyecto `demo-*` debe abortar antes de abrir red;
+- Emulator Suite y CI deben conservar el modo `fake`; cualquier intento de usar `oauth-user` con proyecto `demo-*` debe abortar antes de abrir red;
 - backups, PITR, protección contra borrado, presupuesto, alertas y procedimiento de rollback continúan siendo requisitos previos al uso con inventario real.
 
 La regresión dirigida de 271 líneas e interrupción tras cada lote aprobó `6/6`, la matriz integral aprobó `220/220` pruebas de Emulator Suite y `26/26` de Firestore Rules, y la revisión visual/estructural de la plantilla real fue completada. La ETAPA 26 permanece `NO-GO` hasta configurar Drive con autorización expresa, completar backup/monitoreo/rollback y desplegar de forma controlada. Esta sección no autoriza configurar Drive ni desplegar Functions.
+
+## Extensión ETAPA 27B — OAuth de usuario y Secret Manager
+
+La viabilidad se apoya en la integración oficial de Picker para escritorio: navegador predeterminado, `trigger_onepick=true`, scope único `drive.file`, código de autorización y selección devuelta al callback. El callback loopback usa puerto efímero, `state`, nonce y PKCE S256. La cuenta se confirma con Drive `about.get`, que admite `drive.file`.
+
+Riesgos pendientes:
+
+- los refresh tokens de una pantalla externa en estado Testing pueden vencer a los siete días; el uso continuo exige publicar **In production** o una audiencia interna elegible;
+- la política de Google Workspace puede bloquear el cliente aunque el scope sea no sensible;
+- cada reconexión agrega una nueva versión del secreto; la operación debe conservar únicamente `latest` como versión consumida y revocar el grant cuando se retire el acceso;
+- una carpeta bajo “Compartidos conmigo” sigue dependiendo de los permisos que su propietario conceda a la cuenta autorizada; no se traslada ni se hace pública;
+- `invalid_grant`, eliminación del secreto, cambio de cuenta o pérdida de permisos dejan informes reintentables y exigen reconexión administrativa;
+- Secret Manager e identidades Gen 2 pueden generar costo y deben quedar bajo presupuesto, alertas y rollback aprobados;
+- el primer backup seguía pendiente de estado `READY` en la única comprobación autorizada; no se debe desplegar o probar con datos reales antes de confirmarlo.
+
+La ETAPA 27B no configura recursos remotos ni escribe en Drive. Continúa `NO-GO` hasta completar el procedimiento manual de [GOOGLE_DRIVE_OAUTH_ETAPA_27.md](GOOGLE_DRIVE_OAUTH_ETAPA_27.md).

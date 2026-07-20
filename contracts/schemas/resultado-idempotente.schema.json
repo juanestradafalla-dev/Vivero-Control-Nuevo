@@ -8,7 +8,7 @@
   "properties": {
     "id": {"$ref": "comun.schema.json#/$defs/idGlobal"},
     "actorUsuarioId": {"$ref": "comun.schema.json#/$defs/idGlobal"},
-    "operacion": {"enum": ["RESERVAR_LINEA", "ENVIAR_CONTEO", "APROBAR_CONTEO", "DEVOLVER_CONTEO", "INICIAR_CORRECCION_CONTEO", "REASIGNAR_CORRECCION_CONTEO", "LIBERAR_RESERVA_LINEA", "CREAR_JORNADA_BORRADOR", "ACTUALIZAR_LINEAS_JORNADA_BORRADOR", "ACTUALIZAR_PARTICIPANTES_JORNADA_BORRADOR", "ACTIVAR_JORNADA", "CERRAR_JORNADA", "REINTENTAR_CIERRE_JORNADA", "CANCELAR_JORNADA_BORRADOR", "REABRIR_JORNADA_CANCELADA", "CREAR_USUARIO", "ACTUALIZAR_ESTADO_USUARIO", "ACTUALIZAR_ROL_USUARIO", "CREAR_UBICACION", "ACTUALIZAR_UBICACION", "CREAR_LINEA", "ACTUALIZAR_LINEA", "REGISTRAR_INVENTARIO_INICIAL", "IMPORTAR_PAQUETE_MIGRACION", "REVERTIR_IMPORTACION_MIGRACION", "REGISTRAR_DESCARTE", "APROBAR_DESCARTE", "DEVOLVER_DESCARTE", "REINTENTAR_INFORME_INVENTARIO"]},
+    "operacion": {"enum": ["RESERVAR_LINEA", "ENVIAR_CONTEO", "APROBAR_CONTEO", "DEVOLVER_CONTEO", "INICIAR_CORRECCION_CONTEO", "REASIGNAR_CORRECCION_CONTEO", "LIBERAR_RESERVA_LINEA", "CREAR_JORNADA_BORRADOR", "ACTUALIZAR_LINEAS_JORNADA_BORRADOR", "ACTUALIZAR_PARTICIPANTES_JORNADA_BORRADOR", "ACTIVAR_JORNADA", "CERRAR_JORNADA", "REINTENTAR_CIERRE_JORNADA", "CANCELAR_JORNADA_BORRADOR", "REABRIR_JORNADA_CANCELADA", "CREAR_USUARIO", "ACTUALIZAR_ESTADO_USUARIO", "ACTUALIZAR_ROL_USUARIO", "CREAR_UBICACION", "ACTUALIZAR_UBICACION", "CREAR_LINEA", "ACTUALIZAR_LINEA", "REGISTRAR_INVENTARIO_INICIAL", "IMPORTAR_PAQUETE_MIGRACION", "REVERTIR_IMPORTACION_MIGRACION", "REGISTRAR_DESCARTE", "APROBAR_DESCARTE", "DEVOLVER_DESCARTE", "REINTENTAR_INFORME_INVENTARIO", "INICIAR_OAUTH_DRIVE", "REVOCAR_OAUTH_DRIVE"]},
     "claveHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "payloadHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "estado": {"enum": ["EN_PROCESO", "COMPLETADO"]},
@@ -41,7 +41,9 @@
         {"$ref": "register-discard-result.schema.json"},
         {"$ref": "approve-discard-result.schema.json"},
         {"$ref": "return-discard-result.schema.json"},
-        {"$ref": "retry-inventory-report-result.schema.json"}
+        {"$ref": "retry-inventory-report-result.schema.json"},
+        {"$ref": "start-google-drive-oauth-result.schema.json"},
+        {"$ref": "revoke-google-drive-oauth-result.schema.json"}
       ]
     },
     "creadoEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"},

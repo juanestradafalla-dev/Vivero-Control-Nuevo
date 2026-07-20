@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/revoke-google-drive-oauth-result.schema.json",
+  "title": "Resultado de revocacion de Google Drive",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["estado", "revocadaEn"],
+  "properties": {
+    "estado": {"const": "REVOCADO"},
+    "revocadaEn": {"$ref": "comun.schema.json#/$defs/timestampServidor"}
+  }
+}

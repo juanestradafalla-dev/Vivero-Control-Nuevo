@@ -24,9 +24,52 @@ async function assertInvalid(schemaFilename, exampleFilename) {
 }
 
 test("compila todos los esquemas Draft 2020-12 y resuelve sus referencias", () => {
-  assert.equal(registry.entityCount, 117);
-  assert.equal(registry.schemaCount, 118);
+  assert.equal(registry.entityCount, 125);
+  assert.equal(registry.schemaCount, 126);
   assert.equal(registry.enumCount, 6);
+});
+
+test("modela OAuth drive.file y rechaza alcances amplios o tokens en respuestas", async () => {
+  await assertValid(
+    "start-google-drive-oauth-request.schema.json",
+    "etapa-27/start-google-drive-oauth-request.json"
+  );
+  await assertValid(
+    "start-google-drive-oauth-result.schema.json",
+    "etapa-27/start-google-drive-oauth-result.json"
+  );
+  await assertValid(
+    "complete-google-drive-oauth-request.schema.json",
+    "etapa-27/complete-google-drive-oauth-request.json"
+  );
+  await assertInvalid(
+    "complete-google-drive-oauth-request.schema.json",
+    "etapa-27/complete-google-drive-oauth-request-broad-scope.json"
+  );
+  await assertValid(
+    "complete-google-drive-oauth-result.schema.json",
+    "etapa-27/complete-google-drive-oauth-result.json"
+  );
+  await assertValid(
+    "google-drive-connection-status-request.schema.json",
+    "etapa-27/google-drive-connection-status-request.json"
+  );
+  await assertValid(
+    "google-drive-connection-status-result.schema.json",
+    "etapa-27/google-drive-connection-status-result.json"
+  );
+  await assertInvalid(
+    "google-drive-connection-status-result.schema.json",
+    "etapa-27/google-drive-connection-status-result-with-token.json"
+  );
+  await assertValid(
+    "revoke-google-drive-oauth-request.schema.json",
+    "etapa-27/revoke-google-drive-oauth-request.json"
+  );
+  await assertValid(
+    "revoke-google-drive-oauth-result.schema.json",
+    "etapa-27/revoke-google-drive-oauth-result.json"
+  );
 });
 
 test("acepta las dos configuraciones mensuales de informe y exige periodo completo", async () => {

@@ -4,6 +4,8 @@
 
 > **Actualización ETAPA 22 — 17 de julio de 2026:** los cinco bloques de datos reales quedaron completos y validados localmente bajo `.private/`; se generó un paquete privado sin validarlo ni importarlo contra Firebase. Los valores identificables y las cantidades no se publican.
 
+> **Actualización ETAPA 27A/27B — 20 de julio de 2026:** PITR, protección contra eliminación y el programa de backup diario quedaron activos. La comprobación única autorizada encontró un backup todavía no `READY`; no se realizó restauración. OAuth, Secret Manager, IAM dedicado, despliegue y prueba de Drive continúan pendientes.
+
 ## 1. Control de decisiones
 
 Este registro conserva los identificadores de las 50 decisiones originales para mantener trazabilidad. Una decisión puede estar:
@@ -26,7 +28,7 @@ Nada marcado como pendiente debe resolverse inventando datos. Cada cierre poster
 - Secret Manager, presupuestos y cuotas no pudieron inventariarse completamente sin habilitar APIs, permisos o herramientas adicionales. FASE A no realizó esos cambios.
 - Reglas e índices Firestore coinciden con el repositorio; cualquier cambio futuro debe preservar esa trazabilidad.
 
-Estas evidencias corresponden al estado previo a FASE B1. Posteriormente, el propietario clasificó las 3 cuentas y los 41 documentos como datos de prueba, renunció al backup de ese conjunto y los eliminó manualmente. La ETAPA 22 completó de forma privada los datos reales y responsables requeridos para la preparación local. Las Apps productivas y el despliegue completo continúan bloqueados; backup, PITR, protección contra borrado y restauración siguen siendo decisiones obligatorias antes de operar información real.
+Estas evidencias corresponden al estado previo a FASE B1. Posteriormente, el propietario clasificó las 3 cuentas y los 41 documentos como datos de prueba, renunció al backup de ese conjunto y los eliminó manualmente. La ETAPA 22 completó de forma privada los datos reales y responsables requeridos para la preparación local. PITR, protección contra eliminación y backup diario ya están activos; el primer backup disponible y un procedimiento de restauración probado fuera de producción siguen bloqueando el uso de datos reales.
 
 ## 3. Decisiones resueltas
 

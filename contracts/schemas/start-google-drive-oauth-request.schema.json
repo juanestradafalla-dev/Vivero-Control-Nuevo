@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vivero-control.local/contracts/schemas/start-google-drive-oauth-request.schema.json",
+  "title": "Inicio OAuth de Google Drive",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["tipoSeleccion", "uriRedireccion", "desafioCodigo", "claveIdempotencia"],
+  "properties": {
+    "tipoSeleccion": {"enum": ["PLANTILLA", "CARPETA_SALIDA"]},
+    "uriRedireccion": {
+      "type": "string",
+      "pattern": "^http://127\\.0\\.0\\.1:[0-9]{4,5}/$"
+    },
+    "desafioCodigo": {"type": "string", "pattern": "^[A-Za-z0-9_-]{43}$"},
+    "claveIdempotencia": {"$ref": "comun.schema.json#/$defs/claveIdempotencia"}
+  }
+}

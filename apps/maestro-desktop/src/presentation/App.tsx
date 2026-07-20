@@ -594,7 +594,7 @@ export function App({repository}: AppProps) {
       ) : activeSection === "USERS" && user.canManageUsers ? (
         <UsersSection repository={repository} currentUser={user} />
       ) : activeSection === "REPORTS" && user.canReview ? (
-        <InventoryReportsSection repository={repository} />
+        <InventoryReportsSection repository={repository} currentUser={user} />
       ) : activeSection === "CATALOG" && user.canManageCatalog ? (
         <CatalogSection
           repository={repository}

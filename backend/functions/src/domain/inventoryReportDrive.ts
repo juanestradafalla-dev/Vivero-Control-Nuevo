@@ -1,14 +1,21 @@
 import {Readable} from "node:stream";
 
-import {auth, drive, type drive_v3} from "@googleapis/drive";
+import {type drive_v3} from "@googleapis/drive";
 import ExcelJS from "exceljs";
+import type {Firestore} from "firebase-admin/firestore";
 
-import {PRODUCTION_PROJECT_ID} from "../runtimeEnvironment.js";
 import type {VisibleLocation} from "./contracts.js";
+import {
+  createAuthorizedDriveClient,
+  createDriveOAuthProviderFromEnvironment,
+  DriveOAuthConfigurationError,
+  DriveOAuthInvalidGrantError,
+  markConnectionRequiresReconnectData,
+  readGoogleDriveConnectionConfiguration
+} from "./driveOAuth.js";
 
 const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 const GOOGLE_SHEET_MIME = "application/vnd.google-apps.spreadsheet";
-const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive";
 
 export interface InventoryReportTemplateInput {
   readonly lineas: readonly {readonly ubicacion: VisibleLocation}[];
@@ -149,35 +156,59 @@ export class GoogleInventoryReportDriveGateway implements InventoryReportDriveGa
   constructor(
     private readonly client: drive_v3.Drive,
     private readonly folderId: string,
-    private readonly templateFileId: string
+    private readonly templateFileId: string,
+    private readonly onInvalidGrant: () => Promise<void> = async () => undefined
   ) {}
 
+  private async withAuthorizationGuard<T>(operation: () => Promise<T>): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      const responseError = typeof error === "object" && error !== null && "response" in error &&
+        typeof error.response === "object" && error.response !== null && "data" in error.response &&
+        typeof error.response.data === "object" && error.response.data !== null &&
+        "error" in error.response.data && typeof error.response.data.error === "string"
+        ? error.response.data.error : undefined;
+      if (responseError === "invalid_grant") {
+        await this.onInvalidGrant();
+        throw new DriveOAuthInvalidGrantError();
+      }
+      throw error;
+    }
+  }
+
   async getTemplateXlsx(_input: InventoryReportTemplateInput): Promise<Buffer> {
-    const metadata = await this.client.files.get({
-      fileId: this.templateFileId,
-      fields: "id,mimeType",
-      supportsAllDrives: true
-    });
-    if (metadata.data.mimeType === GOOGLE_SHEET_MIME) {
-      const response = await this.client.files.export(
-        {fileId: this.templateFileId, mimeType: XLSX_MIME},
+    return this.withAuthorizationGuard(async () => {
+      const metadata = await this.client.files.get({
+        fileId: this.templateFileId,
+        fields: "id,mimeType",
+        supportsAllDrives: true
+      });
+      if (metadata.data.mimeType === GOOGLE_SHEET_MIME) {
+        const response = await this.client.files.export(
+          {fileId: this.templateFileId, mimeType: XLSX_MIME},
+          {responseType: "arraybuffer"}
+        );
+        return bufferFromResponse(response.data);
+      }
+      if (metadata.data.mimeType !== XLSX_MIME) {
+        throw new InventoryReportDriveConfigurationError(
+          "La plantilla de Drive no es XLSX ni una hoja nativa de Google."
+        );
+      }
+      const response = await this.client.files.get(
+        {fileId: this.templateFileId, alt: "media", supportsAllDrives: true},
         {responseType: "arraybuffer"}
       );
       return bufferFromResponse(response.data);
-    }
-    if (metadata.data.mimeType !== XLSX_MIME) {
-      throw new InventoryReportDriveConfigurationError(
-        "La plantilla de Drive no es XLSX ni una hoja nativa de Google."
-      );
-    }
-    const response = await this.client.files.get(
-      {fileId: this.templateFileId, alt: "media", supportsAllDrives: true},
-      {responseType: "arraybuffer"}
-    );
-    return bufferFromResponse(response.data);
+    });
   }
 
   async upsertReport(input: InventoryReportUploadInput): Promise<InventoryReportDriveFile> {
+    return this.withAuthorizationGuard(async () => this.upsertAuthorized(input));
+  }
+
+  private async upsertAuthorized(input: InventoryReportUploadInput): Promise<InventoryReportDriveFile> {
     const period = `${input.anio}-${String(input.mes).padStart(2, "0")}`;
     const query = [
       `'${escapeDriveQuery(this.folderId)}' in parents`,
@@ -232,7 +263,9 @@ export class GoogleInventoryReportDriveGateway implements InventoryReportDriveGa
   }
 }
 
-export async function createInventoryReportDriveGatewayFromEnvironment(): Promise<InventoryReportDriveGateway> {
+export async function createInventoryReportDriveGatewayFromEnvironment(
+  firestore?: Firestore
+): Promise<InventoryReportDriveGateway> {
   const mode = process.env.GOOGLE_DRIVE_INVENTORY_MODE;
   const ci = process.env.CI !== undefined && !["", "0", "false"].includes(process.env.CI.toLowerCase());
   const emulatorOrCi = process.env.FUNCTIONS_EMULATOR === "true" || ci;
@@ -244,29 +277,30 @@ export async function createInventoryReportDriveGatewayFromEnvironment(): Promis
     }
     return new FakeInventoryReportDriveGateway();
   }
-  const gcloudProject = process.env.GCLOUD_PROJECT?.trim();
-  const googleCloudProject = process.env.GOOGLE_CLOUD_PROJECT?.trim();
-  const exactProduction = process.env.FUNCTIONS_EMULATOR !== "true" &&
-    process.env.APP_ENV === "production" &&
-    (!gcloudProject || !googleCloudProject || gcloudProject === googleCloudProject) &&
-    (gcloudProject ?? googleCloudProject) === PRODUCTION_PROJECT_ID;
-  if (!exactProduction) {
+  if (mode !== "oauth-user" || !firestore) {
     throw new InventoryReportDriveConfigurationError(
-      "Drive real solo se permite en el proyecto y ambiente de produccion autorizados."
+      "Produccion exige OAuth de usuario y configuracion central seleccionada."
     );
   }
-  if (mode !== "google") {
+  try {
+    const selection = await readGoogleDriveConnectionConfiguration(firestore);
+    const provider = createDriveOAuthProviderFromEnvironment();
+    const client = await createAuthorizedDriveClient(provider);
+    const onInvalidGrant = async (): Promise<void> => {
+      await firestore.collection("configuracionesIntegraciones").doc("googleDriveInventario")
+        .set(markConnectionRequiresReconnectData(), {merge: true});
+    };
+    return new GoogleInventoryReportDriveGateway(
+      client,
+      selection.folderId,
+      selection.templateFileId,
+      onInvalidGrant
+    );
+  } catch (error) {
+    if (error instanceof DriveOAuthInvalidGrantError) throw error;
+    if (!(error instanceof DriveOAuthConfigurationError)) throw error;
     throw new InventoryReportDriveConfigurationError(
-      "Produccion exige GOOGLE_DRIVE_INVENTORY_MODE=google."
+      "La conexion OAuth o la seleccion central de Drive no esta lista."
     );
   }
-  const folderId = process.env.GOOGLE_DRIVE_INVENTORY_FOLDER_ID;
-  const templateFileId = process.env.GOOGLE_DRIVE_INVENTORY_TEMPLATE_FILE_ID;
-  if (!folderId || !templateFileId) {
-    throw new InventoryReportDriveConfigurationError(
-      "Faltan GOOGLE_DRIVE_INVENTORY_FOLDER_ID o GOOGLE_DRIVE_INVENTORY_TEMPLATE_FILE_ID."
-    );
-  }
-  const authClient = await auth.getClient({scopes: [DRIVE_SCOPE]});
-  return new GoogleInventoryReportDriveGateway(drive({version: "v3", auth: authClient}), folderId, templateFileId);
 }

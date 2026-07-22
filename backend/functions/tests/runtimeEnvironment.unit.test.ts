@@ -128,4 +128,19 @@ describe("cobertura de Callables", () => {
     expect(indexSource).toContain("export const procesarInformeInventario = onDocumentWritten(");
     expect(CALLABLE_NAMES).not.toContain("procesarInformeInventario");
   });
+
+  it("separa las identidades de escritura y lectura del secreto OAuth", () => {
+    expect(indexSource).toContain(
+      "export const completarConexionGoogleDrive = onCall(oauthWriterOptions,",
+    );
+    expect(indexSource).toContain(
+      "export const revocarConexionGoogleDrive = onCall(oauthReaderOptions,",
+    );
+    expect(indexSource).not.toContain(
+      "export const revocarConexionGoogleDrive = onCall(oauthWriterOptions,",
+    );
+    expect(indexSource).toMatch(
+      /export const procesarInformeInventario = onDocumentWritten\(\{\s+\.\.\.oauthReaderOptions,/u,
+    );
+  });
 });

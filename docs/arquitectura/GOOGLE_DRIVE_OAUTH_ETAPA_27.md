@@ -57,7 +57,7 @@ No se usa `localhost`, IP pública, HTTPS local, puerto fijo ni ruta adicional.
 
 ### 2. Secret Manager e identidades dedicadas
 
-Crear dos cuentas de servicio dedicadas sin llaves y un secreto vacío, cuyo nombre no revele una persona. Los marcadores deben sustituirse durante la operación aprobada:
+Crear dos cuentas de servicio dedicadas sin llaves y un secreto vacío, cuyo nombre no revele una persona. Antes de completar la primera conexión OAuth, el estado esperado del secreto es **0 versiones**; la primera versión se crea exclusivamente al completar esa conexión. Los marcadores deben sustituirse durante la operación aprobada:
 
 ```powershell
 gcloud iam service-accounts create <SA_OAUTH_WRITER> --project=viverocontrol-3f83f
@@ -83,6 +83,8 @@ Permisos mínimos de proyecto:
 | Report runtime | `roles/datastore.user`, `roles/logging.logWriter`, `roles/eventarc.eventReceiver` y `roles/secretmanager.secretAccessor` solo en el secreto |
 
 La identidad report runtime no recibe `secretVersionAdder`; la identidad writer no recibe `secretAccessor`. La cuenta que despliega necesita `roles/iam.serviceAccountUser` sobre ambas identidades para asignarlas, pero ese rol no se concede a las identidades de ejecucion. Ninguna de ellas necesita `Editor`, `Owner`, acceso global a secretos o acceso IAM de cuenta de servicio. Confirme la identidad efectiva en cada revision Gen 2 despues del despliegue.
+
+`completarConexionGoogleDrive` usa la identidad **OAuth writer** para agregar la versión inicial del token. `procesarInformeInventario` y `revocarConexionGoogleDrive` usan la identidad **report/reader**, porque ambas operaciones necesitan leer la versión `latest`. La identidad writer nunca recibe permiso de lectura del secreto.
 
 ### 3. Variables de Functions
 
